@@ -1,0 +1,2388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="format-detection" content="telephone=no" />
+<title>亲子游玩地图 🧸</title>
+<style>
+/* ============================================================
+   全局样式（移动优先 / 暖暖童趣配色：暖黄 + 橙 + 奶白）
+   ============================================================ */
+:root {
+  --bg: #FFF8EC;            /* 奶白背景 */
+  --primary: #FF9800;       /* 活力橙（仅用于图标/边框/装饰性大色块，不承载白字） */
+  --primary-deep: #F57C00;
+  --primary-strong: #C2410C; /* 深橙：白字填充面专用（对比 4.7:1） */
+  --accent: #FFC83D;        /* 暖黄 */
+  --green: #2E7D32;         /* 已去过（填充面白字 5.1:1） */
+  --green-deep: #388E3C;    /* 已去过文字色（浅底上使用） */
+  --text: #4E342E;          /* 深可可色文字 */
+  --text-light: #6D4C41;
+  --card: #FFFFFF;
+  --danger: #E53935;
+  --radius: 16px;
+  --shadow: 0 4px 16px rgba(120, 72, 20, 0.14);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--bg);
+  overflow: hidden;
+}
+button { font-family: inherit; cursor: pointer; }
+input, textarea, select { font-family: inherit; font-size: 16px; color: var(--text); }
+
+/* 全局键盘焦点态（触屏 :active 效果不受影响） */
+:focus-visible { outline: 2px solid var(--primary-strong); outline-offset: 2px; border-radius: 4px; }
+
+/* ============================================================
+   地图容器（必须固定高度，100vh）
+   ============================================================ */
+#map {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+}
+
+/* ============================================================
+   底部 Tab 栏（地图 / 清单）
+   ============================================================ */
+.tabbar {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  display: flex;
+  background: var(--card);
+  border-top: 1px solid #F5E6C8;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  z-index: 30;
+  user-select: none;
+}
+.tabbar .tab {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 8px 0 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--text-light);
+}
+.tabbar .tab .tab-icon { font-size: 20px; line-height: 1; }
+.tabbar .tab.active { color: var(--primary-deep); font-weight: 700; }
+
+/* ============================================================
+   右下角浮动「+」按钮
+   ============================================================ */
+.fab {
+  position: fixed;
+  right: 18px;
+  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: none;
+  background: var(--primary-strong);
+  color: #fff;
+  font-size: 34px;
+  line-height: 1;
+  box-shadow: 0 6px 18px rgba(194, 65, 12, 0.35);
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform .15s;
+}
+.fab:active { transform: scale(0.92); }
+.fab.pick-active { background: #D32F2F; }
+
+/* ============================================================
+   顶部地点搜索框 & 结果下拉列表
+   ============================================================ */
+.search-box {
+  position: fixed;
+  top: calc(10px + env(safe-area-inset-top, 0px));
+  left: 12px;
+  right: 12px;
+  z-index: 15; /* 高于地图(1)，低于清单页(20)/提示条(26)/遮罩(39) */
+}
+.search-box.hidden { display: none; }
+.search-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 999px;
+  padding: 10px 14px;
+  box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+.search-input-wrap .s-icon { font-size: 15px; flex-shrink: 0; }
+#searchInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  padding: 0;
+  font-size: 15px;
+  color: var(--text);
+}
+#searchInput::placeholder { color: var(--text-light); }
+#searchInput::-webkit-search-cancel-button { display: none; }
+.s-clear {
+  border: none;
+  background: #F0DDBE;
+  color: var(--text-light);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin: -6px -8px -6px 0; /* 抵消 32px 触控区对搜索胶囊外形的影响 */
+  position: relative;
+}
+/* 伪元素扩展热区至 44px（32+6×2），视觉保持 32px 不变 */
+.s-clear::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+}
+.s-clear.show { display: flex; }
+.search-results {
+  margin-top: 6px;
+  background: rgba(255, 255, 255, 0.97);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  max-height: 322px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: none;
+}
+.search-results.show { display: block; }
+.sr-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid #F7EDDA;
+}
+.sr-item:last-child { border-bottom: none; }
+.sr-item:active { background: #FFF3E0; }
+.sr-item .sr-title {
+  font-size: 15px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sr-item .sr-addr {
+  font-size: 13px;
+  color: var(--text-light);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sr-tip {
+  padding: 14px;
+  text-align: center;
+  color: var(--text-light);
+  font-size: 13px;
+}
+
+/* ============================================================
+   顶部提示条（选点模式 / Toast）
+   ============================================================ */
+.hintbar {
+  position: fixed;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(78, 52, 46, 0.88);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 15px;
+  max-width: 86vw;
+  text-align: center;
+  z-index: 26;
+  display: none;
+  box-shadow: var(--shadow);
+}
+.hintbar.show { display: block; }
+
+.toast {
+  position: fixed;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(78, 52, 46, 0.92);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 12px;
+  font-size: 15px;
+  max-width: 86vw;
+  z-index: 60;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s;
+}
+.toast.show { opacity: 1; }
+
+/* ============================================================
+   清单页（覆盖在地图之上的整页）
+   ============================================================ */
+.page-list {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 20;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+}
+.page-list.active { display: flex; }
+.list-header {
+  padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 10px;
+  background: var(--card);
+  border-bottom: 1px solid #F5E6C8;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.list-header h1 { margin: 0; font-size: 20px; }
+.list-header .settings-btn {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  padding: 6px 4px;
+}
+.filter-chips {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.chip {
+  border: 1.5px solid #F0DDBE;
+  background: var(--card);
+  color: var(--text-light);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.chip.active {
+  background: var(--primary-strong);
+  border-color: var(--primary-strong);
+  color: #fff;
+  font-weight: 700;
+}
+.list-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 16px calc(96px + env(safe-area-inset-bottom, 0px));
+}
+.place-item {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.place-item .p-emoji {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: #FFF3E0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+.place-item.visited .p-emoji { background: #E8F5E9; }
+.place-item .p-main { flex: 1; min-width: 0; }
+.place-item .p-name {
+  font-size: 17px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.place-item .p-meta {
+  font-size: 13px;
+  color: var(--text-light);
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.stars { color: var(--accent); letter-spacing: 1px; }
+.stars .off { color: #E8DFCE; }
+.badge {
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+.badge.wish { background: #FFF3E0; color: var(--primary-deep); }
+.badge.visited { background: #E8F5E9; color: var(--green-deep); }
+.place-item .p-del {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  padding: 12px;
+  color: #BCAAA4;
+}
+.empty-tip {
+  text-align: center;
+  color: var(--text-light);
+  padding: 48px 24px;
+  font-size: 15px;
+  line-height: 1.8;
+}
+.empty-tip .big { font-size: 44px; display: block; margin-bottom: 8px; }
+
+/* ============================================================
+   底部抽屉（添加地点 / 地点详情 / 设置）
+   ============================================================ */
+.mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(62, 39, 35, 0.45);
+  z-index: 39;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .22s;
+}
+.mask.show { opacity: 1; pointer-events: auto; }
+.drawer {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  background: var(--card);
+  border-radius: 22px 22px 0 0;
+  z-index: 40;
+  transform: translateY(105%);
+  transition: transform .26s ease-out;
+  max-height: 86vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 6px 18px calc(20px + env(safe-area-inset-bottom, 0px));
+}
+.drawer.open { transform: translateY(0); }
+.drawer .grabber {
+  width: 42px;
+  height: 5px;
+  border-radius: 3px;
+  background: #E6D9C2;
+  margin: 6px auto 4px;
+}
+.drawer h2 {
+  margin: 8px 0 4px;
+  font-size: 20px;
+  text-align: center;
+}
+.drawer .sub {
+  text-align: center;
+  color: var(--text-light);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.field { margin: 14px 0; }
+.field label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-light);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+.field input[type="text"],
+.field input[type="date"],
+.field input[type="number"],
+.field textarea {
+  width: 100%;
+  border: 1.5px solid #F0DDBE;
+  border-radius: 12px;
+  padding: 11px 12px;
+  background: #FFFCF5;
+  outline: none;
+}
+.field textarea { min-height: 76px; resize: vertical; }
+.field input:focus, .field textarea:focus { border-color: var(--primary); }
+
+/* 类别选择网格 */
+.cat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+.cat-btn {
+  border: 1.5px solid #F0DDBE;
+  background: #FFFCF5;
+  border-radius: 12px;
+  padding: 9px 2px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  font-size: 13px;
+  color: var(--text-light);
+}
+.cat-btn .ce { font-size: 20px; line-height: 1; }
+/* 激活态配色由 JS 按类别注入 inline style（border-color=类别色 / background=类别浅底）；
+   文字统一用 --text（深可可 4.5:1+），类别主色压浅底多数不达 AA */
+.cat-btn.active {
+  border-color: var(--primary);
+  background: #FFF3E0;
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* 状态分段选择 */
+.seg {
+  display: flex;
+  border: 1.5px solid #F0DDBE;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.seg button {
+  flex: 1;
+  border: none;
+  background: #FFFCF5;
+  padding: 11px 0;
+  font-size: 15px;
+  color: var(--text-light);
+}
+.seg button.active.wish { background: var(--primary-strong); color: #fff; font-weight: 700; }
+.seg button.active.visited { background: var(--green); color: #fff; font-weight: 700; }
+
+/* 主按钮 */
+.btn-primary {
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--primary-strong);
+  box-shadow: 0 4px 12px rgba(194, 65, 12, 0.35);
+}
+.btn-primary:active { transform: scale(0.98); }
+.btn-ghost {
+  width: 100%;
+  border: 1.5px solid #F0DDBE;
+  border-radius: 14px;
+  padding: 12px 0;
+  font-size: 15px;
+  background: #FFFCF5;
+  color: var(--text-light);
+  margin-top: 10px;
+}
+.btn-danger {
+  border: none;
+  border-radius: 12px;
+  padding: 10px 16px;
+  font-size: 15px;
+  background: #FFEBEE;
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* 详情页元素 */
+.detail-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0 4px;
+}
+.detail-head .d-emoji {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: #FFF3E0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  flex-shrink: 0;
+}
+.detail-head .d-name { font-size: 20px; font-weight: 700; line-height: 1.3; }
+.detail-head .d-cat { font-size: 13px; color: var(--text-light); margin-top: 2px; }
+.detail-actions { display: flex; gap: 10px; margin: 12px 0; }
+.detail-actions button {
+  flex: 1;
+  border: none;
+  border-radius: 12px;
+  padding: 11px 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+.btn-toggle-wish { background: #FFF3E0; color: var(--primary-deep); }
+.btn-toggle-visited { background: #E8F5E9; color: var(--green-deep); }
+.rating-row { display: flex; align-items: center; gap: 6px; justify-content: center; margin: 6px 0 2px; }
+.rating-row .star-btn {
+  border: none;
+  background: transparent;
+  font-size: 30px;
+  color: #E8DFCE;
+  padding: 4px 3px;
+}
+.rating-row .star-btn.on { color: var(--accent); }
+.section-title {
+  font-size: 15px;
+  font-weight: 500;
+  margin: 18px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.visit-card {
+  background: #FFFCF5;
+  border: 1px solid #F5EAD4;
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.visit-card .v-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 500;
+}
+.visit-card .v-top .v-del {
+  border: none;
+  background: transparent;
+  color: #BCAAA4;
+  font-size: 16px;
+  padding: 12px 14px;
+  margin: -6px -12px -6px 0; /* 抵消大触控区对行高的影响，保持视觉轻量 */
+}
+.visit-card .v-note { font-size: 15px; color: var(--text); margin-top: 4px; line-height: 1.5; }
+.visit-form-row { display: flex; gap: 8px; }
+.visit-form-row .field { flex: 1; margin: 8px 0; }
+
+/* 设置 */
+.settings-block { margin: 14px 0; }
+.settings-block .s-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 2px;
+  border-bottom: 1px solid #F7EDDA;
+  font-size: 15px;
+}
+.settings-block .s-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.s-btn.orange { background: #FFF3E0; color: var(--primary-deep); }
+.s-btn.green { background: #E8F5E9; color: var(--green-deep); }
+.s-btn.red { background: #FFEBEE; color: var(--danger); }
+
+/* ============================================================
+   欢迎引导 & 确认弹窗
+   ============================================================ */
+.welcome {
+  position: fixed;
+  inset: 0;
+  background: rgba(62, 39, 35, 0.55);
+  z-index: 70;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.welcome.show { display: flex; }
+.welcome .card {
+  background: var(--card);
+  border-radius: 24px;
+  padding: 26px 22px;
+  max-width: 340px;
+  width: 100%;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+.welcome .w-icon { font-size: 52px; }
+.welcome h2 { margin: 8px 0 4px; font-size: 20px; }
+.welcome p { font-size: 15px; color: var(--text-light); line-height: 1.8; margin: 6px 0; text-align: left; }
+.welcome p b { color: var(--primary-deep); }
+
+.modal-confirm {
+  position: fixed;
+  inset: 0;
+  background: rgba(62, 39, 35, 0.5);
+  z-index: 80;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 28px;
+}
+.modal-confirm.show { display: flex; }
+.modal-confirm .card {
+  background: var(--card);
+  border-radius: 20px;
+  padding: 22px;
+  max-width: 300px;
+  width: 100%;
+  text-align: center;
+}
+.modal-confirm .msg { font-size: 17px; line-height: 1.6; margin-bottom: 16px; }
+.modal-confirm .btns { display: flex; gap: 10px; }
+.modal-confirm .btns button {
+  flex: 1;
+  border: none;
+  border-radius: 12px;
+  padding: 11px 0;
+  font-size: 15px;
+  font-weight: 700;
+}
+.modal-confirm .btn-ok { background: var(--primary-strong); color: #fff; }
+.modal-confirm .btn-no { background: #F3EFE7; color: var(--text-light); }
+
+/* ============================================================
+   游玩照片（表单预览 / 记录缩略图 / 全屏查看器）
+   ============================================================ */
+.photo-preview-row {
+  display: none;              /* 无照片时不占位 */
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+.photo-preview-row.show { display: flex; }
+.photo-thumb {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+.photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #F0DDBE;
+  display: block;
+}
+.photo-thumb .ph-rm {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(78, 52, 46, 0.88);
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.visit-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.visit-photos .visit-photo {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #F0DDBE;
+  display: block;
+  padding: 0;
+  background: #FFF3E0;
+  cursor: pointer;
+}
+.photo-viewer {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 12, 10, 0.94);
+  z-index: 90;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding:
+    calc(16px + env(safe-area-inset-top, 0px))
+    calc(16px + env(safe-area-inset-right, 0px))
+    calc(16px + env(safe-area-inset-bottom, 0px))
+    calc(16px + env(safe-area-inset-left, 0px));
+}
+.photo-viewer.show { display: flex; }
+.photo-viewer .pv-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+}
+.photo-viewer .pv-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+  font-size: 26px;
+  line-height: 1;
+  padding: 0;
+}
+.photo-viewer .pv-prev { left: calc(10px + env(safe-area-inset-left, 0px)); }
+.photo-viewer .pv-next { right: calc(10px + env(safe-area-inset-right, 0px)); }
+.photo-viewer .pv-count {
+  position: absolute;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  letter-spacing: 1px;
+}
+</style>
+
+<!-- 腾讯地图 GL JS 密钥代理配置（占位符由运行时代理替换） -->
+<script type="text/javascript">
+    window._TMapSecurityConfig = {
+        serviceHost: 'http://127.0.0.1:__WB_HTTP_PORT__/_TMapService/_wbt/__WB_TMAP_SECRET__',
+    };
+</script>
+<script src="https://map.qq.com/api/gljs?v=1.exp&libraries=service"></script>
+</head>
+<body>
+
+<!-- 地图容器 -->
+<div id="map"></div>
+
+<!-- 顶部地点搜索框（仅地图页可见，z-index 低于清单页/抽屉遮罩） -->
+<div class="search-box" id="searchBox">
+  <div class="search-input-wrap">
+    <span class="s-icon">🔍</span>
+    <input type="search" id="searchInput" placeholder="搜地点，如：朝阳公园" autocomplete="off" enterkeyhint="search" />
+    <button class="s-clear" id="searchClear" title="清空">✕</button>
+  </div>
+  <div class="search-results" id="searchResults"></div>
+</div>
+
+<!-- 顶部提示条（选点模式） -->
+<div class="hintbar" id="hintbar">📍 点击地图选择位置，点击「+」可取消</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- 清单页 -->
+<div class="page-list" id="pageList">
+  <div class="list-header">
+    <h1>🎒 游玩清单</h1>
+    <button class="settings-btn" id="btnOpenSettings" title="设置">⚙️</button>
+  </div>
+  <div class="filter-chips" id="filterChips">
+    <button class="chip active" data-filter="all">全部</button>
+    <button class="chip" data-filter="wish">待探索</button>
+    <button class="chip" data-filter="visited">已去过</button>
+  </div>
+  <div class="list-body" id="listBody"></div>
+</div>
+
+<!-- 浮动添加按钮 -->
+<button class="fab" id="fab">＋</button>
+
+<!-- 底部 Tab 栏 -->
+<div class="tabbar">
+  <button class="tab active" id="tabMap"><span class="tab-icon">🗺️</span>地图</button>
+  <button class="tab" id="tabList"><span class="tab-icon">🎒</span>清单</button>
+</div>
+
+<!-- 遮罩 -->
+<div class="mask" id="mask"></div>
+
+<!-- 抽屉：添加地点 -->
+<div class="drawer" id="drawerAdd">
+  <div class="grabber"></div>
+  <h2>添加地点</h2>
+  <div class="sub" id="addCoordTip">📍 已获取位置坐标</div>
+  <div class="field">
+    <label>地点名称（必填）</label>
+    <input type="text" id="addName" placeholder="比如：朝阳公园、家附近的滑梯…" maxlength="30" />
+  </div>
+  <div class="field">
+    <label>选择类别</label>
+    <div class="cat-grid" id="catGrid"></div>
+  </div>
+  <div class="field">
+    <label>状态</label>
+    <div class="seg" id="addStatusSeg">
+      <button type="button" class="active wish" data-status="wish">🧡 待探索</button>
+      <button type="button" class="visited" data-status="visited">💚 已去过</button>
+    </div>
+  </div>
+  <button class="btn-primary" id="btnSubmitAdd">✨ 添加地点</button>
+  <button class="btn-ghost" id="btnCancelAdd">取消</button>
+</div>
+
+<!-- 抽屉：地点详情 -->
+<div class="drawer" id="drawerDetail">
+  <div class="grabber"></div>
+  <div id="detailContent"></div>
+</div>
+
+<!-- 抽屉：设置 -->
+<div class="drawer" id="drawerSettings">
+  <div class="grabber"></div>
+  <h2>⚙️ 设置</h2>
+  <div class="sub" id="settingsStats"></div>
+  <div class="settings-block">
+    <div class="s-row">
+      <span>🌳 导入推荐公园（15 个）</span>
+      <button class="s-btn green" id="btnImportSeeds">合并导入</button>
+    </div>
+    <div class="s-row">
+      <span>📤 导出数据备份</span>
+      <button class="s-btn orange" id="btnExport">导出 JSON</button>
+    </div>
+    <div class="s-row">
+      <span>📥 导入数据</span>
+      <button class="s-btn green" id="btnImport">选择文件</button>
+    </div>
+    <div class="s-row">
+      <span>🗑️ 清空所有数据</span>
+      <button class="s-btn red" id="btnClear">清空</button>
+    </div>
+    <div class="s-row">
+      <span>💾 存储占用</span>
+      <span id="storageUsage" style="font-size:13px;color:var(--text-light)">已用约 0.0 MB / 5 MB</span>
+    </div>
+  </div>
+  <!-- 腾讯地图 Key（用户自备，选填）：用于地点搜索降级通道 -->
+  <div class="settings-block">
+    <div class="s-row">
+      <span>🔑 腾讯地图 Key（选填，用于地点搜索）</span>
+    </div>
+    <div class="field" style="margin:10px 0 4px">
+      <input type="text" id="tmapKeyInput" placeholder="可到 lbs.qq.com 免费申请" maxlength="64" autocomplete="off" spellcheck="false" />
+    </div>
+    <button class="s-btn orange" id="btnSaveTmapKey" style="width:100%">保存 Key</button>
+    <p class="sub" style="text-align:left;margin-top:10px;line-height:1.7">
+      申请入口：腾讯位置服务 lbs.qq.com（控制台创建应用 → 添加 Key，勾选 WebServiceAPI，域名白名单可留空或填预览域名）。Key 仅保存在本机浏览器，不会上传。
+    </p>
+  </div>
+  <input type="file" id="importFile" accept=".json,application/json" style="display:none" />
+  <button class="btn-ghost" id="btnCloseSettings">关闭</button>
+  <p class="sub" style="margin-top:14px">🧸 亲子游玩地图 · 数据仅保存在本机浏览器，不上传任何服务器</p>
+</div>
+
+<!-- 欢迎引导 -->
+<div class="welcome" id="welcome">
+  <div class="card">
+    <div class="w-icon">🧸</div>
+    <h2>欢迎使用亲子游玩地图</h2>
+    <p>1️⃣ 点击右下角 <b>「＋」</b> 按钮，再点击地图上想要标记的位置</p>
+    <p>2️⃣ 图钉颜色 = 地点类别，右下角带 <b>✓</b> 徽章的表示已去过</p>
+    <p>3️⃣ 点击图钉可以 <b>记录每次游玩</b>：日期、时长和宝宝的表现</p>
+    <p id="welcomeSeedHint" style="display:none"></p>
+    <button class="btn-primary" id="btnWelcomeOk" style="margin-top:12px">开始探索 🎉</button>
+  </div>
+</div>
+
+<!-- 确认弹窗 -->
+<div class="modal-confirm" id="modalConfirm">
+  <div class="card">
+    <div class="msg" id="confirmMsg">确定吗？</div>
+    <div class="btns">
+      <button class="btn-no" id="confirmNo">取消</button>
+      <button class="btn-ok" id="confirmYes">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 游玩照片选择（隐藏 input，手机上唤起相册/相机） -->
+<input type="file" id="visitPhotoInput" accept="image/*" multiple style="display:none" />
+
+<!-- 全屏照片查看层（点击任意处关闭，左右切换） -->
+<div class="photo-viewer" id="photoViewer">
+  <span class="pv-count" id="pvCount"></span>
+  <img class="pv-img" id="photoViewerImg" alt="游玩照片预览" />
+  <button class="pv-nav pv-prev" id="pvPrev" title="上一张">‹</button>
+  <button class="pv-nav pv-next" id="pvNext" title="下一张">›</button>
+</div>
+
+<script>
+/* ============================================================
+   1. 常量与类别定义
+   ============================================================ */
+(function () {
+'use strict';
+
+var STORAGE_KEY = 'baby_playmap_v1';        // 数据存储键
+var ONBOARD_KEY = 'baby_playmap_onboarded'; // 欢迎引导标记
+var SEED_KEY = 'baby_playmap_seeded_v1';    // 种子数据预置标记（防止清空数据后种子复活）
+var TMAP_KEY_STORAGE = 'baby_playmap_tmap_key'; // 用户自备腾讯地图 Key（仅地点搜索降级用）
+var DEFAULT_CENTER = { lat: 31.2304, lng: 121.4737 }; // 上海人民广场一带
+var DEFAULT_ZOOM = 12;
+
+// 类别定义（value 唯一，emoji 作为图标；color=类别主色，bg=类别浅底色，仅用于样式注入，为常量非用户输入）
+var CATEGORIES = [
+  { value: 'park',       label: '公园',          emoji: '🌳', color: '#FF9800', bg: '#FFF3E0' },
+  { value: 'playground', label: '游乐场',        emoji: '🎠', color: '#43A047', bg: '#E8F5E9' },
+  { value: 'zoo',        label: '动物园/水族馆', emoji: '🐼', color: '#8E24AA', bg: '#F3E5F5' },
+  { value: 'museum',     label: '博物馆/科技馆', emoji: '🏛️', color: '#1E88E5', bg: '#E3F2FD' },
+  { value: 'library',    label: '图书馆',        emoji: '📚', color: '#00ACC1', bg: '#E0F7FA' },
+  { value: 'mall',       label: '商场儿童区',    emoji: '🛍️', color: '#D81B60', bg: '#FCE4EC' },
+  { value: 'water',      label: '亲水玩沙',      emoji: '🏖️', color: '#00897B', bg: '#E0F2F1' },
+  { value: 'other',      label: '其他',          emoji: '📍', color: '#6D4C41', bg: '#EFEBE9' }
+];
+
+function categoryOf(value) {
+  for (var i = 0; i < CATEGORIES.length; i++) {
+    if (CATEGORIES[i].value === value) return CATEGORIES[i];
+  }
+  return CATEGORIES[CATEGORIES.length - 1]; // 兜底：其他
+}
+
+/* ------------------------------------------------------------
+   预置种子数据：上海知名亲子友好公园（首次打开时预置，均为"待探索"状态）
+   坐标已联网核实（维基百科 / OpenStreetMap 等，WGS-02 级精度，图钉误差数百米内可接受）
+   ------------------------------------------------------------ */
+var SEED_PLACES = [
+  { name: '世纪公园',     category: 'park', status: 'wish', rating: 0, lat: 31.2178,  lng: 121.5490 }, // 浦东·花木
+  { name: '世博文化公园', category: 'park', status: 'wish', rating: 0, lat: 31.1816,  lng: 121.4711 }, // 浦东·后滩
+  { name: '共青森林公园', category: 'park', status: 'wish', rating: 0, lat: 31.3218,  lng: 121.5458 }, // 杨浦·军工路
+  { name: '滨江森林公园', category: 'park', status: 'wish', rating: 0, lat: 31.3860,  lng: 121.5240 }, // 浦东·高桥
+  { name: '辰山植物园',   category: 'park', status: 'wish', rating: 0, lat: 31.0780,  lng: 121.1785 }, // 松江·佘山
+  { name: '上海植物园',   category: 'park', status: 'wish', rating: 0, lat: 31.1478,  lng: 121.4381 }, // 徐汇·龙吴路
+  { name: '顾村公园',     category: 'park', status: 'wish', rating: 0, lat: 31.3474,  lng: 121.3845 }, // 宝山·顾村
+  { name: '鲁迅公园',     category: 'park', status: 'wish', rating: 0, lat: 31.2728,  lng: 121.4784 }, // 虹口·四川北路
+  { name: '中山公园',     category: 'park', status: 'wish', rating: 0, lat: 31.2205,  lng: 121.4138 }, // 长宁·长宁路
+  { name: '复兴公园',     category: 'park', status: 'wish', rating: 0, lat: 31.2163,  lng: 121.4695 }, // 黄浦·雁荡路
+  { name: '长风公园',     category: 'park', status: 'wish', rating: 0, lat: 31.2271,  lng: 121.3948 }, // 普陀·长风新村
+  { name: '大宁公园',     category: 'park', status: 'wish', rating: 0, lat: 31.2750,  lng: 121.4420 }, // 静安·大宁灵石
+  { name: '和平公园',     category: 'park', status: 'wish', rating: 0, lat: 31.2737,  lng: 121.5005 }, // 虹口·大连路
+  { name: '徐家汇公园',   category: 'park', status: 'wish', rating: 0, lat: 31.2004,  lng: 121.4384 }, // 徐汇·徐家汇
+  { name: '闵行体育公园', category: 'park', status: 'wish', rating: 0, lat: 31.1450,  lng: 121.3626 }  // 闵行·七宝
+];
+
+// 本次会话是否发生了种子预置（用于欢迎卡片提示）
+var seededThisSession = false;
+
+// 内联 SVG 图钉（禁止引用外部图片）。双编码设计：
+//   底色 = 类别主色（白描边保证奶白地图底上的辨识度），emoji = 类别图标，
+//   已去过 = 右下角白色小圆徽章 + 类别色对勾；待探索 = 无徽章。
+// color/emoji 均来自 CATEGORIES 常量，非用户输入，无注入风险。
+function makePinSvg(color, emoji, visited) {
+  var svg =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="52" viewBox="0 0 44 52">' +
+      // 底部小三角尖（图钉尾部）
+      '<path d="M22 51 L14 37 L30 37 Z" fill="' + color + '" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round"/>' +
+      // 圆形主体：类别主色填充 + 白色描边
+      '<circle cx="22" cy="21" r="19" fill="' + color + '" stroke="#FFFFFF" stroke-width="2.5"/>' +
+      // 类别 emoji 居中（dy=.35em 做垂直光学居中，兼容性好于 dominant-baseline）
+      '<text x="22" y="21" dy=".35em" font-size="17" text-anchor="middle" fill="#FFFFFF">' + emoji + '</text>';
+  if (visited) {
+    svg +=
+      // 已去过徽章：白色小圆 + 类别色对勾（stroke 画勾）
+      '<circle cx="35" cy="36" r="8" fill="#FFFFFF" stroke="' + color + '" stroke-width="1.5"/>' +
+      '<path d="M31.4 36 l2.4 2.4 l4.6 -4.8" stroke="' + color + '" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
+  }
+  svg += '</svg>';
+  return svg;
+}
+
+// 预生成 8 类别 × 2 状态 = 16 个图钉样式（MultiMarker 的 styles 为构造时映射，id 形如 park-wish）
+function buildMarkerStyles() {
+  var styles = {};
+  CATEGORIES.forEach(function (c) {
+    styles[c.value + '-wish'] = new TMap.MarkerStyle({
+      width: 44,
+      height: 52,
+      anchor: 'bottom-center',
+      src: svgToDataUri(makePinSvg(c.color, c.emoji, false))
+    });
+    styles[c.value + '-visited'] = new TMap.MarkerStyle({
+      width: 44,
+      height: 52,
+      anchor: 'bottom-center',
+      src: svgToDataUri(makePinSvg(c.color, c.emoji, true))
+    });
+  });
+  return styles;
+}
+
+function svgToDataUri(svg) {
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+
+/* ============================================================
+   2. 状态管理（localStorage 读写，含容错）
+   ============================================================ */
+var state = {
+  places: [],          // 所有地点
+  activeTab: 'map',    // 当前页面 map | list
+  pickMode: false,     // 选点模式
+  filter: 'all',       // 清单筛选 all | wish | visited
+  currentDetailId: null,
+  addForm: { lat: 0, lng: 0, category: 'park', status: 'wish' }
+};
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+// 规整单条游玩记录的照片数组：非数组→[]，非字符串项过滤，最多保留 3 张
+function sanitizePhotos(raw) {
+  if (!Array.isArray(raw)) return [];
+  var photos = [];
+  for (var i = 0; i < raw.length && photos.length < 3; i++) {
+    if (typeof raw[i] === 'string' && raw[i].indexOf('data:image/') === 0) photos.push(raw[i]);
+  }
+  return photos;
+}
+
+// 规整单个地点数据，兜底所有字段
+function sanitizePlace(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  var visits = [];
+  if (Array.isArray(raw.visits)) {
+    for (var i = 0; i < raw.visits.length; i++) {
+      var v = raw.visits[i] || {};
+      visits.push({
+        id: typeof v.id === 'string' ? v.id : uid(),
+        date: typeof v.date === 'string' ? v.date : '',
+        durationMinutes: Math.max(0, parseInt(v.durationMinutes, 10) || 0),
+        note: typeof v.note === 'string' ? v.note : '',
+        photos: sanitizePhotos(v.photos)
+      });
+    }
+  }
+  var rating = parseInt(raw.rating, 10);
+  if (!(rating >= 1 && rating <= 5)) rating = 0; // 0 = 未评分
+  return {
+    id: typeof raw.id === 'string' ? raw.id : uid(),
+    name: String(raw.name || '未命名地点').slice(0, 30),
+    category: typeof raw.category === 'string' && CATEGORIES.some(function (c) { return c.value === raw.category; })
+      ? raw.category : 'other',
+    status: raw.status === 'visited' ? 'visited' : 'wish',
+    rating: rating,
+    lat: parseFloat(raw.lat),
+    lng: parseFloat(raw.lng),
+    createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : Date.now(),
+    visits: visits,
+    practicalNotes: typeof raw.practicalNotes === 'string' ? raw.practicalNotes : ''
+  };
+}
+
+// 预置种子数据：仅当数据键不存在 且 从未预置过（标记键不存在）时执行。
+// 成功后写入标记键，保证"清空数据"后种子不会复活；导入 JSON 会写数据键，天然不会触发预置。
+// localStorage 不可用（隐私模式等）时退化为内存态种子数据，不报错。
+function trySeedPlaces() {
+  var marked = false;
+  try { marked = localStorage.getItem(SEED_KEY) !== null; } catch (e) { marked = false; }
+  if (marked) return false;
+  state.places = SEED_PLACES.map(sanitizePlace).filter(function (p) {
+    return p && isFinite(p.lat) && isFinite(p.lng);
+  });
+  seededThisSession = true;
+  try {
+    lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); // 落盘基线（供配额回滚）
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, places: state.places }));
+    localStorage.setItem(SEED_KEY, 'true');
+  } catch (e) {
+    // localStorage 不可用：保持内存态种子数据，静默降级
+  }
+  return true;
+}
+
+function loadState() {
+  var raw = null;
+  try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
+  if (raw) {
+    try {
+      var parsed = JSON.parse(raw);
+      var arr = (parsed && Array.isArray(parsed.places)) ? parsed.places : [];
+      state.places = arr.map(sanitizePlace).filter(function (p) {
+        return p && isFinite(p.lat) && isFinite(p.lng);
+      });
+      try { lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); } catch (e) { lastSavedPlaces = null; }
+      return;
+    } catch (e) {
+      // 解析失败：静默降级为空数据，不覆盖原键（用户可导出修复）
+      state.places = [];
+      return;
+    }
+  }
+  // 数据键不存在：尝试首次预置（内部会检查标记键，防止清空数据后复活）
+  trySeedPlaces();
+}
+
+// 最近一次成功落盘的 places 深拷贝（配额溢出时把内存回滚到该状态，保证内存与磁盘一致）
+var lastSavedPlaces = null;
+
+// 保存状态；捕获 QuotaExceededError 等 setItem 异常：
+// - 配额溢出 → 磁盘仍是旧数据，内存回滚到「上一次成功落盘基线」并提示可导出/清理
+// - localStorage 整体不可用（隐私模式等）→ 保留内存态降级使用，不回滚
+function saveState() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, places: state.places }));
+  } catch (e) {
+    // 先判断原始异常：配额溢出直接走回滚分支（存储 100% 全满时探针也会抛错，
+    // 仅凭探针失败会把配额满误判成"存储不可用"，导致不回滚且文案误导）
+    var isQuota = !!(e && (e.name === 'QuotaExceededError' ||
+      /quota/i.test(String((e && e.message) || ''))));
+    var storageAlive = false;
+    if (!isQuota) {
+      try {
+        localStorage.setItem('__pm_probe__', '1');
+        localStorage.removeItem('__pm_probe__');
+        storageAlive = true;
+      } catch (e2) { storageAlive = false; }
+    }
+    if (isQuota || storageAlive) {
+      try {
+        state.places = lastSavedPlaces ? JSON.parse(JSON.stringify(lastSavedPlaces)) : [];
+      } catch (e3) {
+        state.places = [];
+      }
+      showToast('⚠️ 存储空间不足，照片未能保存。可在设置中导出备份或删除旧记录');
+    } else {
+      showToast('⚠️ 保存失败，本地存储不可用');
+    }
+    return false;
+  }
+  try {
+    lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); // 记录新的成功基线
+  } catch (e) { /* 快照失败不影响主流程 */ }
+  return true;
+}
+
+function findPlace(id) {
+  for (var i = 0; i < state.places.length; i++) {
+    if (state.places[i].id === id) return state.places[i];
+  }
+  return null;
+}
+
+/* ============================================================
+   3. 工具函数
+   ============================================================ */
+function $(id) { return document.getElementById(id); }
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+var toastTimer = null;
+function showToast(msg) {
+  var el = $('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2200);
+}
+
+// 确认弹窗（Promise 风格）
+function confirmDialog(msg) {
+  return new Promise(function (resolve) {
+    $('confirmMsg').textContent = msg;
+    $('modalConfirm').classList.add('show');
+    function done(result) {
+      $('modalConfirm').classList.remove('show');
+      $('confirmYes').removeEventListener('click', yes);
+      $('confirmNo').removeEventListener('click', no);
+      resolve(result);
+    }
+    function yes() { done(true); }
+    function no() { done(false); }
+    $('confirmYes').addEventListener('click', yes);
+    $('confirmNo').addEventListener('click', no);
+  });
+}
+
+function starsText(rating) {
+  var s = '';
+  for (var i = 1; i <= 5; i++) {
+    s += (i <= rating) ? '★' : '<span class="off">★</span>';
+  }
+  return s;
+}
+
+function todayStr() {
+  var d = new Date();
+  var m = d.getMonth() + 1, day = d.getDate();
+  return d.getFullYear() + '-' + (m < 10 ? '0' + m : m) + '-' + (day < 10 ? '0' + day : day);
+}
+
+function minutesText(min) {
+  if (!min) return '';
+  if (min < 60) return min + ' 分钟';
+  var h = Math.floor(min / 60), m = min % 60;
+  return m ? (h + '小时' + m + '分钟') : (h + '小时');
+}
+
+/* ============================================================
+   3.5 游玩照片：压缩 / 暂存预览 / 全屏查看器
+   ============================================================ */
+var MAX_PHOTOS_PER_VISIT = 3;   // 每条记录最多 3 张
+var PHOTO_MAX_EDGE = 1000;      // 压缩目标：最长边 ≤ 1000px
+var PHOTO_JPEG_QUALITY = 0.72;  // JPEG 质量
+var pendingPhotos = [];         // 当前添加记录表单中暂存的照片（未保存记录前不落盘）
+var pendingPhotosPlaceId = null; // 暂存照片归属的地点（切换地点时清空，同地点重渲染时保留）
+
+// 压缩单张图片文件 → JPEG dataURL（canvas 缩放，不处理 EXIF 方向）
+function compressImageFile(file) {
+  return new Promise(function (resolve, reject) {
+    if (!file || typeof file.type === 'string' && file.type.indexOf('image/') !== 0) {
+      reject(new Error('not an image'));
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var w = img.naturalWidth || img.width;
+          var h = img.naturalHeight || img.height;
+          if (!w || !h) { reject(new Error('bad image')); return; }
+          var scale = Math.min(1, PHOTO_MAX_EDGE / Math.max(w, h));
+          var cw = Math.max(1, Math.round(w * scale));
+          var ch = Math.max(1, Math.round(h * scale));
+          var canvas = document.createElement('canvas');
+          canvas.width = cw;
+          canvas.height = ch;
+          canvas.getContext('2d').drawImage(img, 0, 0, cw, ch);
+          resolve(canvas.toDataURL('image/jpeg', PHOTO_JPEG_QUALITY));
+        } catch (e) {
+          reject(e);
+        }
+      };
+      img.onerror = function () { reject(new Error('decode failed')); };
+      img.src = String(reader.result);
+    };
+    reader.onerror = function () { reject(new Error('read failed')); };
+    reader.readAsDataURL(file);
+  });
+}
+
+// 渲染添加记录表单的暂存照片预览行（每张可单独 ✕ 移除）
+function renderPendingPhotos() {
+  var row = $('photoPreviewRow');
+  if (!row) return;
+  row.innerHTML = '';
+  if (!pendingPhotos.length) {
+    row.classList.remove('show');
+    return;
+  }
+  pendingPhotos.forEach(function (src, i) {
+    var thumb = document.createElement('div');
+    thumb.className = 'photo-thumb';
+    var img = document.createElement('img');
+    img.src = src; // dataURL 直接赋值 src，安全
+    img.alt = '待保存照片 ' + (i + 1);
+    var rm = document.createElement('button');
+    rm.className = 'ph-rm';
+    rm.type = 'button';
+    rm.textContent = '✕';
+    rm.setAttribute('data-rm', String(i));
+    thumb.appendChild(img);
+    thumb.appendChild(rm);
+    row.appendChild(thumb);
+  });
+  row.classList.add('show');
+}
+
+// 移除暂存照片（事件委托，供详情抽屉内动态元素复用）
+function removePendingPhoto(idx) {
+  if (idx < 0 || idx >= pendingPhotos.length) return;
+  pendingPhotos.splice(idx, 1);
+  renderPendingPhotos();
+}
+
+/* ---------- 全屏照片查看器 ---------- */
+var viewerPhotos = [];
+var viewerIdx = 0;
+
+function updatePhotoViewer() {
+  $('photoViewerImg').src = viewerPhotos[viewerIdx] || '';
+  var multi = viewerPhotos.length > 1;
+  $('pvCount').textContent = multi ? ((viewerIdx + 1) + ' / ' + viewerPhotos.length) : '';
+  $('pvPrev').style.display = multi ? '' : 'none';
+  $('pvNext').style.display = multi ? '' : 'none';
+}
+
+function openPhotoViewer(photos, idx) {
+  if (!photos || !photos.length) return;
+  viewerPhotos = photos.slice();
+  viewerIdx = Math.min(Math.max(idx || 0, 0), viewerPhotos.length - 1);
+  updatePhotoViewer();
+  $('photoViewer').classList.add('show');
+}
+
+function closePhotoViewer() {
+  $('photoViewer').classList.remove('show');
+  $('photoViewerImg').src = '';
+  viewerPhotos = [];
+  viewerIdx = 0;
+}
+
+function stepPhotoViewer(delta) {
+  if (!viewerPhotos.length) return;
+  viewerIdx = (viewerIdx + delta + viewerPhotos.length) % viewerPhotos.length;
+  updatePhotoViewer();
+}
+
+// 统计全库照片总数（导出提示用）
+function countAllPhotos() {
+  var n = 0;
+  state.places.forEach(function (p) {
+    (p.visits || []).forEach(function (v) {
+      n += (v.photos || []).length;
+    });
+  });
+  return n;
+}
+
+
+/* ============================================================
+   4. 地图初始化（腾讯地图 GL JS，使用默认矢量底图）
+   ============================================================ */
+var map = null;
+var markerLayer = null;
+var lastMarkerClickAt = 0; // 防止点击图钉时误触发地图空白点击
+
+function initMap() {
+  if (typeof TMap === 'undefined') {
+    showToast('⚠️ 地图加载失败，请检查网络后刷新');
+    return;
+  }
+  map = new TMap.Map($('map'), {
+    center: new TMap.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng),
+    zoom: DEFAULT_ZOOM
+  });
+
+  // 标记图层（Multi 前缀：MultiMarker + MarkerStyle）；styles 为 8 类别 × 2 状态 = 16 个
+  markerLayer = new TMap.MultiMarker({
+    map: map,
+    styles: buildMarkerStyles(),
+    geometries: []
+  });
+  renderMarkers();
+
+  // 点击图钉 → 打开详情
+  markerLayer.on('click', function (evt) {
+    lastMarkerClickAt = Date.now();
+    var geo = evt.geometry;
+    if (geo && geo.properties && geo.properties.placeId) {
+      openDetail(geo.properties.placeId);
+    }
+  });
+
+  // 点击地图空白：仅收起搜索结果；只有「＋」选点模式下点击才弹添加表单（取点击坐标）
+  map.on('click', function (evt) {
+    if (Date.now() - lastMarkerClickAt < 400) return; // 忽略图钉点击冒泡
+    hideSearchResults(); // 点击地图空白：收起搜索结果列表
+    if (anyDrawerOpen()) return;
+    if (!state.pickMode) return; // 非选点模式：点击地图不添加地点，须先点右下角「＋」
+    var latLng = evt.latLng;
+    if (!latLng) return;
+    exitPickMode(false); // 选点模式下点击地图：静默退出选点（不弹"已取消"提示），直接弹添加表单
+    openAddForm(latLng.getLat(), latLng.getLng());
+  });
+
+  // 浏览器定位，失败静默降级
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      function (pos) {
+        if (pos && pos.coords && isFinite(pos.coords.latitude)) {
+          map.easeTo({
+            center: new TMap.LatLng(pos.coords.latitude, pos.coords.longitude),
+            zoom: 13,
+            duration: 600
+          });
+        }
+      },
+      function () { /* 定位失败：静默，保持默认上海 */ },
+      { timeout: 4000, maximumAge: 60000 }
+    );
+  }
+}
+
+/* ============================================================
+   5. 标记渲染（styleId = 类别 + 状态：底色编码类别，✓ 徽章编码状态）
+   ============================================================ */
+function markerStyleId(place) {
+  // categoryOf 对缺失/非法 category 兜底为 other，旧数据自动回退 other 配色
+  return categoryOf(place.category).value + '-' + (place.status === 'visited' ? 'visited' : 'wish');
+}
+
+function renderMarkers() {
+  if (!markerLayer) return;
+  var geometries = state.places.map(function (p) {
+    return {
+      id: p.id,
+      styleId: markerStyleId(p),
+      position: new TMap.LatLng(p.lat, p.lng),
+      properties: { placeId: p.id }
+    };
+  });
+  markerLayer.setGeometries(geometries);
+}
+
+function focusPlace(place) {
+  if (!map) return;
+  map.easeTo({
+    center: new TMap.LatLng(place.lat, place.lng),
+    zoom: Math.max(map.getZoom(), 15),
+    duration: 500
+  });
+}
+
+/* ============================================================
+   6. 抽屉控制（添加 / 详情 / 设置）
+   ============================================================ */
+var DRAWERS = ['drawerAdd', 'drawerDetail', 'drawerSettings'];
+
+function anyDrawerOpen() {
+  return DRAWERS.some(function (id) { return $(id).classList.contains('open'); });
+}
+
+function closeAllDrawers() {
+  DRAWERS.forEach(function (id) { $(id).classList.remove('open'); });
+  $('mask').classList.remove('show');
+}
+
+function openDrawer(id) {
+  closeAllDrawers();
+  $(id).classList.add('open');
+  $('mask').classList.add('show');
+}
+
+/* ---------- 添加地点表单 ---------- */
+function renderCatGrid() {
+  var html = '';
+  CATEGORIES.forEach(function (c) {
+    html += '<button type="button" class="cat-btn' +
+      (state.addForm.category === c.value ? ' active' : '') + '"' +
+      // 激活态注入类别专属配色（常量，非用户输入）；文字统一 --text 保证类别浅底上 4.5:1+
+      (state.addForm.category === c.value
+        ? ' style="border-color:' + c.color + ';background:' + c.bg + ';color:var(--text)"'
+        : '') +
+      ' data-cat="' + c.value + '"><span class="ce">' + c.emoji + '</span>' + c.label + '</button>';
+  });
+  $('catGrid').innerHTML = html;
+}
+
+function openAddForm(lat, lng) {
+  state.addForm = { lat: lat, lng: lng, category: 'park', status: 'wish' };
+  $('addName').value = '';
+  $('addCoordTip').textContent = '📍 坐标：' + lat.toFixed(5) + ', ' + lng.toFixed(5);
+  renderCatGrid();
+  renderAddStatusSeg();
+  openDrawer('drawerAdd');
+  setTimeout(function () { $('addName').focus(); }, 300);
+}
+
+function renderAddStatusSeg() {
+  var btns = $('addStatusSeg').querySelectorAll('button');
+  btns.forEach(function (b) {
+    var s = b.getAttribute('data-status');
+    b.className = (state.addForm.status === s ? 'active ' : '') + s;
+  });
+}
+
+function submitAdd() {
+  var name = $('addName').value.trim();
+  if (!name) {
+    showToast('请填写地点名称哦');
+    $('addName').focus();
+    return;
+  }
+  var place = sanitizePlace({
+    id: uid(),
+    name: name,
+    category: state.addForm.category,
+    status: state.addForm.status,
+    rating: 0,
+    lat: state.addForm.lat,
+    lng: state.addForm.lng,
+    createdAt: Date.now(),
+    visits: [],
+    practicalNotes: ''
+  });
+  state.places.push(place);
+  if (!saveState()) {
+    closeAllDrawers(); // 写入失败已回滚：关闭抽屉，配额提示已由 saveState 显示
+    return;
+  }
+  renderMarkers();
+  renderList();
+  closeAllDrawers();
+  showToast(place.status === 'visited' ? '💚 已添加「' + name + '」' : '🧡 已添加「' + name + '」');
+}
+
+/* ---------- 地点详情 ---------- */
+function openDetail(placeId) {
+  var p = findPlace(placeId);
+  if (!p) return;
+  state.currentDetailId = placeId;
+  renderDetail();
+  openDrawer('drawerDetail');
+}
+
+function renderDetail() {
+  var p = findPlace(state.currentDetailId);
+  if (!p) { closeAllDrawers(); return; }
+  // 同一地点内重渲染（评分/状态切换等）保留未保存的暂存照片；切换地点才清空
+  if (pendingPhotosPlaceId !== p.id) {
+    pendingPhotos = [];
+    pendingPhotosPlaceId = p.id;
+  }
+  // 重渲染前保留正在编辑、尚未保存的备注草稿（仅内存态，不落盘；须确认旧输入框属于当前地点）
+  var draftNotesEl = document.getElementById('notesArea');
+  if (draftNotesEl && draftNotesEl.getAttribute('data-place-id') === p.id &&
+      draftNotesEl.value !== p.practicalNotes) {
+    p.practicalNotes = draftNotesEl.value;
+  }
+  var cat = categoryOf(p.category);
+  var starsBtns = '';
+  for (var i = 1; i <= 5; i++) {
+    starsBtns += '<button class="star-btn' + (i <= p.rating ? ' on' : '') +
+      '" data-star="' + i + '" title="' + i + '星">★</button>';
+  }
+
+  var visitsHtml = '';
+  if (p.visits.length === 0) {
+    visitsHtml = '<div class="empty-tip" style="padding:16px">还没有游玩记录，快来添加第一条吧 ✨</div>';
+  } else {
+    // 最近的记录排在前面
+    var sorted = p.visits.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
+    sorted.forEach(function (v) {
+      var photosHtml = '';
+      if (v.photos && v.photos.length) {
+        photosHtml = '<div class="visit-photos">' + v.photos.map(function (src, pi) {
+          // dataURL 经 sanitizePhotos 校验前缀，属性位再经 escapeHtml 双重防注入
+          return '<img class="visit-photo" data-view-visit="' + escapeHtml(v.id) +
+            '" data-view-idx="' + pi + '" src="' + escapeHtml(src) + '" alt="游玩照片 ' + (pi + 1) + '" />';
+        }).join('') + '</div>';
+      }
+      visitsHtml +=
+        '<div class="visit-card">' +
+          '<div class="v-top"><span>📅 ' + escapeHtml(v.date || '未记录日期') +
+          (v.durationMinutes ? ' · ⏱ ' + minutesText(v.durationMinutes) : '') + '</span>' +
+          '<button class="v-del" data-del-visit="' + escapeHtml(v.id) + '">✕</button></div>' +
+          (v.note ? '<div class="v-note">💬 ' + escapeHtml(v.note) + '</div>' : '') +
+          photosHtml +
+        '</div>';
+    });
+  }
+
+  var html =
+    '<div class="grabber"></div>' +
+    '<div class="detail-head">' +
+      '<div class="d-emoji" style="background:' + cat.bg + '">' + cat.emoji + '</div>' +
+      '<div style="flex:1;min-width:0">' +
+        '<div class="d-name">' + escapeHtml(p.name) + '</div>' +
+        '<div class="d-cat">' + cat.label + ' · 📍 ' + p.lat.toFixed(4) + ', ' + p.lng.toFixed(4) + '</div>' +
+      '</div>' +
+    '</div>' +
+
+    '<div class="rating-row" id="ratingRow">' + starsBtns + '</div>' +
+    '<div class="sub" style="margin:0 0 4px">' + (p.rating ? p.rating + ' 星' : '点击星星评分') + ' · 共 ' + p.visits.length + ' 条记录</div>' +
+
+    '<div class="detail-actions">' +
+      '<button class="' + (p.status === 'wish' ? 'btn-toggle-visited' : 'btn-toggle-wish') + '" id="btnToggleStatus">' +
+        (p.status === 'wish' ? '✅ 标记为已去过' : '↩️ 标记为待探索') +
+      '</button>' +
+    '</div>' +
+
+    '<div class="section-title">📝 亲子实用备注</div>' +
+    '<div class="field" style="margin-top:6px">' +
+      '<textarea id="notesArea" data-place-id="' + escapeHtml(p.id) + '" placeholder="停车、入口、卫生间、推车是否友好、门票、人多时段… 自由记录">' +
+        escapeHtml(p.practicalNotes) + '</textarea>' +
+    '</div>' +
+    '<button class="btn-ghost" id="btnSaveNotes" style="margin-top:0">💾 保存备注</button>' +
+
+    '<div class="section-title">🎡 游玩记录（' + p.visits.length + '）</div>' + visitsHtml +
+
+    '<div class="section-title">➕ 添加游玩记录</div>' +
+    '<div class="visit-form-row">' +
+      '<div class="field"><label>日期</label><input type="date" id="visitDate" value="' + todayStr() + '" /></div>' +
+      '<div class="field"><label>时长（分钟）</label><input type="number" id="visitMinutes" inputmode="numeric" min="0" max="1440" placeholder="60" /></div>' +
+    '</div>' +
+    '<div class="field" style="margin-top:4px">' +
+      '<label>一句话感想</label>' +
+      '<input type="text" id="visitNote" maxlength="80" placeholder="宝宝玩滑梯超开心，午睡了两小时 😴" />' +
+    '</div>' +
+    '<button class="btn-ghost" id="btnAddVisitPhotos" style="margin-top:4px">📷 添加照片（最多 3 张，仅存本机）</button>' +
+    '<div class="photo-preview-row" id="photoPreviewRow"></div>' +
+    '<button class="btn-primary" id="btnAddVisit" style="margin-top:6px">🎡 保存游玩记录</button>' +
+    '<button class="btn-danger" id="btnDeletePlace" style="width:100%;margin-top:14px">🗑️ 删除这个地点</button>';
+
+  $('detailContent').innerHTML = html;
+  renderPendingPhotos(); // 恢复本地点未保存的暂存照片预览（无照片时不占位）
+
+  /* --- 详情内事件绑定 --- */
+  // 评分
+  $('ratingRow').querySelectorAll('.star-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var val = parseInt(btn.getAttribute('data-star'), 10);
+      p.rating = (p.rating === val) ? 0 : val; // 再次点击同星可清除评分
+      saveState();
+      renderDetail();
+      renderList();
+    });
+  });
+  // 状态切换
+  $('btnToggleStatus').addEventListener('click', function () {
+    p.status = (p.status === 'wish') ? 'visited' : 'wish';
+    if (!saveState()) {
+      // 配额溢出已回滚：按旧数据重渲染，不弹成功提示（提示已由 saveState 显示）
+      renderMarkers();
+      renderDetail();
+      renderList();
+      return;
+    }
+    renderMarkers();
+    renderDetail();
+    renderList();
+    showToast(p.status === 'visited' ? '💚 太棒了，又打卡一个地方！' : '🧡 已放回待探索清单');
+  });
+  // 保存备注
+  // 注：配额失败回滚后，renderDetail 的草稿保留机制会把未保存草稿重新写回内存——
+  // 这是有意的产品权衡（宁可内存≠磁盘暂态，也不丢用户正在编辑的内容），下次成功保存时自然落盘
+  $('btnSaveNotes').addEventListener('click', function () {
+    p.practicalNotes = $('notesArea').value.trim();
+    if (!saveState()) {
+      renderDetail(); // 回滚后按旧数据重渲染（配额提示已由 saveState 显示）
+      return;
+    }
+    showToast('📝 备注已保存');
+  });
+  // 删除游玩记录
+  $('detailContent').querySelectorAll('[data-del-visit]').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var vid = btn.getAttribute('data-del-visit');
+      var ok = await confirmDialog('确定删除这条游玩记录吗？');
+      if (!ok) return;
+      p.visits = p.visits.filter(function (v) { return v.id !== vid; });
+      saveState();
+      renderDetail();
+      renderList();
+    });
+  });
+  // 添加游玩记录
+  $('btnAddVisit').addEventListener('click', function () {
+    var date = $('visitDate').value;
+    var minutes = Math.min(1440, Math.max(0, parseInt($('visitMinutes').value, 10) || 0)); // 钳制到 [0, 1440]
+    var note = $('visitNote').value.trim();
+    if (!date) { showToast('请选择游玩日期'); return; }
+    if (!note && !minutes) { showToast('填写时长或感想，记录更有意义哦'); return; }
+    p.visits.push({
+      id: uid(),
+      date: date,
+      durationMinutes: minutes,
+      note: note,
+      photos: pendingPhotos.slice(0, MAX_PHOTOS_PER_VISIT)
+    });
+    // 有游玩记录，顺手标记为已去过
+    if (p.status === 'wish') {
+      p.status = 'visited';
+      renderMarkers();
+    }
+    if (!saveState()) {
+      // 配额溢出已回滚（含本条记录）：仅刷新界面；提示 Toast 已由 saveState 显示
+      renderMarkers();
+      renderDetail(); // 同地点重渲染会保留暂存照片，方便腾出空间后重试
+      renderList();
+      return;
+    }
+    pendingPhotos = [];       // 保存成功：清空暂存照片
+    pendingPhotosPlaceId = null;
+    renderDetail();
+    renderList();
+    showToast('🎡 游玩记录已保存');
+  });
+  // 添加照片：唤起隐藏 file input（手机上为相册/相机）
+  $('btnAddVisitPhotos').addEventListener('click', function () {
+    if (pendingPhotos.length >= MAX_PHOTOS_PER_VISIT) {
+      showToast('每条记录最多 ' + MAX_PHOTOS_PER_VISIT + ' 张照片哦');
+      return;
+    }
+    $('visitPhotoInput').click();
+  });
+  // 暂存照片预览：单独移除
+  $('photoPreviewRow').addEventListener('click', function (evt) {
+    var rm = evt.target.closest('.ph-rm');
+    if (!rm) return;
+    removePendingPhoto(parseInt(rm.getAttribute('data-rm'), 10));
+  });
+  // 已保存记录的缩略图：点击打开全屏查看器
+  $('detailContent').querySelectorAll('.visit-photo').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var visitId = btn.getAttribute('data-view-visit');
+      var idx = parseInt(btn.getAttribute('data-view-idx'), 10) || 0;
+      for (var i = 0; i < p.visits.length; i++) {
+        if (p.visits[i].id === visitId) {
+          var photos = p.visits[i].photos || [];
+          if (photos.length) openPhotoViewer(photos, idx);
+          return;
+        }
+      }
+    });
+  });
+  // 删除地点
+  $('btnDeletePlace').addEventListener('click', async function () {
+    var ok = await confirmDialog('确定删除「' + p.name + '」及其全部游玩记录吗？删除后无法恢复。');
+    if (!ok) return;
+    state.places = state.places.filter(function (x) { return x.id !== p.id; });
+    state.currentDetailId = null;
+    if (!saveState()) {
+      // 配额失败已回滚（地点恢复），按旧数据刷新界面，不弹成功提示
+      renderMarkers();
+      renderList();
+      closeAllDrawers();
+      return;
+    }
+    renderMarkers();
+    renderList();
+    closeAllDrawers();
+    showToast('🗑️ 已删除「' + p.name + '」');
+  });
+}
+
+/* ---------- 设置 ---------- */
+// 读取用户自备的腾讯地图 Key（仅存本机 localStorage，代码中不预置任何 Key）
+function getUserTmapKey() {
+  try {
+    var k = localStorage.getItem(TMAP_KEY_STORAGE);
+    return (typeof k === 'string') ? k.trim() : '';
+  } catch (e) {
+    return '';
+  }
+}
+
+function saveUserTmapKey(key) {
+  try {
+    if (key) localStorage.setItem(TMAP_KEY_STORAGE, key);
+    else localStorage.removeItem(TMAP_KEY_STORAGE);
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function openSettings() {
+  var visitedCount = state.places.filter(function (p) { return p.status === 'visited'; }).length;
+  $('settingsStats').textContent =
+    '共 ' + state.places.length + ' 个地点 · 待探索 ' + (state.places.length - visitedCount) + ' · 已去过 ' + visitedCount;
+  // 存储占用（与 localStorage 实际写入体积一致口径：序列化后的字符数）
+  var usedMb = 0;
+  try {
+    usedMb = JSON.stringify({ version: 1, places: state.places }).length / 1048576;
+  } catch (e) {
+    usedMb = 0;
+  }
+  var usageEl = $('storageUsage');
+  usageEl.textContent = '已用约 ' + usedMb.toFixed(1) + ' MB / 5 MB';
+  usageEl.style.color = usedMb > 3.5 ? 'var(--danger)' : '';
+  usageEl.style.fontWeight = usedMb > 3.5 ? '700' : '';
+  // 预填已保存的 Key（通过 value 属性赋值，不经 innerHTML，天然防注入）
+  $('tmapKeyInput').value = getUserTmapKey();
+  openDrawer('drawerSettings');
+}
+
+function exportData() {
+  try {
+    var data = JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), places: state.places }, null, 2);
+    var blob = new Blob([data], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = '亲子游玩地图备份-' + todayStr() + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+    var photoCount = countAllPhotos();
+    showToast('📤 备份文件已开始下载' + (photoCount > 0 ? '，含 ' + photoCount + ' 张照片' : ''));
+  } catch (e) {
+    showToast('⚠️ 导出失败，请重试');
+  }
+}
+
+function importData(file) {
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = async function () {
+    try {
+      var parsed = JSON.parse(String(reader.result));
+      var arr = (parsed && Array.isArray(parsed.places)) ? parsed.places : null;
+      if (!arr) { showToast('⚠️ 文件格式不对，需要包含 places 的 JSON'); return; }
+      var places = arr.map(sanitizePlace).filter(function (p) {
+        return p && isFinite(p.lat) && isFinite(p.lng);
+      });
+      if (!places.length) { showToast('⚠️ 文件里没有有效地点数据'); return; }
+      var ok = await confirmDialog('导入将覆盖当前全部 ' + state.places.length + ' 个地点，确定继续吗？');
+      if (!ok) return;
+      state.places = places;
+      if (!saveState()) {
+        // 已回滚为导入前数据（配额提示已由 saveState 显示）
+        // 仅在详情抽屉确实打开时才重渲染：currentDetailId 为 null 时调用 renderDetail
+        // 会触发 closeAllDrawers()，意外关闭用户正开着的设置抽屉
+        if (state.currentDetailId) renderDetail();
+        renderList();
+        renderMarkers();
+        return;
+      }
+      renderMarkers();
+      renderList();
+      closeAllDrawers();
+      showToast('📥 成功导入 ' + places.length + ' 个地点' + (countAllPhotos() > 0 ? '（含 ' + countAllPhotos() + ' 张照片）' : ''));
+    } catch (e) {
+      showToast('⚠️ 文件解析失败，请确认是有效的 JSON');
+    }
+  };
+  reader.onerror = function () { showToast('⚠️ 读取文件失败'); };
+  reader.readAsText(file);
+}
+
+/* ============================================================
+   7. 清单页渲染
+   ============================================================ */
+function renderList() {
+  var body = $('listBody');
+  var filtered = state.places.filter(function (p) {
+    return state.filter === 'all' || p.status === state.filter;
+  });
+
+  // 已去过排前面？不 —— 保持添加顺序，用户自己筛选即可
+  if (filtered.length === 0) {
+    body.innerHTML =
+      '<div class="empty-tip"><span class="big">🎈</span>' +
+      (state.places.length === 0
+        ? '还没有添加任何地点<br/>去地图上点击一个位置，<br/>标记你们的第一站吧！'
+        : '这个分类下暂时没有地点') +
+      '</div>' +
+      '<button class="btn-primary" id="btnEmptyGoMap" style="width:auto;padding:12px 28px;margin:16px auto 0;display:block">📍 去地图标记</button>';
+    var goMapBtn = document.getElementById('btnEmptyGoMap');
+    if (goMapBtn) {
+      goMapBtn.addEventListener('click', function () { switchTab('map'); });
+    }
+    return;
+  }
+
+  var html = '';
+  filtered.forEach(function (p) {
+    var cat = categoryOf(p.category);
+    html +=
+      '<div class="place-item' + (p.status === 'visited' ? ' visited' : '') + '" data-id="' + escapeHtml(p.id) + '">' +
+        '<div class="p-emoji" style="background:' + cat.bg + '">' + cat.emoji + '</div>' +
+        '<div class="p-main">' +
+          '<div class="p-name">' + escapeHtml(p.name) + '</div>' +
+          '<div class="p-meta">' +
+            '<span class="stars">' + (p.rating ? starsText(p.rating) : '未评分') + '</span>' +
+            '<span>🎡 ' + p.visits.length + ' 次</span>' +
+            '<span class="badge ' + p.status + '">' + (p.status === 'wish' ? '待探索' : '已去过') + '</span>' +
+          '</div>' +
+        '</div>' +
+        '<button class="p-del" data-del="' + escapeHtml(p.id) + '" title="删除">🗑️</button>' +
+      '</div>';
+  });
+  body.innerHTML = html;
+
+  // 点击条目 → 回到地图并聚焦
+  body.querySelectorAll('.place-item').forEach(function (item) {
+    item.addEventListener('click', function (evt) {
+      if (evt.target.closest('.p-del')) return; // 删除按钮不触发聚焦
+      var p = findPlace(item.getAttribute('data-id'));
+      if (!p) return;
+      switchTab('map');
+      focusPlace(p);
+    });
+  });
+  // 删除地点
+  body.querySelectorAll('.p-del').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var id = btn.getAttribute('data-del');
+      var p = findPlace(id);
+      if (!p) return;
+      var ok = await confirmDialog('确定删除「' + p.name + '」及其全部游玩记录吗？');
+      if (!ok) return;
+      state.places = state.places.filter(function (x) { return x.id !== id; });
+      saveState();
+      renderMarkers();
+      renderList();
+      showToast('🗑️ 已删除「' + p.name + '」');
+    });
+  });
+}
+
+function renderFilterChips() {
+  var chips = $('filterChips').querySelectorAll('.chip');
+  chips.forEach(function (c) {
+    c.classList.toggle('active', c.getAttribute('data-filter') === state.filter);
+  });
+}
+
+/* ============================================================
+   8. Tab 切换 & 选点模式
+   ============================================================ */
+function switchTab(tab) {
+  state.activeTab = tab;
+  $('tabMap').classList.toggle('active', tab === 'map');
+  $('tabList').classList.toggle('active', tab === 'list');
+  $('pageList').classList.toggle('active', tab === 'list');
+  if (tab === 'map') exitPickMode(false); // 回地图不弹提示
+  if (tab === 'list') hideSearchResults(); // 清单页不需要搜索框
+}
+
+function enterPickMode() {
+  state.pickMode = true;
+  $('searchBox').classList.add('hidden'); // 选点模式下隐藏搜索框，避免与提示条重叠
+  $('fab').classList.add('pick-active');
+  $('fab').textContent = '✕';
+  $('hintbar').classList.add('show');
+  showToast('📍 已进入选点模式，点击地图选择位置');
+}
+
+function exitPickMode(showToastFlag) {
+  if (!state.pickMode) return;
+  state.pickMode = false;
+  $('searchBox').classList.remove('hidden');
+  $('fab').classList.remove('pick-active');
+  $('fab').textContent = '＋';
+  $('hintbar').classList.remove('show');
+  if (showToastFlag !== false) showToast('已取消选点');
+}
+
+/* ============================================================
+   9. 地点搜索（双通道：A=SDK searchNearby；B=官方 WebService JSONP 直连）
+      A 失败且用户已配置自备 Key 时自动降级到 B；无 Key 时给出明确指引
+   ============================================================ */
+var poiSearcher = null;          // TMap.service.Search 实例（懒创建）
+var searchDebounceTimer = null;  // debounce 定时器
+var searchSeq = 0;               // 请求序号：丢弃过期响应（A/B 两通道共用）
+var lastSearchPois = [];         // 最近一次搜索结果（供点击取用）
+var jsonpCbSeq = 0;              // JSONP 回调名序号（保证全局唯一，杜绝并发冲突）
+var JSONP_TIMEOUT_MS = 5000;     // JSONP 超时：5s 自动清理
+
+function getPoiSearcher() {
+  if (poiSearcher) return poiSearcher;
+  if (typeof TMap === 'undefined' || !TMap.service || !TMap.service.Search) return null;
+  poiSearcher = new TMap.service.Search({ pageSize: 8 });
+  return poiSearcher;
+}
+
+function showSearchTip(text) {
+  $('searchResults').innerHTML = '<div class="sr-tip">' + escapeHtml(text) + '</div>';
+  $('searchResults').classList.add('show');
+}
+
+function hideSearchResults() {
+  $('searchResults').classList.remove('show');
+  $('searchResults').innerHTML = '';
+  lastSearchPois = [];
+}
+
+function clearSearchBox() {
+  $('searchInput').value = '';
+  $('searchClear').classList.remove('show');
+  hideSearchResults();
+}
+
+function renderSearchResults(pois) {
+  lastSearchPois = pois;
+  if (!pois.length) {
+    showSearchTip('🔍 没找到相关地点，换个关键词试试');
+    return;
+  }
+  var html = '';
+  pois.forEach(function (p, i) {
+    html +=
+      '<div class="sr-item" data-idx="' + i + '">' +
+        '<div class="sr-title">' + escapeHtml(p.title || '未命名地点') + '</div>' +
+        (p.address ? '<div class="sr-addr">' + escapeHtml(p.address) + '</div>' : '') +
+      '</div>';
+  });
+  $('searchResults').innerHTML = html;
+  $('searchResults').classList.add('show');
+}
+
+/* ---------- 通道 B：官方 WebService + JSONP 直连（用户自备 Key） ---------- */
+// 动态 <script> + 全局唯一回调名；超时/出错自动清理，过期序号直接丢弃
+function jsonpPlaceSearch(keyword, lat, lng, key, seq) {
+  var cbName = '__pmSearchCb_' + (++jsonpCbSeq) + '_' + Date.now();
+  var script = document.createElement('script');
+  var timer = null;
+
+  function cleanup() {
+    if (timer) { clearTimeout(timer); timer = null; }
+    try { delete window[cbName]; } catch (e) { window[cbName] = undefined; }
+    if (script.parentNode) script.parentNode.removeChild(script);
+  }
+
+  window[cbName] = function (res) {
+    cleanup();
+    if (seq !== searchSeq) return; // 已有更新的请求，丢弃本次结果
+    if (!res || res.status !== 0 || !Array.isArray(res.data)) {
+      showSearchTip('😅 搜索没成功，稍后再试试吧');
+      return;
+    }
+    // 官方结构 data[].{title, address, location:{lat,lng}} → 映射为应用内 POI 结构
+    var pois = res.data.map(function (d) {
+      var loc = (d && d.location) ? d.location : null;
+      return {
+        title: (d && d.title) ? d.title : '',
+        address: (d && d.address) ? d.address : '',
+        location: { lat: loc ? parseFloat(loc.lat) : NaN, lng: loc ? parseFloat(loc.lng) : NaN }
+      };
+    }).filter(function (p) {
+      return isFinite(p.location.lat) && isFinite(p.location.lng);
+    });
+    renderSearchResults(pois.slice(0, 8)); // 与通道 A 复用同一渲染逻辑
+  };
+
+  timer = setTimeout(function () {
+    cleanup();
+    if (seq !== searchSeq) return;
+    showSearchTip('😅 搜索超时，稍后再试试吧');
+  }, JSONP_TIMEOUT_MS);
+
+  script.src = 'https://apis.map.qq.com/ws/place/v1/search' +
+    '?keyword=' + encodeURIComponent(keyword) +
+    '&boundary=nearby(' + lat + ',' + lng + ',1000)' +
+    '&page_size=8' +
+    '&key=' + encodeURIComponent(key) +
+    '&output=jsonp&callback=' + cbName;
+  script.onerror = function () {
+    cleanup();
+    if (seq !== searchSeq) return;
+    showSearchTip('😅 搜索没成功，稍后再试试吧');
+  };
+  document.head.appendChild(script);
+}
+
+// 通道 A 失败后的分流：有 Key 走 B，无 Key 给出明确指引
+function fallbackToChannelB(keyword, lat, lng, seq) {
+  var key = getUserTmapKey();
+  if (!key) {
+    showSearchTip('当前环境搜索服务不可用。可在 清单 → ⚙️ 设置中填入免费申请的腾讯地图 Key 启用搜索，或点右下角「＋」手动标记地点');
+    return;
+  }
+  jsonpPlaceSearch(keyword, lat, lng, key, seq);
+}
+
+function doPlaceSearch(keyword) {
+  if (!map) {
+    showSearchTip('🗺️ 地图还没准备好，稍等一下再试');
+    return;
+  }
+  var seq = ++searchSeq;
+  showSearchTip('🔍 正在搜索…');
+  var center = map.getCenter();
+  var lat = center.getLat(), lng = center.getLng();
+
+  // 通道 A：SDK 服务类周边搜索（未来环境若支持 WebService 代理则直接可用）
+  var searcher = getPoiSearcher();
+  if (!searcher) {
+    fallbackToChannelB(keyword, lat, lng, seq);
+    return;
+  }
+  searcher.searchNearby({
+    keyword: keyword,
+    center: center,
+    radius: 1000,
+    autoExtend: true,
+    orderby: '_distance'
+  }).then(function (result) {
+    if (seq !== searchSeq) return; // 已有更新的请求，丢弃本次结果
+    var status = (result && result.status !== undefined) ? result.status : 0;
+    if (status === 0) {
+      var data = (result && Array.isArray(result.data)) ? result.data : [];
+      renderSearchResults(data.slice(0, 8));
+      return;
+    }
+    // status 非 0：视为通道 A 失败，尝试降级
+    fallbackToChannelB(keyword, lat, lng, seq);
+  }).catch(function () {
+    if (seq !== searchSeq) return;
+    fallbackToChannelB(keyword, lat, lng, seq);
+  });
+}
+
+function selectSearchResult(idx) {
+  var poi = lastSearchPois[idx];
+  hideSearchResults(); // 无论后续是否成功，先收起结果列表
+  if (!poi || !poi.location) return;
+  // POI 返回的 location 即 GCJ-02 坐标，直接使用
+  var lat, lng;
+  if (typeof poi.location.getLat === 'function') {
+    lat = poi.location.getLat();
+    lng = poi.location.getLng();
+  } else {
+    lat = parseFloat(poi.location.lat);
+    lng = parseFloat(poi.location.lng);
+  }
+  if (!isFinite(lat) || !isFinite(lng)) return;
+  $('searchInput').blur();
+  if (state.pickMode) exitPickMode(false);
+  map.easeTo({
+    center: new TMap.LatLng(lat, lng),
+    zoom: Math.max(map.getZoom(), 15),
+    duration: 500
+  });
+  openAddForm(lat, lng);
+  // 预填 POI 名称（openAddForm 会先清空输入框）
+  $('addName').value = String(poi.title || '').slice(0, 30);
+}
+
+function bindSearchEvents() {
+  var input = $('searchInput');
+  input.addEventListener('input', function () {
+    var kw = input.value.trim();
+    $('searchClear').classList.toggle('show', kw.length > 0);
+    clearTimeout(searchDebounceTimer);
+    if (kw.length < 2) { hideSearchResults(); return; }
+    searchDebounceTimer = setTimeout(function () { doPlaceSearch(kw); }, 300);
+  });
+  input.addEventListener('keydown', function (evt) {
+    if (evt.key !== 'Enter') return;
+    evt.preventDefault();
+    clearTimeout(searchDebounceTimer);
+    var kw = input.value.trim();
+    if (kw.length >= 2) doPlaceSearch(kw);
+  });
+  $('searchClear').addEventListener('click', function () {
+    clearSearchBox();
+    input.focus();
+  });
+  $('searchResults').addEventListener('click', function (evt) {
+    var item = evt.target.closest('.sr-item');
+    if (!item) return;
+    selectSearchResult(parseInt(item.getAttribute('data-idx'), 10));
+  });
+}
+
+/* ============================================================
+   10. 事件绑定 & 启动
+   ============================================================ */
+function bindEvents() {
+  // Tab
+  $('tabMap').addEventListener('click', function () { switchTab('map'); });
+  $('tabList').addEventListener('click', function () { switchTab('list'); });
+
+  // 浮动 + ：进入选点模式（再次点击取消）
+  $('fab').addEventListener('click', function () {
+    if (state.pickMode) { exitPickMode(); return; }
+    if (state.activeTab !== 'map') switchTab('map');
+    enterPickMode();
+  });
+
+  // 遮罩关闭抽屉
+  $('mask').addEventListener('click', closeAllDrawers);
+
+  // 添加表单
+  $('catGrid').addEventListener('click', function (evt) {
+    var btn = evt.target.closest('.cat-btn');
+    if (!btn) return;
+    state.addForm.category = btn.getAttribute('data-cat');
+    renderCatGrid();
+  });
+  $('addStatusSeg').addEventListener('click', function (evt) {
+    var btn = evt.target.closest('button');
+    if (!btn) return;
+    state.addForm.status = btn.getAttribute('data-status');
+    renderAddStatusSeg();
+  });
+  $('btnSubmitAdd').addEventListener('click', submitAdd);
+  $('btnCancelAdd').addEventListener('click', closeAllDrawers);
+
+  // 清单筛选
+  $('filterChips').addEventListener('click', function (evt) {
+    var chip = evt.target.closest('.chip');
+    if (!chip) return;
+    state.filter = chip.getAttribute('data-filter');
+    renderFilterChips();
+    renderList();
+  });
+
+  // 设置
+  $('btnOpenSettings').addEventListener('click', openSettings);
+  $('btnCloseSettings').addEventListener('click', closeAllDrawers);
+  $('btnSaveTmapKey').addEventListener('click', function () {
+    var k = $('tmapKeyInput').value.trim();
+    // 宽松格式校验：腾讯地图 Key 为字母/数字/连字符组合（长度 8~64）
+    if (k && !/^[A-Za-z0-9-]{8,64}$/.test(k)) {
+      showToast('⚠️ Key 格式看起来不对，请检查后重试');
+      return;
+    }
+    if (saveUserTmapKey(k)) {
+      showToast(k ? '🔑 腾讯地图 Key 已保存，搜索已启用' : '🔑 已清除腾讯地图 Key');
+    } else {
+      showToast('⚠️ 保存失败，本地存储不可用');
+    }
+  });
+  $('btnExport').addEventListener('click', exportData);
+  $('btnImport').addEventListener('click', function () { $('importFile').click(); });
+  $('importFile').addEventListener('change', function () {
+    var f = this.files && this.files[0];
+    importData(f);
+    this.value = ''; // 允许重复选择同一文件
+  });
+  // 合并导入推荐公园（老用户补种）：按名称去重，绝不改动现有地点
+  $('btnImportSeeds').addEventListener('click', async function () {
+    var existingNames = {};
+    state.places.forEach(function (p) {
+      existingNames[String(p.name || '').trim()] = true;
+    });
+    var missing = SEED_PLACES.filter(function (s) {
+      return !existingNames[String(s.name || '').trim()];
+    });
+    if (!missing.length) {
+      showToast('🌳 15 个推荐公园都已在你地图上啦');
+      return;
+    }
+    var ok = await confirmDialog('将为地图补充 ' + missing.length + ' 个推荐公园（跳过 ' +
+      (SEED_PLACES.length - missing.length) + ' 个已存在），不影响现有地点。确定导入吗？');
+    if (!ok) return;
+    var added = missing.map(sanitizePlace).filter(function (p2) {
+      return p2 && isFinite(p2.lat) && isFinite(p2.lng);
+    });
+    if (!added.length) { showToast('⚠️ 导入失败，请重试'); return; }
+    state.places = state.places.concat(added);
+    if (!saveState()) {
+      // 配额溢出已回滚：刷新界面即可（提示 Toast 已由 saveState 显示）
+      renderMarkers();
+      renderList();
+      return;
+    }
+    renderMarkers();
+    renderList();
+    showToast('🌳 已导入 ' + added.length + ' 个推荐公园（跳过 ' +
+      (SEED_PLACES.length - added.length) + ' 个已存在）');
+  });
+  // 游玩照片选择：压缩后暂存预览（未保存记录前不落盘）
+  $('visitPhotoInput').addEventListener('change', async function () {
+    var files = Array.prototype.slice.call(this.files || []);
+    this.value = ''; // 允许重复选择同一批文件
+    if (!files.length) return;
+    var placeIdAtStart = pendingPhotosPlaceId; // 压缩开始时照片归属的地点（防异步竞态串组）
+    var remain = MAX_PHOTOS_PER_VISIT - pendingPhotos.length;
+    if (remain <= 0) {
+      showToast('每条记录最多 ' + MAX_PHOTOS_PER_VISIT + ' 张照片哦');
+      return;
+    }
+    if (files.length > remain) {
+      // 超量截取与"正在处理"合并为一条 Toast，避免后者立即覆盖前者
+      showToast('📷 最多再选 ' + remain + ' 张，已自动取前 ' + remain + ' 张' +
+        (remain > 1 ? '，正在处理…' : ''));
+    } else if (files.length > 1) {
+      showToast('📷 正在处理 ' + files.length + ' 张照片…');
+    }
+    var taking = files.slice(0, remain);
+    for (var i = 0; i < taking.length; i++) {
+      try {
+        var dataUrl = await compressImageFile(taking[i]);
+        // 压缩是异步的：期间用户可能已切换到其他地点详情（或关闭抽屉），
+        // 归属地点已变则丢弃该张，防止照片落入新地点的暂存列表
+        if (pendingPhotosPlaceId !== placeIdAtStart) continue;
+        pendingPhotos.push(dataUrl);
+      } catch (e) {
+        showToast('⚠️ 有 1 张照片处理失败，已跳过');
+      }
+    }
+    if (pendingPhotosPlaceId === placeIdAtStart) renderPendingPhotos();
+  });
+  // 全屏照片查看器：点击任意处关闭，左右切换
+  $('photoViewer').addEventListener('click', closePhotoViewer);
+  $('pvPrev').addEventListener('click', function (evt) {
+    evt.stopPropagation();
+    stepPhotoViewer(-1);
+  });
+  $('pvNext').addEventListener('click', function (evt) {
+    evt.stopPropagation();
+    stepPhotoViewer(1);
+  });
+  $('btnClear').addEventListener('click', async function () {
+    if (!state.places.length) { showToast('当前没有数据可清空'); return; }
+    var ok = await confirmDialog('⚠️ 将清空全部 ' + state.places.length + ' 个地点及游玩记录，且无法恢复。确定吗？');
+    if (!ok) return;
+    var ok2 = await confirmDialog('再次确认：真的要清空所有数据吗？');
+    if (!ok2) return;
+    state.places = [];
+    if (!saveState()) {
+      // 配额失败已回滚（数据恢复），按旧数据刷新界面，不弹成功提示
+      renderMarkers();
+      renderList();
+      closeAllDrawers();
+      return;
+    }
+    renderMarkers();
+    renderList();
+    closeAllDrawers();
+    showToast('已清空全部数据');
+  });
+
+  // 欢迎引导
+  $('btnWelcomeOk').addEventListener('click', function () {
+    $('welcome').classList.remove('show');
+    try { localStorage.setItem(ONBOARD_KEY, '1'); } catch (e) { /* 忽略 */ }
+  });
+}
+
+function init() {
+  loadState();
+  bindEvents();
+  bindSearchEvents();
+  renderList();
+  initMap();
+  // 首次使用显示欢迎引导（首次预置种子数据的用户同样显示，并提示预置数量）
+  var onboarded = false;
+  try { onboarded = !!localStorage.getItem(ONBOARD_KEY); } catch (e) { /* 忽略 */ }
+  if (!onboarded && (state.places.length === 0 || seededThisSession)) {
+    if (seededThisSession && state.places.length > 0) {
+      $('welcomeSeedHint').textContent =
+        '🌳 已为您预置了 ' + state.places.length + ' 个上海亲子公园，点击图钉即可查看';
+      $('welcomeSeedHint').style.display = '';
+    }
+    $('welcome').classList.add('show');
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
+})();
+</script>
+</body>
+</html>

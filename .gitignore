@@ -1,0 +1,5 @@
+# WorkBuddy internal project data (not part of the app)
+.workbuddy-ai/
+
+# macOS
+.DS_Store
