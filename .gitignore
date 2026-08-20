@@ -1,5 +1,3 @@
-# WorkBuddy internal project data (not part of the app)
-.workbuddy-ai/
-
-# macOS
+# WorkBuddy 项目数据（记忆/状态，不入库）
+.workbuddy/
 .DS_Store

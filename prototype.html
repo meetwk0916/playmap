@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>亲子游玩地图 · UI 设计提案原型 — 像素君</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+KuaiLe&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   设计令牌 —— 「玩具般俏皮 × 北欧清新」
+   ============================================================ */
+:root {
+  --paper:#F7F5EE; --surface:#FFFEFA;
+  --ink:#24352B; --ink-2:#5C6B60; --line:#E7E2D2;
+  --spruce:#2F6B4F; --spruce-deep:#23543D; --spruce-soft:#E3EFE6;
+  --sun:#F2B33D; --sun-soft:#FCF0D8;
+  --sky:#3D7AAD; --sky-soft:#E2EEF6;
+  --coral:#D96A55; --coral-soft:#FAE8E3;
+  --visited:#2E7D52; --visited-soft:#E2F1E7;
+  --danger:#C8493B; --danger-soft:#FBEAE7;
+  --font-display:"ZCOOL KuaiLe","PingFang SC",sans-serif;
+  --font-body:-apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  --r-sm:10px; --r-md:16px; --r-lg:22px; --r-pill:999px;
+  --shadow-1:0 2px 8px rgba(47,107,79,.10);
+  --shadow-2:0 6px 20px rgba(47,107,79,.14);
+  --shadow-fab:0 8px 22px rgba(47,107,79,.32);
+  --ease-out:cubic-bezier(.22,1,.36,1);
+}
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body { margin:0; padding:0; }
+body {
+  font-family:var(--font-body); color:var(--ink);
+  background:
+    radial-gradient(1200px 700px at 15% -10%, #EAF3E4 0%, transparent 55%),
+    radial-gradient(1000px 600px at 110% 20%, #E2EEF6 0%, transparent 50%),
+    var(--paper);
+  min-height:100vh;
+}
+button { font-family:inherit; cursor:pointer; border:none; background:none; color:inherit; }
+:focus-visible { outline:2px solid var(--spruce); outline-offset:2px; border-radius:6px; }
+
+/* ============================================================
+   演示舞台（桌面：页眉 + 手机框 + 设计批注；移动：全屏）
+   ============================================================ */
+.stage { max-width:1180px; margin:0 auto; padding:28px 20px 64px; }
+.stage-head { text-align:center; margin-bottom:26px; }
+.stage-head .kicker {
+  display:inline-block; font-size:12px; letter-spacing:.18em; color:var(--spruce);
+  background:var(--spruce-soft); border-radius:var(--r-pill); padding:5px 14px; font-weight:700;
+}
+.stage-head h1 { font-family:var(--font-display); font-weight:400; font-size:clamp(24px,4vw,36px); margin:12px 0 6px; }
+.stage-head p { color:var(--ink-2); font-size:14px; margin:0; }
+.stage-head .sig { color:var(--spruce); font-weight:700; }
+
+.mock-row { display:flex; justify-content:center; align-items:center; gap:44px; }
+.note { width:210px; font-size:13px; color:var(--ink-2); line-height:1.7; display:none; }
+.note b { color:var(--ink); display:block; margin-bottom:4px; font-size:14px; }
+.note .dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:6px; vertical-align:1px; }
+@media (min-width:1080px) { .note { display:block; } }
+
+/* 手机框 */
+.phone {
+  width:392px; height:780px; max-height:calc(100vh - 40px);
+  border-radius:46px; padding:11px;
+  background:#1E2A23; box-shadow:0 30px 70px rgba(36,53,43,.35), inset 0 0 0 2px #32453B;
+  position:relative; flex-shrink:0;
+}
+.screen {
+  width:100%; height:100%; border-radius:36px; overflow:hidden;
+  background:var(--paper); position:relative;
+}
+@media (max-width:560px) {
+  .stage { padding:0; } .stage-head,.note { display:none; }
+  .phone { width:100vw; height:100vh; max-height:none; border-radius:0; padding:0; background:none; box-shadow:none; }
+  .screen { border-radius:0; }
+}
+
+/* ============================================================
+   地图页
+   ============================================================ */
+.map-wrap { position:absolute; inset:0; }
+.map-svg { position:absolute; inset:0; width:100%; height:100%; }
+
+/* 顶部搜索胶囊 */
+.search-pill {
+  position:absolute; top:calc(14px + env(safe-area-inset-top,0px)); left:14px; right:14px; z-index:6;
+  display:flex; align-items:center; gap:9px;
+  background:var(--surface); border-radius:var(--r-pill);
+  padding:12px 16px; box-shadow:var(--shadow-2);
+}
+.search-pill .mag { font-size:15px; }
+.search-pill input {
+  flex:1; min-width:0; border:none; outline:none; background:transparent;
+  font-size:15px; color:var(--ink); font-family:inherit;
+}
+.search-pill input::placeholder { color:var(--ink-2); }
+
+/* 分类筛选条（地图页前置 —— 参考站核心模式） */
+.cat-strip {
+  position:absolute; top:calc(72px + env(safe-area-inset-top,0px)); left:0; right:0; z-index:6;
+  display:flex; gap:8px; padding:2px 14px 10px;
+  overflow-x:auto; scrollbar-width:none;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 18px,#000 calc(100% - 18px),transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 18px,#000 calc(100% - 18px),transparent);
+}
+.cat-strip::-webkit-scrollbar { display:none; }
+.chip {
+  flex-shrink:0; display:flex; align-items:center; gap:5px;
+  background:var(--surface); border:1.5px solid var(--line); color:var(--ink-2);
+  border-radius:var(--r-pill); padding:8px 14px; font-size:13px; font-weight:500;
+  box-shadow:var(--shadow-1); transition:all .18s var(--ease-out);
+}
+.chip.active { border-color:var(--spruce); background:var(--spruce-soft); color:var(--ink); font-weight:700; }
+
+/* 图钉 */
+.pin {
+  position:absolute; z-index:4; transform:translate(-50%,-100%);
+  display:flex; flex-direction:column; align-items:center;
+  transition:transform .2s var(--ease-out), opacity .2s;
+}
+.pin:hover { transform:translate(-50%,-100%) scale(1.12); z-index:5; }
+.pin .pin-body {
+  width:40px; height:40px; border-radius:50% 50% 50% 6px;
+  transform:rotate(-45deg);
+  border:2.5px solid #fff; box-shadow:0 4px 10px rgba(36,53,43,.28);
+  display:flex; align-items:center; justify-content:center;
+}
+.pin .pin-emoji { transform:rotate(45deg); font-size:17px; line-height:1; }
+.pin .pin-badge {
+  position:absolute; right:-3px; bottom:1px; width:15px; height:15px;
+  background:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:10px; font-weight:900; box-shadow:0 1px 3px rgba(36,53,43,.3);
+}
+.pin.filtered-out { opacity:.18; transform:translate(-50%,-100%) scale(.8); pointer-events:none; }
+.pin-label {
+  position:absolute; z-index:5; transform:translate(-50%,0);
+  background:rgba(36,53,43,.88); color:#fff; font-size:12px;
+  padding:4px 10px; border-radius:var(--r-pill); white-space:nowrap;
+  opacity:0; transition:opacity .2s; pointer-events:none;
+}
+.pin-label.show { opacity:1; }
+
+/* FAB */
+.fab {
+  position:absolute; right:16px; bottom:96px; z-index:7;
+  width:58px; height:58px; border-radius:50%;
+  background:var(--spruce); color:#fff; font-size:30px; line-height:1;
+  box-shadow:var(--shadow-fab);
+  display:flex; align-items:center; justify-content:center;
+  transition:transform .16s var(--ease-out), background .2s;
+}
+.fab:active { transform:scale(.92); }
+.fab-tip {
+  position:absolute; right:82px; bottom:112px; z-index:7;
+  background:var(--surface); border-radius:var(--r-pill); box-shadow:var(--shadow-2);
+  font-size:12px; color:var(--ink-2); padding:7px 13px; white-space:nowrap;
+  animation:floaty 2.6s ease-in-out infinite;
+}
+@keyframes floaty { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+
+/* 底部 Tab */
+.tabbar {
+  position:absolute; left:0; right:0; bottom:0; z-index:8;
+  display:flex; background:var(--surface); border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+.tabbar .tab {
+  flex:1; padding:9px 0 8px; display:flex; flex-direction:column; align-items:center; gap:2px;
+  font-size:12px; color:var(--ink-2);
+}
+.tabbar .tab .ti { font-size:20px; line-height:1; }
+.tabbar .tab.active { color:var(--spruce); font-weight:700; }
+
+/* ============================================================
+   清单页
+   ============================================================ */
+.page-list {
+  position:absolute; inset:0; z-index:9; background:var(--paper);
+  display:none; flex-direction:column;
+}
+.page-list.active { display:flex; }
+.list-head {
+  padding:calc(18px + env(safe-area-inset-top,0px)) 18px 6px;
+  display:flex; align-items:baseline; justify-content:space-between;
+}
+.list-head h1 { font-family:var(--font-display); font-weight:400; font-size:26px; margin:0; }
+.list-head .stats { font-size:12px; color:var(--ink-2); }
+.list-chips { display:flex; gap:8px; padding:12px 18px 10px; }
+.list-body { flex:1; overflow-y:auto; padding:2px 16px 96px; }
+.place-card {
+  background:var(--surface); border-radius:var(--r-lg); box-shadow:var(--shadow-1);
+  padding:14px; margin-bottom:12px; display:flex; align-items:center; gap:12px;
+  transition:transform .18s var(--ease-out), box-shadow .18s;
+}
+.place-card:active { transform:translateY(-2px); box-shadow:var(--shadow-2); }
+.place-card .pc-emoji {
+  width:48px; height:48px; border-radius:15px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:23px;
+}
+.place-card .pc-main { flex:1; min-width:0; }
+.place-card .pc-name { font-size:16px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.place-card .pc-meta { font-size:12px; color:var(--ink-2); margin-top:4px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.stars { color:var(--sun); letter-spacing:1px; } .stars .off { color:#E4DEC9; }
+.badge { font-size:11px; font-weight:700; padding:3px 9px; border-radius:var(--r-pill); }
+.badge.wish { background:var(--sun-soft); color:#9A6A12; }
+.badge.visited { background:var(--visited-soft); color:var(--visited); }
+.empty-tip { text-align:center; color:var(--ink-2); padding:52px 26px; font-size:14px; line-height:1.9; }
+.empty-tip .big { font-size:46px; display:block; margin-bottom:10px; }
+
+/* ============================================================
+   底部抽屉 & 遮罩 & Toast
+   ============================================================ */
+.mask {
+  position:absolute; inset:0; z-index:19; background:rgba(36,53,43,.45);
+  opacity:0; pointer-events:none; transition:opacity .24s;
+}
+.mask.show { opacity:1; pointer-events:auto; }
+.drawer {
+  position:absolute; left:0; right:0; bottom:0; z-index:20;
+  background:var(--surface); border-radius:24px 24px 0 0;
+  transform:translateY(105%); transition:transform .3s var(--ease-out);
+  max-height:84%; overflow-y:auto; padding:8px 20px calc(22px + env(safe-area-inset-bottom,0px));
+}
+.drawer.open { transform:translateY(0); }
+.grabber { width:42px; height:5px; border-radius:3px; background:var(--line); margin:6px auto 10px; }
+.drawer h2 { font-family:var(--font-display); font-weight:400; font-size:21px; text-align:center; margin:4px 0 2px; }
+.drawer .sub { text-align:center; color:var(--ink-2); font-size:13px; margin-bottom:12px; }
+
+.detail-head { display:flex; align-items:center; gap:13px; margin:8px 0 4px; }
+.detail-head .dh-emoji {
+  width:54px; height:54px; border-radius:17px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; font-size:27px;
+}
+.detail-head .dh-name { font-size:19px; font-weight:800; }
+.detail-head .dh-cat { font-size:12px; color:var(--ink-2); margin-top:3px; }
+.rate-row { display:flex; justify-content:center; gap:4px; margin:10px 0 2px; }
+.rate-row .star { font-size:28px; color:#E4DEC9; padding:2px 4px; transition:transform .15s var(--ease-out); }
+.rate-row .star.on { color:var(--sun); }
+.rate-row .star:active { transform:scale(1.25); }
+.rate-hint { text-align:center; font-size:12px; color:var(--ink-2); margin-bottom:8px; }
+
+.info-chips { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 2px; }
+.info-chip {
+  font-size:12px; color:var(--ink); background:var(--sky-soft);
+  border-radius:var(--r-pill); padding:6px 12px;
+}
+.info-chip.green { background:var(--spruce-soft); }
+
+.section-title { font-size:14px; font-weight:700; margin:18px 0 9px; display:flex; align-items:center; gap:6px; }
+.visit-card { background:var(--paper); border:1px solid var(--line); border-radius:var(--r-md); padding:11px 13px; margin-bottom:9px; }
+.visit-card .v-top { font-size:13px; font-weight:700; display:flex; justify-content:space-between; }
+.visit-card .v-note { font-size:13px; margin-top:4px; line-height:1.6; }
+.visit-photos { display:flex; gap:8px; margin-top:9px; }
+.visit-photos .ph {
+  width:58px; height:58px; border-radius:11px; display:flex; align-items:center; justify-content:center;
+  font-size:24px; border:1px solid var(--line);
+}
+
+.field { margin:13px 0; }
+.field label { display:block; font-size:12px; color:var(--ink-2); margin-bottom:6px; font-weight:700; }
+.field input[type=text], .field textarea {
+  width:100%; border:1.5px solid var(--line); border-radius:var(--r-sm);
+  padding:11px 13px; background:var(--paper); outline:none;
+  font-size:15px; color:var(--ink); font-family:inherit;
+}
+.field input:focus, .field textarea:focus { border-color:var(--spruce); }
+.cat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; }
+.cat-btn {
+  border:1.5px solid var(--line); background:var(--paper); border-radius:var(--r-sm);
+  padding:9px 2px; display:flex; flex-direction:column; align-items:center; gap:3px;
+  font-size:11px; color:var(--ink-2);
+}
+.cat-btn .ce { font-size:19px; line-height:1; }
+.cat-btn.active { border-color:var(--spruce); background:var(--spruce-soft); color:var(--ink); font-weight:700; }
+
+.btn-primary {
+  width:100%; border-radius:var(--r-md); padding:14px 0;
+  font-size:16px; font-weight:800; color:#fff; background:var(--spruce);
+  box-shadow:0 4px 14px rgba(47,107,79,.32); transition:transform .15s var(--ease-out);
+}
+.btn-primary:active { transform:scale(.98); background:var(--spruce-deep); }
+.btn-ghost {
+  width:100%; border:1.5px solid var(--line); border-radius:var(--r-md);
+  padding:12px 0; font-size:14px; background:var(--paper); color:var(--ink-2); margin-top:10px;
+}
+.btn-danger { border-radius:var(--r-sm); padding:10px 16px; font-size:14px; background:var(--danger-soft); color:var(--danger); font-weight:700; }
+.btn-toggle { flex:1; border-radius:var(--r-sm); padding:11px 0; font-size:14px; font-weight:800; }
+.btn-toggle.to-visited { background:var(--visited-soft); color:var(--visited); }
+.btn-toggle.to-wish { background:var(--sun-soft); color:#9A6A12; }
+
+.toast {
+  position:absolute; top:calc(16px + env(safe-area-inset-top,0px)); left:50%; transform:translateX(-50%);
+  z-index:40; background:rgba(36,53,43,.92); color:#fff; font-size:14px;
+  padding:10px 18px; border-radius:var(--r-pill); max-width:86%;
+  opacity:0; pointer-events:none; transition:opacity .25s; box-shadow:var(--shadow-2);
+}
+.toast.show { opacity:1; }
+
+/* 设计令牌速览条 */
+.token-strip {
+  display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:34px;
+}
+.token-strip .tk {
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r-pill);
+  font-size:12px; color:var(--ink-2); padding:7px 14px; display:flex; align-items:center; gap:8px;
+}
+.token-strip .sw { width:14px; height:14px; border-radius:50%; border:1px solid rgba(36,53,43,.12); }
+@media (max-width:560px) { .token-strip { display:none; } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:.01ms !important; transition-duration:.01ms !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="stage">
+  <div class="stage-head">
+    <span class="kicker">UI DESIGN PROPOSAL · V2.0</span>
+    <h1>亲子游玩地图 · 全新界面设计</h1>
+    <p>参考 Pienten Suomi 社区亲子地图 · 「玩具般俏皮 × 北欧清新」 · 设计：<span class="sig">像素君 🎨</span></p>
+  </div>
+
+  <div class="mock-row">
+    <div class="note">
+      <b><span class="dot" style="background:var(--spruce)"></span>地图即首页</b>
+      打开即是全屏地图与彩色图钉，零学习成本；分类筛选前置到地图页，找游乐场不用进清单。
+      <br><br>
+      <b><span class="dot" style="background:var(--sun)"></span>双编码图钉</b>
+      颜色 = 类别，右下角 ✓ 徽章 = 已去过，扫一眼就懂。
+    </div>
+
+    <div class="phone">
+      <div class="screen">
+
+        <!-- ================= 地图页 ================= -->
+        <div class="map-wrap" id="mapWrap">
+          <!-- 绘本风插画地图 -->
+          <svg class="map-svg" viewBox="0 0 392 780" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <rect width="392" height="780" fill="#EDF3E4"/>
+            <!-- 河流 -->
+            <path d="M-20 560 C 90 520, 140 610, 250 580 S 400 640, 430 610 L 430 800 L -20 800 Z" fill="#CFE4F0"/>
+            <path d="M-20 585 C 90 545, 150 635, 260 605 S 400 665, 430 635" fill="none" stroke="#B9D8EA" stroke-width="7" stroke-linecap="round"/>
+            <!-- 公园绿地 -->
+            <ellipse cx="90" cy="200" rx="85" ry="64" fill="#D9EAD3"/>
+            <ellipse cx="300" cy="140" rx="70" ry="52" fill="#D9EAD3"/>
+            <ellipse cx="320" cy="420" rx="78" ry="58" fill="#DCEBD6"/>
+            <ellipse cx="110" cy="470" rx="66" ry="48" fill="#E3EFDC"/>
+            <!-- 树木点缀 -->
+            <g fill="#B7D6AC">
+              <circle cx="60" cy="180" r="9"/><circle cx="105" cy="215" r="7"/><circle cx="130" cy="180" r="8"/>
+              <circle cx="280" cy="125" r="8"/><circle cx="325" cy="150" r="7"/>
+              <circle cx="300" cy="405" r="8"/><circle cx="345" cy="430" r="7"/>
+              <circle cx="90" cy="460" r="7"/><circle cx="130" cy="480" r="8"/>
+            </g>
+            <!-- 道路 -->
+            <g stroke="#FDFBF3" stroke-width="14" fill="none" stroke-linecap="round">
+              <path d="M-10 320 C 100 300, 260 340, 410 300"/>
+              <path d="M180 -10 C 190 150, 165 350, 200 560"/>
+              <path d="M-10 90 C 120 120, 280 60, 410 100"/>
+            </g>
+            <g stroke="#EFE8D2" stroke-width="2.5" stroke-dasharray="10 9" fill="none">
+              <path d="M-10 320 C 100 300, 260 340, 410 300"/>
+              <path d="M180 -10 C 190 150, 165 350, 200 560"/>
+              <path d="M-10 90 C 120 120, 280 60, 410 100"/>
+            </g>
+            <!-- 街区 -->
+            <g fill="#F4EFDE">
+              <rect x="215" y="180" width="70" height="52" rx="9"/>
+              <rect x="225" y="250" width="52" height="40" rx="8"/>
+              <rect x="35" y="330" width="74" height="55" rx="9"/>
+              <rect x="240" y="490" width="64" height="46" rx="9"/>
+              <rect x="45" y="600" width="80" height="56" rx="10"/>
+              <rect x="255" y="640" width="70" height="50" rx="9"/>
+            </g>
+            <!-- 步行小径 -->
+            <path d="M60 240 C 110 300, 90 380, 140 430 S 240 520, 235 580" fill="none" stroke="#E8DFC4" stroke-width="4" stroke-dasharray="1 10" stroke-linecap="round"/>
+          </svg>
+
+          <!-- 搜索胶囊 -->
+          <div class="search-pill">
+            <span class="mag">🔍</span>
+            <input id="searchInput" type="search" placeholder="搜地点，如：世纪公园" autocomplete="off" />
+          </div>
+
+          <!-- 分类筛选条 -->
+          <div class="cat-strip" id="catStrip"></div>
+
+          <!-- 图钉层（JS 渲染） -->
+          <div id="pinLayer"></div>
+
+          <div class="fab-tip">发现好去处？推荐给大家 ✨</div>
+          <button class="fab" id="fab" aria-label="推荐新地点">＋</button>
+        </div>
+
+        <!-- ================= 清单页 ================= -->
+        <div class="page-list" id="pageList">
+          <div class="list-head">
+            <h1>🎒 游玩清单</h1>
+            <span class="stats" id="listStats"></span>
+          </div>
+          <div class="list-chips" id="listChips">
+            <button class="chip active" data-filter="all">全部</button>
+            <button class="chip" data-filter="wish">🧡 待探索</button>
+            <button class="chip" data-filter="visited">💚 已去过</button>
+          </div>
+          <div class="list-body" id="listBody"></div>
+        </div>
+
+        <!-- 底部 Tab -->
+        <div class="tabbar">
+          <button class="tab active" id="tabMap"><span class="ti">🗺️</span>地图</button>
+          <button class="tab" id="tabList"><span class="ti">🎒</span>清单</button>
+        </div>
+
+        <!-- 遮罩 -->
+        <div class="mask" id="mask"></div>
+
+        <!-- 抽屉：地点详情 -->
+        <div class="drawer" id="drawerDetail">
+          <div class="grabber"></div>
+          <div id="detailContent"></div>
+        </div>
+
+        <!-- 抽屉：推荐地点 -->
+        <div class="drawer" id="drawerAdd">
+          <div class="grabber"></div>
+          <h2>推荐好去处</h2>
+          <div class="sub">你的推荐会帮助其他带娃家庭 ✨（参考 Pienten Suomi 社区共建模式）</div>
+          <div class="field">
+            <label>地点名称（必填）</label>
+            <input type="text" id="addName" placeholder="比如：世纪公园、商场顶楼滑梯…" maxlength="30" />
+          </div>
+          <div class="field">
+            <label>选择类别</label>
+            <div class="cat-grid" id="catGrid"></div>
+          </div>
+          <div class="field">
+            <label>一句话推荐理由</label>
+            <input type="text" placeholder="滑梯超多，人少，停车方便…" maxlength="60" />
+          </div>
+          <button class="btn-primary" id="btnSubmitAdd">✨ 提交推荐</button>
+          <button class="btn-ghost" id="btnCancelAdd">取消</button>
+        </div>
+
+        <!-- Toast -->
+        <div class="toast" id="toast"></div>
+
+      </div>
+    </div>
+
+    <div class="note">
+      <b><span class="dot" style="background:var(--coral)"></span>社区共建</b>
+      「＋」= 推荐好去处。像小芬兰一样，内容由真实家长推荐，儿童视角组织信息。
+      <br><br>
+      <b><span class="dot" style="background:var(--sky)"></span>单手可达</b>
+      所有弹层皆为底部抽屉，核心操作落在拇指热区；触控目标 ≥ 44px，对比度全量过 WCAG AA。
+    </div>
+  </div>
+
+  <div class="token-strip">
+    <span class="tk"><span class="sw" style="background:#2F6B4F"></span>云杉绿 #2F6B4F</span>
+    <span class="tk"><span class="sw" style="background:#F2B33D"></span>暖阳黄 #F2B33D</span>
+    <span class="tk"><span class="sw" style="background:#3D7AAD"></span>天空蓝 #3D7AAD</span>
+    <span class="tk"><span class="sw" style="background:#D96A55"></span>珊瑚红 #D96A55</span>
+    <span class="tk">圆角 22px 有机</span>
+    <span class="tk">4pt 间距网格</span>
+    <span class="tk">标题：ZCOOL KuaiLe</span>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   演示数据（坐标为插画地图上的百分比位置）
+   ============================================================ */
+var CATEGORIES = [
+  { value:'all',        label:'全部',      emoji:'✨', color:'#2F6B4F', bg:'#E3EFE6' },
+  { value:'park',       label:'公园',      emoji:'🌳', color:'#3D9970', bg:'#E3EFE6' },
+  { value:'playground', label:'游乐场',    emoji:'🎠', color:'#F2822E', bg:'#FCF0D8' },
+  { value:'zoo',        label:'动物园',    emoji:'🐼', color:'#A06BC8', bg:'#F1E8F9' },
+  { value:'museum',     label:'博物馆',    emoji:'🏛️', color:'#6478D8', bg:'#E8EBFA' },
+  { value:'water',      label:'亲水玩沙',  emoji:'🏖️', color:'#2FA3C7', bg:'#E0F2F7' },
+  { value:'mall',       label:'商场',      emoji:'🛍️', color:'#E06A8B', bg:'#FAE6ED' }
+];
+function catOf(v){ for (var i=0;i<CATEGORIES.length;i++) if (CATEGORIES[i].value===v) return CATEGORIES[i]; return CATEGORIES[0]; }
+
+var PLACES = [
+  { id:'p1', name:'世纪公园',       cat:'park',       status:'visited', rating:5, visits:3, x:23,  y:26, dist:'2.1km',
+    info:['🅿️ 停车方便','👶 推车友好','🚻 亲子卫生间'],
+    notes:[{d:'2026-08-15',t:'3小时',n:'大草坪野餐，宝宝追鸽子追了一下午 🕊️'},{d:'2026-07-26',t:'2小时',n:'租了四人自行车环湖'}] },
+  { id:'p2', name:'欢乐谷儿童乐园', cat:'playground', status:'wish',    rating:0, visits:0, x:76,  y:18, dist:'5.4km',
+    info:['🎫 需购票','👶 3岁+ 更适合'], notes:[] },
+  { id:'p3', name:'上海动物园',     cat:'zoo',        status:'visited', rating:4, visits:2, x:82,  y:54, dist:'7.8km',
+    info:['🅿️ 车位紧张','🚻 亲子卫生间','🍱 有母婴餐区'],
+    notes:[{d:'2026-06-30',t:'4小时',n:'大熊猫馆排队 40 分钟，但值了 🐼'}] },
+  { id:'p4', name:'自然博物馆',     cat:'museum',     status:'wish',    rating:0, visits:0, x:46,  y:40, dist:'1.2km',
+    info:['🎫 需预约','❄️ 室内避暑'], notes:[] },
+  { id:'p5', name:'前滩休闲公园',   cat:'water',      status:'visited', rating:5, visits:1, x:60,  y:72, dist:'4.6km',
+    info:['🏖️ 免费沙滩','👶 推车友好'],
+    notes:[{d:'2026-08-02',t:'2小时',n:'挖沙挖到不想走，记得多带一套衣服！'}] },
+  { id:'p6', name:'大悦城顶楼乐园', cat:'mall',       status:'wish',    rating:0, visits:0, x:30,  y:62, dist:'3.3km',
+    info:['🎡 摩天轮','🍱 餐饮选择多'], notes:[] }
+];
+
+var state = { tab:'map', catFilter:'all', listFilter:'all', detailId:null, addCat:'park' };
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+var toastTimer=null;
+function toast(msg){ var t=$('toast'); t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer=setTimeout(function(){ t.classList.remove('show'); },2200); }
+
+function starsText(r){ var s=''; for (var i=1;i<=5;i++) s += i<=r ? '★' : '<span class="off">★</span>'; return s; }
+
+/* ---------- 分类筛选条 ---------- */
+function renderCatStrip(){
+  $('catStrip').innerHTML = CATEGORIES.map(function(c){
+    return '<button class="chip'+(state.catFilter===c.value?' active':'')+'" data-cat="'+c.value+'">'+c.emoji+' '+c.label+'</button>';
+  }).join('');
+  $('catStrip').querySelectorAll('.chip').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      state.catFilter = btn.getAttribute('data-cat');
+      renderCatStrip(); renderPins();
+      toast(state.catFilter==='all' ? '显示全部地点' : '已筛选：'+catOf(state.catFilter).label);
+    });
+  });
+}
+
+/* ---------- 地图图钉 ---------- */
+function renderPins(){
+  var layer = $('pinLayer');
+  layer.innerHTML = '';
+  PLACES.forEach(function(p){
+    var c = catOf(p.cat);
+    var hide = state.catFilter!=='all' && p.cat!==state.catFilter;
+    var pin = document.createElement('button');
+    pin.className = 'pin' + (hide ? ' filtered-out' : '');
+    pin.style.left = p.x + '%'; pin.style.top = p.y + '%';
+    pin.setAttribute('aria-label', c.label + '：' + p.name + (p.status==='visited' ? '，已去过' : '，待探索'));
+    pin.innerHTML =
+      '<span class="pin-body" style="background:'+c.color+'">' +
+        '<span class="pin-emoji">'+c.emoji+'</span>' +
+      '</span>' +
+      (p.status==='visited' ? '<span class="pin-badge" style="color:'+c.color+'">✓</span>' : '');
+    pin.addEventListener('click', function(){ openDetail(p.id); });
+    layer.appendChild(pin);
+    var label = document.createElement('div');
+    label.className = 'pin-label'; label.id = 'label-'+p.id;
+    label.style.left = p.x + '%'; label.style.top = 'calc(' + p.y + '% + 8px)';
+    label.textContent = p.name;
+    layer.appendChild(label);
+  });
+}
+
+/* ---------- 清单页 ---------- */
+function renderList(){
+  var filtered = PLACES.filter(function(p){ return state.listFilter==='all' || p.status===state.listFilter; });
+  var visitedN = PLACES.filter(function(p){ return p.status==='visited'; }).length;
+  $('listStats').textContent = '共 '+PLACES.length+' 个 · 已去过 '+visitedN;
+  $('listChips').querySelectorAll('.chip').forEach(function(c){
+    c.classList.toggle('active', c.getAttribute('data-filter')===state.listFilter);
+  });
+  if (!filtered.length){
+    $('listBody').innerHTML =
+      '<div class="empty-tip"><span class="big">🎈</span>这个分类下还没有地点<br>点右下角 ＋，推荐你们的第一个秘密基地吧</div>';
+    return;
+  }
+  $('listBody').innerHTML = filtered.map(function(p){
+    var c = catOf(p.cat);
+    return '<div class="place-card" data-id="'+p.id+'">' +
+      '<div class="pc-emoji" style="background:'+c.bg+'">'+c.emoji+'</div>' +
+      '<div class="pc-main"><div class="pc-name">'+esc(p.name)+'</div>' +
+      '<div class="pc-meta">' +
+        '<span class="stars">'+(p.rating ? starsText(p.rating) : '<span class="off">未评分</span>')+'</span>' +
+        '<span>🎡 '+p.visits+' 次</span><span>📍 '+p.dist+'</span>' +
+      '</div></div>' +
+      '<span class="badge '+p.status+'">'+(p.status==='wish'?'待探索':'已去过')+'</span>' +
+    '</div>';
+  }).join('');
+  $('listBody').querySelectorAll('.place-card').forEach(function(card){
+    card.addEventListener('click', function(){ openDetail(card.getAttribute('data-id')); });
+  });
+}
+$('listChips').querySelectorAll('.chip').forEach(function(c){
+  c.addEventListener('click', function(){ state.listFilter=c.getAttribute('data-filter'); renderList(); });
+});
+
+/* ---------- Tab ---------- */
+function switchTab(tab){
+  state.tab = tab;
+  $('tabMap').classList.toggle('active', tab==='map');
+  $('tabList').classList.toggle('active', tab==='list');
+  $('pageList').classList.toggle('active', tab==='list');
+  if (tab==='list') renderList();
+}
+$('tabMap').addEventListener('click', function(){ switchTab('map'); });
+$('tabList').addEventListener('click', function(){ switchTab('list'); });
+
+/* ---------- 抽屉 ---------- */
+function openDrawer(id){ closeDrawers(); $(id).classList.add('open'); $('mask').classList.add('show'); }
+function closeDrawers(){
+  $('drawerDetail').classList.remove('open'); $('drawerAdd').classList.remove('open');
+  $('mask').classList.remove('show');
+  document.querySelectorAll('.pin-label').forEach(function(l){ l.classList.remove('show'); });
+}
+$('mask').addEventListener('click', closeDrawers);
+
+/* ---------- 地点详情 ---------- */
+function openDetail(id){
+  var p = PLACES.find(function(x){ return x.id===id; }); if (!p) return;
+  state.detailId = id;
+  var c = catOf(p.cat);
+  var stars='';
+  for (var i=1;i<=5;i++) stars += '<button class="star'+(i<=p.rating?' on':'')+'" data-star="'+i+'" aria-label="'+i+' 星">★</button>';
+  var notes = p.notes.length
+    ? p.notes.map(function(v){
+        return '<div class="visit-card"><div class="v-top"><span>📅 '+v.d+' · ⏱ '+v.t+'</span></div>' +
+               '<div class="v-note">💬 '+esc(v.n)+'</div></div>';
+      }).join('')
+    : '<div class="empty-tip" style="padding:18px">还没有游玩记录，去打卡第一次吧 ✨</div>';
+  $('detailContent').innerHTML =
+    '<div class="detail-head">' +
+      '<div class="dh-emoji" style="background:'+c.bg+'">'+c.emoji+'</div>' +
+      '<div><div class="dh-name">'+esc(p.name)+'</div>' +
+      '<div class="dh-cat">'+c.label+' · 📍 '+p.dist+'</div></div>' +
+    '</div>' +
+    '<div class="rate-row">'+stars+'</div>' +
+    '<div class="rate-hint">'+(p.rating ? p.rating+' 星 · ' : '点击星星评分 · ')+'共 '+p.visits+' 次游玩</div>' +
+    '<div style="display:flex;gap:10px;margin:6px 0 2px">' +
+      '<button class="btn-toggle '+(p.status==='wish'?'to-visited':'to-wish')+'" id="btnToggle">' +
+        (p.status==='wish' ? '✅ 标记为已去过' : '↩️ 放回待探索') + '</button>' +
+    '</div>' +
+    '<div class="section-title">🧸 亲子实用信息</div>' +
+    '<div class="info-chips">'+p.info.map(function(t,i){ return '<span class="info-chip'+(i%2?' green':'')+'">'+t+'</span>'; }).join('')+'</div>' +
+    '<div class="section-title">🎡 游玩记录（'+p.notes.length+'）</div>' + notes +
+    '<button class="btn-primary" id="btnCheckin" style="margin-top:8px">📝 记录一次游玩</button>' +
+    '<div style="text-align:center;margin-top:14px"><button class="btn-danger" id="btnDel">🗑️ 删除这个地点</button></div>';
+
+  $('detailContent').querySelectorAll('.star').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var v = parseInt(btn.getAttribute('data-star'),10);
+      p.rating = (p.rating===v) ? 0 : v;
+      openDetail(id); renderList();
+      toast(p.rating ? '已评 '+p.rating+' 星 ⭐' : '已取消评分');
+    });
+  });
+  $('btnToggle').addEventListener('click', function(){
+    p.status = p.status==='wish' ? 'visited' : 'wish';
+    openDetail(id); renderPins(); renderList();
+    toast(p.status==='visited' ? '💚 太棒了，又打卡一个地方！' : '🧡 已放回待探索清单');
+  });
+  $('btnCheckin').addEventListener('click', function(){ toast('📝 打开记录表单（原型演示）'); });
+  $('btnDel').addEventListener('click', function(){ toast('⚠️ 原型演示：删除需二次确认'); });
+
+  openDrawer('drawerDetail');
+  var label = $('label-'+id); if (label) label.classList.add('show');
+}
+
+/* ---------- 推荐地点 ---------- */
+function renderCatGrid(){
+  $('catGrid').innerHTML = CATEGORIES.filter(function(c){ return c.value!=='all'; }).map(function(c){
+    return '<button type="button" class="cat-btn'+(state.addCat===c.value?' active':'')+'" data-cat="'+c.value+'">' +
+      '<span class="ce">'+c.emoji+'</span>'+c.label+'</button>';
+  }).join('');
+  $('catGrid').querySelectorAll('.cat-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){ state.addCat=btn.getAttribute('data-cat'); renderCatGrid(); });
+  });
+}
+$('fab').addEventListener('click', function(){ renderCatGrid(); openDrawer('drawerAdd'); });
+$('btnCancelAdd').addEventListener('click', closeDrawers);
+$('btnSubmitAdd').addEventListener('click', function(){
+  var name = $('addName').value.trim();
+  if (!name){ toast('请填写地点名称哦'); $('addName').focus(); return; }
+  var c = catOf(state.addCat);
+  PLACES.push({ id:'p'+Date.now(), name:name, cat:state.addCat, status:'wish', rating:0, visits:0,
+    x: 20+Math.random()*60, y: 20+Math.random()*55, dist:'—',
+    info:['✨ 新推荐 · 待补充'], notes:[] });
+  $('addName').value='';
+  closeDrawers(); renderPins(); renderList();
+  toast('✨ 感谢推荐「'+name+'」，已放到地图上啦');
+});
+
+/* ---------- 搜索（演示过滤） ---------- */
+$('searchInput').addEventListener('input', function(e){
+  var q = e.target.value.trim();
+  document.querySelectorAll('.pin').forEach(function(pin, i){
+    var match = !q || PLACES[i].name.indexOf(q) !== -1;
+    pin.classList.toggle('filtered-out', !match);
+  });
+});
+
+/* ---------- 初始化 ---------- */
+renderCatStrip(); renderPins(); renderList();
+</script>
+</body>
+</html>
