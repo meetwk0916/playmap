@@ -1098,6 +1098,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 'use strict';
 
 var STORAGE_KEY = 'baby_playmap_v1';        // 数据存储键
+var STORAGE_VERSION = 2;                    // 数据结构版本
 var ONBOARD_KEY = 'baby_playmap_onboarded'; // 欢迎引导标记
 var SEED_KEY = 'baby_playmap_seeded_v1';    // 首次预置标记（防止清空数据后种子复活）
 var SEED_CATEGORIES_KEY = 'baby_playmap_seeded_categories_v1'; // 非公园类别补种标记
@@ -1290,15 +1291,11 @@ function sanitizePlace(raw) {
   var rating = parseInt(raw.rating, 10);
   if (!(rating >= 1 && rating <= 5)) rating = 0; // 0 = 未评分
   var name = String(raw.name || '未命名地点').slice(0, 30);
-  var category = raw.category;
-  // 旧版曾合并「动物园/水族馆」与「博物馆/科技馆」；仅对名称语义明确的旧数据拆分。
-  if (category === 'zoo' && /(水族馆|海洋馆)/.test(name)) category = 'aquarium';
-  if (category === 'museum' && /(科技馆|科学馆|天文馆)/.test(name)) category = 'science';
   return {
     id: typeof raw.id === 'string' ? raw.id : uid(),
     name: name,
-    category: typeof category === 'string' && CATEGORIES.some(function (c) { return c.value === category; })
-      ? category : 'other',
+    category: typeof raw.category === 'string' && CATEGORIES.some(function (c) { return c.value === raw.category; })
+      ? raw.category : 'other',
     status: raw.status === 'visited' ? 'visited' : 'wish',
     rating: rating,
     lat: parseFloat(raw.lat),
@@ -1311,6 +1308,15 @@ function sanitizePlace(raw) {
       return PRACTICAL_TAGS.some(function (x) { return x.id === t; });
     }).slice(0, 8) : []
   };
+}
+
+function migrateLegacyCategory(raw) {
+  if (!raw || typeof raw !== 'object') return raw;
+  var migrated = Object.assign({}, raw);
+  var name = String(raw.name || '');
+  if (raw.category === 'zoo' && /(水族馆|海洋馆)/.test(name)) migrated.category = 'aquarium';
+  if (raw.category === 'museum' && /(科技馆|科学馆|天文馆)/.test(name)) migrated.category = 'science';
+  return migrated;
 }
 
 // 预置种子数据：仅当数据键不存在 且 从未预置过（标记键不存在）时执行。
@@ -1326,7 +1332,7 @@ function trySeedPlaces() {
   seededThisSession = true;
   try {
     lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); // 落盘基线（供配额回滚）
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, places: state.places }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: STORAGE_VERSION, places: state.places }));
     localStorage.setItem(SEED_KEY, 'true');
     localStorage.setItem(SEED_CATEGORIES_KEY, 'true');
   } catch (e) {
@@ -1371,18 +1377,14 @@ function loadState() {
     try {
       var parsed = JSON.parse(raw);
       var arr = (parsed && Array.isArray(parsed.places)) ? parsed.places : [];
+      var needsCategoryMigration = !parsed || !(Number(parsed.version) >= STORAGE_VERSION);
+      if (needsCategoryMigration) arr = arr.map(migrateLegacyCategory);
       var sanitizedPlaces = arr.map(sanitizePlace);
-      var categorySplit = sanitizedPlaces.some(function (place, index) {
-        return place && arr[index] &&
-          ((arr[index].category === 'zoo' && place.category === 'aquarium') ||
-           (arr[index].category === 'museum' && place.category === 'science'));
-      });
       state.places = sanitizedPlaces.filter(function (p) {
         return p && isFinite(p.lat) && isFinite(p.lng);
       });
       try { lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); } catch (e) { lastSavedPlaces = null; }
-      // 将明确拆分出的旧类别写回；其余历史字段由 sanitizePlace 原样兼容保留。
-      if (categorySplit) saveState();
+      if (needsCategoryMigration) saveState();
       trySeedCategoryUpgrade();
       return;
     } catch (e) {
@@ -1403,7 +1405,7 @@ var lastSavedPlaces = null;
 // - localStorage 整体不可用（隐私模式等）→ 保留内存态降级使用，不回滚
 function saveState() {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, places: state.places }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: STORAGE_VERSION, places: state.places }));
   } catch (e) {
     // 先判断原始异常：配额溢出直接走回滚分支（存储 100% 全满时探针也会抛错，
     // 仅凭探针失败会把配额满误判成"存储不可用"，导致不回滚且文案误导）
@@ -2344,7 +2346,7 @@ function openSettings() {
   // 存储占用（与 localStorage 实际写入体积一致口径：序列化后的字符数）
   var usedMb = 0;
   try {
-    usedMb = JSON.stringify({ version: 1, places: state.places }).length / 1048576;
+    usedMb = JSON.stringify({ version: STORAGE_VERSION, places: state.places }).length / 1048576;
   } catch (e) {
     usedMb = 0;
   }
@@ -2359,7 +2361,7 @@ function openSettings() {
 
 function exportData() {
   try {
-    var data = JSON.stringify({ version: 1, exportedAt: new Date().toISOString(), places: state.places }, null, 2);
+    var data = JSON.stringify({ version: STORAGE_VERSION, exportedAt: new Date().toISOString(), places: state.places }, null, 2);
     var blob = new Blob([data], { type: 'application/json' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
@@ -2384,6 +2386,7 @@ function importData(file) {
       var parsed = JSON.parse(String(reader.result));
       var arr = (parsed && Array.isArray(parsed.places)) ? parsed.places : null;
       if (!arr) { showToast('⚠️ 文件格式不对，需要包含 places 的 JSON'); return; }
+      if (!(Number(parsed.version) >= STORAGE_VERSION)) arr = arr.map(migrateLegacyCategory);
       var places = arr.map(sanitizePlace).filter(function (p) {
         return p && isFinite(p.lat) && isFinite(p.lng);
       });

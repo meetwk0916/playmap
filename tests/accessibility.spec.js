@@ -150,15 +150,33 @@ test('legacy combined categories split only when the place name is explicit', as
   });
   await page.reload();
 
-  const categories = await page.evaluate(() => Object.fromEntries(
-    JSON.parse(localStorage.getItem('baby_playmap_v1')).places.map(item => [item.id, item.category])
-  ));
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')));
+  const categories = Object.fromEntries(stored.places.map(item => [item.id, item.category]));
+  expect(stored.version).toBe(2);
   expect(categories).toEqual({
     aquarium: 'aquarium',
     zoo: 'zoo',
     science: 'science',
     museum: 'museum'
   });
+});
+
+test('current category choices are preserved regardless of place name', async ({ page }) => {
+  await page.evaluate(() => {
+    sessionStorage.setItem('playmap_test_keep_storage', '1');
+    const base = { status: 'wish', rating: 0, lat: 31.23, lng: 121.47, tags: [] };
+    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 2, places: [
+      { ...base, id: 'zoo', name: '海洋馆里的动物园', category: 'zoo' },
+      { ...base, id: 'museum', name: '天文馆里的博物馆', category: 'museum' }
+    ] }));
+    localStorage.setItem('baby_playmap_seeded_categories_v1', 'true');
+  });
+  await page.reload();
+
+  const categories = await page.evaluate(() => Object.fromEntries(
+    JSON.parse(localStorage.getItem('baby_playmap_v1')).places.map(item => [item.id, item.category])
+  ));
+  expect(categories).toEqual({ zoo: 'zoo', museum: 'museum' });
 });
 
 test('category seed upgrade does not repopulate a deliberately empty map', async ({ page }) => {
