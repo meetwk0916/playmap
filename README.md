@@ -10,6 +10,14 @@ python3 -m http.server 4173 --bind 127.0.0.1
 
 打开 `http://127.0.0.1:4173/index.html`。应用是单文件原生 HTML/CSS/JavaScript，使用腾讯地图 GL JS API；地点与用户已有历史数据保存在浏览器 `localStorage`，不需要后端。
 
+生产站点为 <https://meetwk.site/playmap/>，由 GitHub Pages 从 `main` 分支根目录发布并强制使用 HTTPS。
+
+## 腾讯地图配置
+
+生产页面使用受域名限制的浏览器 Key 加载腾讯地图 GL JS，并供地点搜索降级通道复用。腾讯位置服务控制台必须允许 `meetwk.site`，同时为地点搜索启用 WebService API 和相应配额。
+
+浏览器 Key 会随页面源码公开，必须依靠域名白名单和额度限制控制使用范围。不要把腾讯地图 SecretKey/SK 写入 HTML、JavaScript 或仓库；如需使用 SK，应改由服务端代理持有。
+
 ## 验证
 
 ```bash
@@ -39,4 +47,4 @@ npm test
 
 - 当前产品边界与运行方式：本文。
 - 领域词汇：[CONTEXT.md](CONTEXT.md)。
-- 历史体验报告、设计提案、社区 PRD 和原型仅保留决策背景，不代表当前界面或路线图。
+- 历史体验报告、设计提案和社区 PRD 仅保留决策背景，不代表当前界面或路线图；旧原型已删除。
