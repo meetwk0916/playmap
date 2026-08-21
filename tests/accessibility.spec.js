@@ -86,6 +86,21 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/index.html');
 });
 
+async function readLocationMapState(page) {
+  return page.evaluate(() => {
+    const call = window.__mapEaseToCalls.at(-1);
+    const locationLayer = window.__markerLayers.find(layer =>
+      layer.geometries.some(geometry => geometry.id === 'user-location')
+    );
+    const marker = locationLayer.geometries[0];
+    return {
+      center: [call.center.getLat(), call.center.getLng()],
+      zoom: call.zoom,
+      marker: [marker.position.getLat(), marker.position.getLng()]
+    };
+  });
+}
+
 test('map exposes only the essential decision controls', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 812 });
   await expect(page.getByRole('tablist', { name: '主导航' })).toBeHidden();
@@ -121,23 +136,11 @@ test('location is requested only after the user activates the map control', asyn
 
   await expect.poll(() => page.evaluate(() => window.__geoCalls)).toBe(1);
   await expect(locate).toHaveAttribute('aria-pressed', 'true');
-  const mapState = await page.evaluate(() => {
-    const call = window.__mapEaseToCalls.at(-1);
-    const locationLayer = window.__markerLayers.find(layer =>
-      layer.geometries.some(geometry => geometry.id === 'user-location')
-    );
-    const marker = locationLayer.geometries[0];
-    return {
-      center: [call.center.getLat(), call.center.getLng()],
-      zoom: call.zoom,
-      marker: [marker.position.getLat(), marker.position.getLng()]
-    };
-  });
-  expect(mapState).toEqual({
-    center: [31.221, 121.441],
-    zoom: 15,
-    marker: [31.221, 121.441]
-  });
+  const mapState = await readLocationMapState(page);
+  expect(mapState.zoom).toBe(15);
+  expect(mapState.center[0]).toBeCloseTo(31.21913, 5);
+  expect(mapState.center[1]).toBeCloseTo(121.44561, 5);
+  expect(mapState.marker).toEqual(mapState.center);
 });
 
 test('location permission denial is explained and can be retried', async ({ page }) => {
@@ -169,22 +172,33 @@ test('location permission denial is explained and can be retried', async ({ page
 
   await expect.poll(() => page.evaluate(() => window.__geoCalls)).toBe(2);
   await expect(locate).toHaveAttribute('aria-pressed', 'true');
-  const mapState = await page.evaluate(() => {
-    const call = window.__mapEaseToCalls.at(-1);
-    const locationLayer = window.__markerLayers.find(layer =>
-      layer.geometries.some(geometry => geometry.id === 'user-location')
-    );
-    const marker = locationLayer.geometries[0];
-    return {
-      center: [call.center.getLat(), call.center.getLng()],
-      zoom: call.zoom,
-      marker: [marker.position.getLat(), marker.position.getLng()]
-    };
+  const mapState = await readLocationMapState(page);
+  expect(mapState.zoom).toBe(15);
+  expect(mapState.center[0]).toBeCloseTo(31.21310, 5);
+  expect(mapState.center[1]).toBeCloseTo(121.45958, 5);
+  expect(mapState.marker).toEqual(mapState.center);
+});
+
+test('location outside China keeps the browser coordinates unchanged', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition(success) {
+          success({ coords: { latitude: 51.5074, longitude: -0.1278 } });
+        }
+      }
+    });
   });
+  await page.reload();
+
+  await page.getByRole('button', { name: '找到我的位置' }).click();
+
+  const mapState = await readLocationMapState(page);
   expect(mapState).toEqual({
-    center: [31.215, 121.455],
+    center: [51.5074, -0.1278],
     zoom: 15,
-    marker: [31.215, 121.455]
+    marker: [51.5074, -0.1278]
   });
 });
 

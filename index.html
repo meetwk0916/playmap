@@ -1807,6 +1807,31 @@ function distText(km) {
   return Math.round(km) + 'km';
 }
 
+function wgs84ToGcj02(lat, lng) {
+  if (lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271) {
+    return { lat: lat, lng: lng };
+  }
+  var a = 6378245;
+  var ee = 0.006693421622965943;
+  var x = lng - 105;
+  var y = lat - 35;
+  var dLat = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+  dLat += (20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2 / 3;
+  dLat += (20 * Math.sin(y * Math.PI) + 40 * Math.sin(y / 3 * Math.PI)) * 2 / 3;
+  dLat += (160 * Math.sin(y / 12 * Math.PI) + 320 * Math.sin(y * Math.PI / 30)) * 2 / 3;
+  var dLng = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+  dLng += (20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2 / 3;
+  dLng += (20 * Math.sin(x * Math.PI) + 40 * Math.sin(x / 3 * Math.PI)) * 2 / 3;
+  dLng += (150 * Math.sin(x / 12 * Math.PI) + 300 * Math.sin(x / 30 * Math.PI)) * 2 / 3;
+  var radLat = lat * Math.PI / 180;
+  var magic = Math.sin(radLat);
+  magic = 1 - ee * magic * magic;
+  var sqrtMagic = Math.sqrt(magic);
+  dLat = dLat * 180 / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
+  dLng = dLng * 180 / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
+  return { lat: lat + dLat, lng: lng + dLng };
+}
+
 /* ============================================================
    4. 地图初始化（腾讯地图 GL JS，使用默认矢量底图）
    ============================================================ */
@@ -1868,7 +1893,7 @@ function locateUser() {
       showToast('⚠️ 暂时无法获取位置，请稍后重试');
       return;
     }
-    userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+    userPos = wgs84ToGcj02(pos.coords.latitude, pos.coords.longitude);
     var position = new TMap.LatLng(userPos.lat, userPos.lng);
     var layer = ensureUserLocationLayer();
     if (layer) {
