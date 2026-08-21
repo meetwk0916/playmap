@@ -84,6 +84,7 @@ body {
   background: var(--bg);
 }
 button { font-family: inherit; cursor: pointer; }
+[hidden] { display: none !important; }
 input, textarea, select { font-family: inherit; font-size: 16px; color: var(--text); }
 
 /* 全局键盘焦点态（触屏 :active 效果不受影响） */
@@ -157,7 +158,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .fab {
   position: fixed;
   right: 18px;
-  bottom: calc(84px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   width: 58px;
   height: 58px;
   border-radius: 50%;
@@ -658,6 +659,25 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .btn-toggle-visited { background: var(--visited-soft); color: var(--green-deep); }
 /* 导航按钮（天空蓝系，语义=信息/行动） */
 .btn-nav { background: var(--sky-soft); color: var(--sky-ink); }
+.detail-actions .btn-nav { flex: 1; }
+
+/* 精简版不再把家庭档案能力暴露在核心决策流程中。 */
+.rating-row,
+.detail-rating-copy,
+.btn-toggle-visited,
+.btn-toggle-wish,
+.detail-archive-section,
+.detail-notes-field,
+.detail-save-notes,
+.visit-card,
+.detail-empty,
+.visit-form-row,
+.detail-visit-field,
+.detail-photo-button,
+.photo-preview-row,
+.detail-save-visit {
+  display: none !important;
+}
 .rating-row { display: flex; align-items: center; gap: 6px; justify-content: center; margin: 6px 0 2px; }
 .rating-row .star-btn {
   border: none;
@@ -969,7 +989,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 <!-- Toast -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<!-- 清单页 -->
+<!-- 兼容旧版清单逻辑，不再作为主流程入口 -->
 <section class="page-list" id="pageList" role="tabpanel" aria-labelledby="tabList" hidden>
   <div class="list-header">
     <h1><span aria-hidden="true">🎒</span> 游玩清单</h1>
@@ -984,11 +1004,11 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 </section>
 
 <!-- 浮动添加按钮 -->
-<button class="fab" id="fab" aria-label="推荐好去处">＋</button>
+<button class="fab" id="fab" aria-label="添加地点">＋</button>
 </main>
 
-<!-- 底部 Tab 栏 -->
-<nav class="tabbar" role="tablist" aria-label="主导航">
+<!-- 兼容旧版页面切换逻辑；精简版仅保留地图首页 -->
+<nav class="tabbar" role="tablist" aria-label="主导航" hidden>
   <button class="tab active" id="tabMap" role="tab" aria-selected="true" aria-controls="map"><span class="tab-icon" aria-hidden="true">🗺️</span>地图</button>
   <button class="tab" id="tabList" role="tab" aria-selected="false" aria-controls="pageList"><span class="tab-icon" aria-hidden="true">🎒</span>清单</button>
 </nav>
@@ -1009,11 +1029,11 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
     <label>选择类别</label>
     <div class="cat-grid" id="catGrid"></div>
   </div>
-  <div class="field">
+  <div class="field" hidden>
     <label>亲子便利设施（可多选）</label>
     <div class="tag-grid" id="addTagGrid"></div>
   </div>
-  <div class="field">
+  <div class="field" hidden>
     <label>状态</label>
     <div class="seg" id="addStatusSeg">
       <button type="button" class="active wish" data-status="wish">🧡 待探索</button>
@@ -1031,13 +1051,13 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 </div>
 
 <!-- 抽屉：设置 -->
-<div class="drawer" id="drawerSettings" role="dialog" aria-modal="true" aria-labelledby="drawerSettingsTitle" aria-hidden="true" inert>
+<div class="drawer" id="drawerSettings" role="dialog" aria-modal="true" aria-labelledby="drawerSettingsTitle" aria-hidden="true" inert hidden>
   <div class="grabber" aria-hidden="true"></div>
   <h2 id="drawerSettingsTitle"><span aria-hidden="true">⚙️</span> 设置</h2>
   <div class="sub" id="settingsStats"></div>
   <div class="settings-block">
     <div class="s-row">
-      <span>🌳 导入推荐公园（15 个）</span>
+      <span>📍 导入预制亲子地点（33 个）</span>
       <button class="s-btn green" id="btnImportSeeds">合并导入</button>
     </div>
     <div class="s-row">
@@ -1081,9 +1101,9 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   <div class="card">
     <div class="w-icon" aria-hidden="true">🧸</div>
     <h2 id="welcomeTitle">欢迎使用「11去哪玩」</h2>
-    <p><span aria-hidden="true">1️⃣</span> 点击右下角 <b>「＋」</b> 按钮，再点击地图上想要标记的位置</p>
-    <p><span aria-hidden="true">2️⃣</span> 图钉颜色 = 地点类别，右下角带 <b>✓</b> 徽章的表示已去过</p>
-    <p><span aria-hidden="true">3️⃣</span> 点击图钉可以 <b>记录每次游玩</b>：日期、时长和宝宝的表现</p>
+    <p><span aria-hidden="true">1️⃣</span> 搜索或筛选附近的亲子地点</p>
+    <p><span aria-hidden="true">2️⃣</span> 点击图钉查看距离和便利设施</p>
+    <p><span aria-hidden="true">3️⃣</span> 选好后直接点击 <b>「导航去这里」</b></p>
     <p class="welcome-seed-hint" id="welcomeSeedHint"></p>
     <button class="btn-primary welcome-action" id="btnWelcomeOk">开始探索 🎉</button>
   </div>
@@ -1104,7 +1124,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 <input class="visually-hidden-input" type="file" id="visitPhotoInput" accept="image/*" multiple />
 
 <!-- 全屏照片查看层（点击任意处关闭，左右切换） -->
-<div class="photo-viewer" id="photoViewer" role="dialog" aria-modal="true" aria-label="游玩照片预览" aria-hidden="true">
+<div class="photo-viewer" id="photoViewer" role="dialog" aria-modal="true" aria-label="游玩照片预览" aria-hidden="true" hidden>
   <span class="pv-count" id="pvCount"></span>
   <img class="pv-img" id="photoViewerImg" alt="游玩照片预览" />
   <button class="pv-nav pv-prev" id="pvPrev" title="上一张">‹</button>
@@ -1120,7 +1140,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 
 var STORAGE_KEY = 'baby_playmap_v1';        // 数据存储键
 var ONBOARD_KEY = 'baby_playmap_onboarded'; // 欢迎引导标记
-var SEED_KEY = 'baby_playmap_seeded_v1';    // 种子数据预置标记（防止清空数据后种子复活）
+var SEED_KEY = 'baby_playmap_seeded_v1';    // 首次预置标记（防止清空数据后种子复活）
+var SEED_CATEGORIES_KEY = 'baby_playmap_seeded_categories_v1'; // 非公园类别补种标记
 var TMAP_KEY_STORAGE = 'baby_playmap_tmap_key'; // 用户自备腾讯地图 Key（仅地点搜索降级用）
 var DEFAULT_CENTER = { lat: 31.2304, lng: 121.4737 }; // 上海人民广场一带
 var DEFAULT_ZOOM = 12;
@@ -1160,7 +1181,7 @@ var PRACTICAL_TAGS = [
    预置种子数据：上海知名亲子友好公园（首次打开时预置，均为"待探索"状态）
    坐标已联网核实（维基百科 / OpenStreetMap 等，WGS-02 级精度，图钉误差数百米内可接受）
    ------------------------------------------------------------ */
-var SEED_PLACES = [
+var PARK_SEED_PLACES = [
   // tags 为保守标注（只标确定的：大型市政公园免费+推车友好；辰山/顾村为购票公园；市区小公园不标停车）
   { name: '世纪公园',     category: 'park', status: 'wish', rating: 0, lat: 31.2178,  lng: 121.5490, tags: ['free','stroller','parking'] }, // 浦东·花木
   { name: '世博文化公园', category: 'park', status: 'wish', rating: 0, lat: 31.1816,  lng: 121.4711, tags: ['free','stroller','parking'] }, // 浦东·后滩
@@ -1178,6 +1199,35 @@ var SEED_PLACES = [
   { name: '徐家汇公园',   category: 'park', status: 'wish', rating: 0, lat: 31.2004,  lng: 121.4384, tags: ['free','stroller'] }, // 徐汇·徐家汇
   { name: '闵行体育公园', category: 'park', status: 'wish', rating: 0, lat: 31.1450,  lng: 121.3626, tags: ['free','stroller','parking'] }  // 闵行·七宝
 ];
+
+// 六个明确亲子类别各 3 个常设代表点；不预制语义不明确的「其他」类别。
+var CATEGORY_SEED_PLACES = [
+  { name: '上海迪士尼度假区', category: 'playground', status: 'wish', rating: 0, lat: 31.1415, lng: 121.6600, tags: ['ticket','stroller','parking','toilet','nursing','food'] },
+  { name: '上海海昌海洋公园', category: 'playground', status: 'wish', rating: 0, lat: 30.9255, lng: 121.9070, tags: ['ticket','stroller','parking','toilet','nursing','food'] },
+  { name: '上海欢乐谷', category: 'playground', status: 'wish', rating: 0, lat: 31.0991, lng: 121.2152, tags: ['ticket','stroller','parking','toilet','nursing','food'] },
+
+  { name: '上海野生动物园', category: 'zoo', status: 'wish', rating: 0, lat: 31.0543, lng: 121.7208, tags: ['ticket','stroller','parking','toilet','nursing','food'] },
+  { name: '上海动物园', category: 'zoo', status: 'wish', rating: 0, lat: 31.1925, lng: 121.3601, tags: ['ticket','stroller','parking','toilet','nursing','food'] },
+  { name: '上海海洋水族馆', category: 'zoo', status: 'wish', rating: 0, lat: 31.2422, lng: 121.4988, tags: ['ticket','indoor','stroller','toilet','nursing','food'] },
+
+  { name: '上海自然博物馆', category: 'museum', status: 'wish', rating: 0, lat: 31.2359, lng: 121.4608, tags: ['ticket','indoor','stroller','toilet','nursing','food'] },
+  { name: '上海天文馆', category: 'museum', status: 'wish', rating: 0, lat: 30.9169, lng: 121.9167, tags: ['ticket','indoor','stroller','parking','toilet','nursing','food'] },
+  { name: '上海儿童博物馆', category: 'museum', status: 'wish', rating: 0, lat: 31.1969, lng: 121.4172, tags: ['free','indoor','stroller','toilet','nursing'] },
+
+  { name: '上海少年儿童图书馆（长风新馆）', category: 'library', status: 'wish', rating: 0, lat: 31.2268, lng: 121.3855, tags: ['free','indoor','stroller','parking','toilet','nursing'] },
+  { name: '上海少年儿童图书馆（南京西路馆）', category: 'library', status: 'wish', rating: 0, lat: 31.2298, lng: 121.4580, tags: ['free','indoor','stroller','toilet','nursing'] },
+  { name: '上海图书馆东馆（少儿区）', category: 'library', status: 'wish', rating: 0, lat: 31.2201, lng: 121.5518, tags: ['free','indoor','stroller','parking','toilet','nursing','food'] },
+
+  { name: '上海虹桥南丰城', category: 'mall', status: 'wish', rating: 0, lat: 31.2078, lng: 121.4093, tags: ['indoor','parking','stroller','toilet','nursing','food'] },
+  { name: '上海南翔印象城MEGA', category: 'mall', status: 'wish', rating: 0, lat: 31.3129, lng: 121.3149, tags: ['indoor','parking','stroller','toilet','nursing','food'] },
+  { name: '上海万象城（吴中路店）', category: 'mall', status: 'wish', rating: 0, lat: 31.1685, lng: 121.3655, tags: ['indoor','parking','stroller','toilet','nursing','food'] },
+
+  { name: '金山城市沙滩', category: 'water', status: 'wish', rating: 0, lat: 30.7077, lng: 121.3440, tags: ['ticket','stroller','parking','toilet','food'] },
+  { name: '奉贤碧海金沙', category: 'water', status: 'wish', rating: 0, lat: 30.8248, lng: 121.5034, tags: ['ticket','stroller','parking','toilet','food'] },
+  { name: '前滩休闲公园（红砂坑区）', category: 'water', status: 'wish', rating: 0, lat: 31.1555, lng: 121.4720, tags: ['free','stroller','parking','toilet'] }
+];
+
+var SEED_PLACES = PARK_SEED_PLACES.concat(CATEGORY_SEED_PLACES);
 
 // 本次会话是否发生了种子预置（用于欢迎卡片提示）
 var seededThisSession = false;
@@ -1313,10 +1363,40 @@ function trySeedPlaces() {
     lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); // 落盘基线（供配额回滚）
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, places: state.places }));
     localStorage.setItem(SEED_KEY, 'true');
+    localStorage.setItem(SEED_CATEGORIES_KEY, 'true');
   } catch (e) {
     // localStorage 不可用：保持内存态种子数据，静默降级
   }
   return true;
+}
+
+function trySeedCategoryUpgrade() {
+  var upgraded = false;
+  try { upgraded = localStorage.getItem(SEED_CATEGORIES_KEY) !== null; } catch (e) { upgraded = false; }
+  if (upgraded) return false;
+
+  // 用户主动清空后的空地图保持为空，只记录已处理，避免种子数据复活。
+  if (!state.places.length) {
+    try { localStorage.setItem(SEED_CATEGORIES_KEY, 'true'); } catch (e) { /* 忽略 */ }
+    return false;
+  }
+
+  var existingNames = {};
+  state.places.forEach(function (place) {
+    existingNames[String(place.name || '').trim()] = true;
+  });
+  var additions = CATEGORY_SEED_PLACES.filter(function (seed) {
+    return !existingNames[String(seed.name || '').trim()];
+  }).map(sanitizePlace).filter(function (place) {
+    return place && isFinite(place.lat) && isFinite(place.lng);
+  });
+
+  if (additions.length) {
+    state.places = state.places.concat(additions);
+    if (!saveState()) return false;
+  }
+  try { localStorage.setItem(SEED_CATEGORIES_KEY, 'true'); } catch (e) { /* 忽略 */ }
+  return additions.length > 0;
 }
 
 function loadState() {
@@ -1330,6 +1410,7 @@ function loadState() {
         return p && isFinite(p.lat) && isFinite(p.lng);
       });
       try { lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); } catch (e) { lastSavedPlaces = null; }
+      trySeedCategoryUpgrade();
       return;
     } catch (e) {
       // 解析失败：静默降级为空数据，不覆盖原键（用户可导出修复）
@@ -1943,10 +2024,9 @@ function tagChipsHtml(activeTags) {
   var html = '';
   PRACTICAL_TAGS.forEach(function (t) {
     var on = activeTags.indexOf(t.id) !== -1;
-    html += '<button type="button" class="tag-chip' + (on ? ' active' : '') +
-      '" data-tag="' + t.id + '">' + t.emoji + ' ' + t.label + '</button>';
+    if (on) html += '<span class="tag-chip active">' + t.emoji + ' ' + t.label + '</span>';
   });
-  return html;
+  return html || '<span class="sub">暂无便利设施信息</span>';
 }
 
 /* ---------- 地点详情 ---------- */
@@ -1956,6 +2036,40 @@ function openDetail(placeId) {
   state.currentDetailId = placeId;
   renderDetail();
   openDrawer('drawerDetail');
+}
+
+function openNavigation(place) {
+  var url = 'https://apis.map.qq.com/uri/v1/routeplan?type=drive&fromcoord=CurrentLocation' +
+    '&to=' + encodeURIComponent(place.name) +
+    '&tocoord=' + place.lat + ',' + place.lng +
+    '&referer=11quwan';
+  window.open(url, '_blank');
+}
+
+function openPoiPreview(name, lat, lng) {
+  var poi = { name: String(name || '目的地'), lat: lat, lng: lng };
+  state.currentDetailId = null;
+  $('detailContent').innerHTML =
+    '<div class="grabber"></div>' +
+    '<div class="detail-head">' +
+      '<div class="d-emoji cat-bg-other" aria-hidden="true">📍</div>' +
+      '<div class="detail-main">' +
+        '<div class="d-name" id="detailTitle">' + escapeHtml(poi.name) + '</div>' +
+        '<div class="d-cat">搜索结果 · 📍 ' +
+          (userPos
+            ? '距我 ' + distText(haversineKm(userPos.lat, userPos.lng, poi.lat, poi.lng))
+            : poi.lat.toFixed(4) + ', ' + poi.lng.toFixed(4)) +
+        '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="detail-actions"><button class="btn-nav" id="btnNav">🧭 导航去这里</button></div>' +
+    '<button class="btn-ghost" id="btnSavePoi">＋ 添加到我的地图</button>';
+  openDrawer('drawerDetail');
+  $('btnNav').addEventListener('click', function () { openNavigation(poi); });
+  $('btnSavePoi').addEventListener('click', function () {
+    openAddForm(poi.lat, poi.lng);
+    $('addName').value = poi.name.slice(0, 30);
+  });
 }
 
 function renderDetail() {
@@ -2034,18 +2148,18 @@ function renderDetail() {
 
     '<div class="section-title"><span aria-hidden="true">🧸</span> 亲子便利设施</div>' +
     '<div class="tag-chips" id="detailTags">' + tagChipsHtml(p.tags) + '</div>' +
-    '<div class="sub detail-tags-help">点标签补充/取消，自动保存</div>' +
+    '<div class="sub detail-tags-help">用于快速判断是否适合出行</div>' +
 
-    '<div class="section-title">📝 亲子实用备注</div>' +
+    '<div class="section-title detail-archive-section">📝 亲子实用备注</div>' +
     '<div class="field detail-notes-field">' +
       '<textarea id="notesArea" data-place-id="' + escapeHtml(p.id) + '" placeholder="停车、入口、卫生间、推车是否友好、门票、人多时段… 自由记录">' +
         escapeHtml(p.practicalNotes) + '</textarea>' +
     '</div>' +
     '<button class="btn-ghost detail-save-notes" id="btnSaveNotes">💾 保存备注</button>' +
 
-    '<div class="section-title">🎡 游玩记录（' + p.visits.length + '）</div>' + visitsHtml +
+    '<div class="section-title detail-archive-section">🎡 游玩记录（' + p.visits.length + '）</div>' + visitsHtml +
 
-    '<div class="section-title">➕ 添加游玩记录</div>' +
+    '<div class="section-title detail-archive-section">➕ 添加游玩记录</div>' +
     '<div class="visit-form-row">' +
       '<div class="field"><label>日期</label><input type="date" id="visitDate" value="' + todayStr() + '" /></div>' +
       '<div class="field"><label>时长（分钟）</label><input type="number" id="visitMinutes" inputmode="numeric" min="0" max="1440" placeholder="60" /></div>' +
@@ -2094,7 +2208,7 @@ function renderDetail() {
   });
   // 详情页标签点选：切换即自动保存（V1.2）
   $('detailTags').addEventListener('click', function (evt) {
-    var chip = evt.target.closest('.tag-chip');
+    var chip = evt.target.closest('button.tag-chip');
     if (!chip) return;
     var id = chip.getAttribute('data-tag');
     var idx = p.tags.indexOf(id);
@@ -2105,13 +2219,7 @@ function renderDetail() {
   });
   // 导航跳转（V1.1 P0）：腾讯地图 URI 方案，移动端自动唤起地图 App 或 Web 路线规划
   // fromcoord=CurrentLocation 由地图端解析当前定位；名称经 encodeURIComponent 防注入
-  $('btnNav').addEventListener('click', function () {
-    var url = 'https://apis.map.qq.com/uri/v1/routeplan?type=drive&fromcoord=CurrentLocation' +
-      '&to=' + encodeURIComponent(p.name) +
-      '&tocoord=' + p.lat + ',' + p.lng +
-      '&referer=11quwan';
-    window.open(url, '_blank');
-  });
+  $('btnNav').addEventListener('click', function () { openNavigation(p); });
   // 保存备注
   // 注：配额失败回滚后，renderDetail 的草稿保留机制会把未保存草稿重新写回内存——
   // 这是有意的产品权衡（宁可内存≠磁盘暂态，也不丢用户正在编辑的内容），下次成功保存时自然落盘
@@ -2443,7 +2551,7 @@ function enterPickMode() {
   $('mapCatStrip').classList.add('hidden'); // 同步隐藏筛选条
   $('fab').classList.add('pick-active');
   $('fab').textContent = '✕';
-  $('fab').setAttribute('aria-label', '取消推荐地点');
+  $('fab').setAttribute('aria-label', '取消添加地点');
   $('hintbar').classList.add('show');
   showToast('📍 已进入选点模式，点击地图选择位置');
 }
@@ -2455,7 +2563,7 @@ function exitPickMode(showToastFlag) {
   $('mapCatStrip').classList.remove('hidden');
   $('fab').classList.remove('pick-active');
   $('fab').textContent = '＋';
-  $('fab').setAttribute('aria-label', '推荐好去处');
+  $('fab').setAttribute('aria-label', '添加地点');
   $('hintbar').classList.remove('show');
   if (showToastFlag !== false) showToast('已取消选点');
 }
@@ -2656,9 +2764,9 @@ function jsonpPlaceSearch(keyword, lat, lng, key, seq) {
 function fallbackToChannelB(keyword, lat, lng, seq) {
   var key = getUserTmapKey();
   if (!key) {
-    // 无 Key：仍给出本地已标记地点的匹配，并明确指引如何开放在线搜索
+    // 无 Key：仍给出本地已标记地点的匹配，不把技术配置暴露给普通用户
     renderSearchResults([], searchLocalPlaces(keyword),
-      '在线搜索暂不可用：到 清单 → ⚙️ 设置 填入免费申请的腾讯地图 Key 即可开启（lbs.qq.com 免费申请）');
+      '在线搜索暂不可用，请浏览地图上的已有地点或稍后重试');
     return;
   }
   jsonpPlaceSearch(keyword, lat, lng, key, seq);
@@ -2737,9 +2845,7 @@ function selectSearchResult(idx) {
     zoom: Math.max(map.getZoom(), 15),
     duration: 500
   });
-  openAddForm(lat, lng);
-  // 预填 POI 名称（openAddForm 会先清空输入框）
-  $('addName').value = String(poi.title || '').slice(0, 30);
+  openPoiPreview(poi.title, lat, lng);
 }
 
 function bindSearchEvents() {
@@ -2876,7 +2982,7 @@ function bindEvents() {
     importData(f);
     this.value = ''; // 允许重复选择同一文件
   });
-  // 合并导入推荐公园（老用户补种）：按名称去重，绝不改动现有地点
+  // 合并导入预制地点：按名称去重，绝不改动现有地点
   $('btnImportSeeds').addEventListener('click', async function () {
     var existingNames = {};
     state.places.forEach(function (p) {
@@ -2886,10 +2992,10 @@ function bindEvents() {
       return !existingNames[String(s.name || '').trim()];
     });
     if (!missing.length) {
-      showToast('🌳 15 个推荐公园都已在你地图上啦');
+      showToast('📍 33 个预制亲子地点都已在你地图上啦');
       return;
     }
-    var ok = await confirmDialog('将为地图补充 ' + missing.length + ' 个推荐公园（跳过 ' +
+    var ok = await confirmDialog('将为地图补充 ' + missing.length + ' 个预制亲子地点（跳过 ' +
       (SEED_PLACES.length - missing.length) + ' 个已存在），不影响现有地点。确定导入吗？');
     if (!ok) return;
     var added = missing.map(sanitizePlace).filter(function (p2) {
@@ -2917,7 +3023,7 @@ function bindEvents() {
     }
     renderMarkers();
     renderList();
-    showToast('🌳 已导入 ' + added.length + ' 个推荐公园（跳过 ' +
+    showToast('📍 已导入 ' + added.length + ' 个预制亲子地点（跳过 ' +
       (SEED_PLACES.length - added.length) + ' 个已存在）');
   });
   // 游玩照片选择：压缩后暂存预览（未保存记录前不落盘）
@@ -3006,7 +3112,7 @@ function init() {
   if (!onboarded && (state.places.length === 0 || seededThisSession)) {
     if (seededThisSession && state.places.length > 0) {
       $('welcomeSeedHint').textContent =
-        '🌳 已为您预置了 ' + state.places.length + ' 个上海亲子公园，点击图钉即可查看';
+        '📍 已为您预置了 ' + state.places.length + ' 个上海亲子地点，点击图钉即可查看';
       $('welcomeSeedHint').classList.add('show');
     }
     var welcome = $('welcome');

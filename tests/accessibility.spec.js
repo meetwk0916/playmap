@@ -22,9 +22,15 @@ const place = {
 
 const tmapStub = `
   window.TMap = {
-    LatLng: function (lat, lng) { this.lat = lat; this.lng = lng; },
+    LatLng: function (lat, lng) {
+      this.lat = lat;
+      this.lng = lng;
+      this.getLat = function () { return lat; };
+      this.getLng = function () { return lng; };
+    },
     Map: function () {
       this.getZoom = function () { return 12; };
+      this.getCenter = function () { return new window.TMap.LatLng(31.23, 121.47); };
       this.easeTo = function () {};
       this.on = function () {};
     },
@@ -38,6 +44,20 @@ const tmapStub = `
           };
         }
       };
+    },
+    service: {
+      Search: function () {
+        this.searchNearby = function () {
+          return Promise.resolve({
+            status: 0,
+            data: [{
+              title: '搜索公园',
+              address: '测试路 1 号',
+              location: { lat: 31.24, lng: 121.48 }
+            }]
+          });
+        };
+      }
     }
   };
 `;
@@ -47,6 +67,7 @@ test.beforeEach(async ({ page }) => {
     route.fulfill({ status: 200, contentType: 'application/javascript', body: tmapStub });
   });
   await page.addInitScript(seed => {
+    if (sessionStorage.getItem('playmap_test_keep_storage') === '1') return;
     localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 1, places: [seed] }));
     localStorage.setItem('baby_playmap_seeded_v1', '1');
     localStorage.setItem('baby_playmap_onboarded', '1');
@@ -54,77 +75,98 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/index.html');
 });
 
-test('tabs expose and synchronize selection state', async ({ page }) => {
-  const mapTab = page.getByRole('tab', { name: '地图' });
-  const listTab = page.getByRole('tab', { name: '清单' });
-
-  await expect(page.getByRole('tablist', { name: '主导航' })).toBeVisible();
-  await expect(mapTab).toHaveAttribute('aria-selected', 'true');
-  await listTab.click();
-  await expect(listTab).toHaveAttribute('aria-selected', 'true');
-  await expect(mapTab).toHaveAttribute('aria-selected', 'false');
-  const listPanel = page.getByRole('tabpanel', { name: '清单' });
-  await expect(listPanel).toBeVisible();
-  await expect(listPanel.getByRole('button', { name: '设置' })).toBeVisible();
-  await expect(listPanel.getByText('测试公园')).toBeVisible();
+test('map exposes only the essential decision controls', async ({ page }) => {
+  await expect(page.getByRole('tablist', { name: '主导航' })).toBeHidden();
+  await expect(page.locator('#searchInput')).toBeVisible();
+  await expect(page.getByRole('button', { name: '添加地点' })).toBeVisible();
+  await expect(page.locator('#mapCatStrip')).toBeVisible();
 });
 
-test('drawer traps focus, closes with Escape, and restores its trigger', async ({ page }) => {
-  await page.getByRole('tab', { name: '清单' }).click();
-  const trigger = page.getByRole('button', { name: '设置' });
-  await trigger.click();
+test('existing maps receive representative points for every explicit category', async ({ page }) => {
+  const categories = await page.evaluate(() => {
+    const stored = JSON.parse(localStorage.getItem('baby_playmap_v1'));
+    return stored.places.reduce((counts, item) => {
+      counts[item.category] = (counts[item.category] || 0) + 1;
+      return counts;
+    }, {});
+  });
 
-  const dialog = page.getByRole('dialog', { name: '设置' });
+  for (const category of ['playground', 'zoo', 'museum', 'library', 'mall', 'water']) {
+    expect(categories[category]).toBe(3);
+  }
+  expect(categories.other || 0).toBe(0);
+});
+
+test('category seed upgrade does not repopulate a deliberately empty map', async ({ page }) => {
+  await page.evaluate(() => {
+    sessionStorage.setItem('playmap_test_keep_storage', '1');
+    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 1, places: [] }));
+    localStorage.setItem('baby_playmap_seeded_v1', '1');
+    localStorage.removeItem('baby_playmap_seeded_categories_v1');
+  });
+  await page.reload();
+
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')));
+  expect(stored.places).toHaveLength(0);
+  await expect.poll(() => page.evaluate(
+    () => localStorage.getItem('baby_playmap_seeded_categories_v1')
+  )).toBe('true');
+});
+
+test('online search can navigate before saving a place', async ({ page }) => {
+  await page.locator('#searchInput').fill('搜索公园');
+  await expect(page.getByText('搜索公园', { exact: true })).toBeVisible();
+  await page.getByText('搜索公园', { exact: true }).click();
+
+  const dialog = page.getByRole('dialog', { name: '搜索公园' });
+  await expect(dialog.getByRole('button', { name: '导航去这里' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '添加到我的地图' })).toBeVisible();
+});
+
+test('detail drawer traps focus and closes with Escape', async ({ page }) => {
+  await page.evaluate(() => window.__openTestPlace());
+  const dialog = page.getByRole('dialog', { name: '测试公园' });
   await expect(dialog).toBeVisible();
   await expect(dialog.locator(':focus')).toHaveCount(1);
 
   await page.keyboard.press('Escape');
   await expect(dialog).toBeHidden();
-  await expect(trigger).toBeFocused();
 });
 
-test('confirmation traps focus and Escape returns to the invoking control', async ({ page }) => {
-  await page.getByRole('tab', { name: '清单' }).click();
-  await page.getByRole('button', { name: '设置' }).click();
-  const clear = page.getByRole('button', { name: '清空', exact: true });
-  await clear.click();
+test('delete confirmation traps focus and Escape returns to the invoking control', async ({ page }) => {
+  await page.evaluate(() => window.__openTestPlace());
+  const remove = page.getByRole('button', { name: '删除这个地点' });
+  await remove.click();
 
   const alert = page.getByRole('alertdialog');
   await expect(alert).toBeVisible();
   await expect(page.getByRole('button', { name: '取消' }).last()).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(alert).toBeHidden();
-  await expect(clear).toBeFocused();
+  await expect(remove).toBeFocused();
 });
 
-test('rating and visit status expose current pressed state', async ({ page }) => {
-  await page.evaluate(() => window.__openTestPlace());
+test('detail prioritizes navigation and hides archive controls', async ({ page }) => {
+  await page.evaluate(() => {
+    window.__navigationUrl = '';
+    window.open = url => { window.__navigationUrl = url; };
+    window.__openTestPlace();
+  });
   const dialog = page.getByRole('dialog', { name: '测试公园' });
   await expect(dialog).toBeVisible();
 
-  const thirdStar = page.getByRole('button', { name: '3 星' });
-  await thirdStar.click();
-  await expect(thirdStar).toHaveAttribute('aria-pressed', 'true');
-
-  const status = page.getByRole('button', { name: '标记为已去过' });
-  await status.click();
-  await expect(page.getByRole('button', { name: '标记为待探索' })).toHaveAttribute('aria-pressed', 'true');
-
-  await page.getByRole('button', { name: '停车方便' }).click();
-  await page.keyboard.press('Shift+Tab');
-  await expect(dialog.locator(':focus')).toHaveCount(1);
+  await expect(dialog.getByRole('button', { name: '导航去这里' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: /星/ })).toHaveCount(0);
+  await expect(dialog.getByText('测试记录')).toBeHidden();
+  await dialog.getByRole('button', { name: '导航去这里' }).click();
+  await expect.poll(() => page.evaluate(() => window.__navigationUrl)).toContain('routeplan');
 });
 
-test('photo viewer owns Escape without closing its detail drawer', async ({ page }) => {
+test('legacy archive data remains intact when viewing a place', async ({ page }) => {
   await page.evaluate(() => window.__openTestPlace());
-  const detail = page.getByRole('dialog', { name: '测试公园' });
-  await detail.locator('.visit-photo').click();
-
-  const viewer = page.getByRole('dialog', { name: '游玩照片预览' });
-  await expect(viewer).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(viewer).toBeHidden();
-  await expect(detail).toBeVisible();
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')));
+  expect(stored.places[0].visits).toHaveLength(1);
+  expect(stored.places[0].visits[0].photos).toHaveLength(1);
 });
 
 test('reduced motion uses short opacity-only transitions', async ({ page }) => {
@@ -147,15 +189,12 @@ for (const width of [320, 375, 768, 1440]) {
     const metrics = await page.evaluate(() => ({
       scrollWidth: document.documentElement.scrollWidth,
       clientWidth: document.documentElement.clientWidth,
-      tabbar: document.querySelector('.tabbar').getBoundingClientRect(),
       drawer: document.querySelector('.drawer').getBoundingClientRect()
     }));
 
     expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
     if (width >= 768) {
-      expect(metrics.tabbar.width).toBeLessThanOrEqual(420);
       expect(metrics.drawer.width).toBeLessThanOrEqual(420);
-      expect(Math.abs(metrics.tabbar.x - (width - metrics.tabbar.width) / 2)).toBeLessThan(1);
     }
   });
 }
