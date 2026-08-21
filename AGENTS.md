@@ -2,7 +2,7 @@
 
 ## 项目
 
-「11去哪玩」是一个帮助家长快速完成“找地点 → 看关键信息 → 导航出发”的上海亲子地图。
+先读 `README.md` 了解现役产品范围，读 `CONTEXT.md` 使用统一领域词汇。
 
 ## 运行与验证
 
@@ -19,19 +19,16 @@ Playwright 需要 Chromium 及其系统动态库。缺少系统依赖时，不�
 - `index.html`：现役单文件应用，原生 HTML/CSS/JavaScript + 腾讯地图 GL JS API。
 - `tests/accessibility.spec.js`：核心流程、可访问性、响应式和种子升级行为测试。
 - `scripts/check-design-discipline.mjs`：设计令牌静态门禁。
-- `CONTEXT.md`：单一领域词汇表；产品现状以 `README.md` 和代码为准。
+- `docs/product-history.md`：已退役方向及仍有效的决策背景。
 
 ## 稳定约束
 
 - 核心任务是“出行决策”，不要把清单、评分、游玩记录、社区功能重新带回主流程。
 - 新用户预制 33 个上海亲子地点；已有非空地图只按名称补种，主动清空后的地图不得复活。
+- 用户新增地点必须来自腾讯地图在线 POI；不要恢复任意坐标选点或只手填名称的入口。
 - 保持旧 `localStorage` 数据兼容，避免丢失历史评分、记录和照片。
 - 生产站点使用域名受限的腾讯地图浏览器 Key；不要删除其 GL JS 接入，也不要把腾讯 SecretKey/SK 写入前端或仓库。
 - 手工编辑只改必要文件；遵守现有设计令牌、键盘焦点和 reduced-motion 约束。
-
-## 当前状态与下一步
-
-当前为无后端的单人版，现役界面已收敛为地图、搜索、类别筛选、地点详情、导航和最简添加。生产站点为 `https://meetwk.site/playmap/`，由 GitHub Pages 从 `main:/` 发布。下一步只围绕缩短出行决策链路迭代。
 
 ## Agent 配置
 

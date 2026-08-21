@@ -45,18 +45,21 @@
   --cat-park: #3D9970;
   --cat-playground: #F2822E;
   --cat-zoo: #A06BC8;
+  --cat-aquarium: #2788B8;
   --cat-museum: #6478D8;
+  --cat-science: #557B3E;
   --cat-library: #2FA8A0;
   --cat-mall: #E06A8B;
   --cat-water: #2FA3C7;
   --cat-other: #8A8378;
   --cat-zoo-soft: #F1E8F9;
+  --cat-aquarium-soft: #E2F1F8;
   --cat-museum-soft: #E8EBFA;
+  --cat-science-soft: #E8F1E3;
   --cat-library-soft: #E0F2F2;
   --cat-mall-soft: #FAE6ED;
   --cat-water-soft: #E0F2F7;
   --cat-other-soft: #EFEDE6;
-  --overlay-hint: rgba(36, 53, 43, 0.88);
   --overlay-toast: rgba(36, 53, 43, 0.92);
   --overlay-mask: rgba(36, 53, 43, 0.45);
   --overlay-welcome: rgba(36, 53, 43, 0.55);
@@ -67,7 +70,6 @@
   --surface-photo-control: rgba(255, 255, 255, 0.22);
   --text-photo-count: rgba(255, 255, 255, 0.9);
   --shadow: 0 4px 16px rgba(47, 107, 79, 0.12);
-  --shadow-fab: 0 6px 18px rgba(35, 84, 61, 0.30);
   --shadow-button: 0 4px 14px rgba(35, 84, 61, 0.30);
   --dur-fast: 150ms;
   --dur-base: 180ms;
@@ -153,31 +155,6 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .tabbar .tab.active { color: var(--primary-deep); font-weight: 700; }
 
 /* ============================================================
-   右下角浮动「+」按钮
-   ============================================================ */
-.fab {
-  position: fixed;
-  right: 18px;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
-  width: 58px;
-  height: 58px;
-  border-radius: 50%;
-  border: none;
-  background: var(--primary-strong);
-  color: var(--white);
-  font-size: 34px;
-  line-height: 1;
-  box-shadow: var(--shadow-fab);
-  z-index: 25;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform var(--dur-fast) var(--ease-out);
-}
-.fab:active { transform: scale(0.92); }
-.fab.pick-active { background: var(--danger); }
-
-/* ============================================================
    顶部地点搜索框 & 结果下拉列表
    ============================================================ */
 .search-box {
@@ -185,9 +162,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   top: calc(10px + env(safe-area-inset-top, 0px));
   left: 12px;
   right: 12px;
-  z-index: 16; /* 高于地图(1)与类别筛选条(15)：结果下拉展开时盖住筛选条；低于清单页(20)/提示条(26)/遮罩(39) */
+  z-index: 16; /* 高于地图(1)与类别筛选条(15)：结果下拉展开时盖住筛选条；低于清单页(20)/遮罩(39) */
 }
-.search-box.hidden { display: none; }
 .search-input-wrap {
   display: flex;
   align-items: center;
@@ -278,26 +254,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 }
 
 /* ============================================================
-   顶部提示条（选点模式 / Toast）
+   Toast
    ============================================================ */
-.hintbar {
-  position: fixed;
-  top: calc(14px + env(safe-area-inset-top, 0px));
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--overlay-hint);
-  color: var(--white);
-  padding: 10px 18px;
-  border-radius: 999px;
-  font-size: 15px;
-  max-width: 86vw;
-  text-align: center;
-  z-index: 26;
-  display: none;
-  box-shadow: var(--shadow);
-}
-.hintbar.show { display: block; }
-
 .toast {
   position: fixed;
   top: calc(14px + env(safe-area-inset-top, 0px));
@@ -540,7 +498,9 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .cat-btn.active.cat-park { border-color: var(--cat-park); background: var(--spruce-soft); }
 .cat-btn.active.cat-playground { border-color: var(--cat-playground); background: var(--sun-soft); }
 .cat-btn.active.cat-zoo { border-color: var(--cat-zoo); background: var(--cat-zoo-soft); }
+.cat-btn.active.cat-aquarium { border-color: var(--cat-aquarium); background: var(--cat-aquarium-soft); }
 .cat-btn.active.cat-museum { border-color: var(--cat-museum); background: var(--cat-museum-soft); }
+.cat-btn.active.cat-science { border-color: var(--cat-science); background: var(--cat-science-soft); }
 .cat-btn.active.cat-library { border-color: var(--cat-library); background: var(--cat-library-soft); }
 .cat-btn.active.cat-mall { border-color: var(--cat-mall); background: var(--cat-mall-soft); }
 .cat-btn.active.cat-water { border-color: var(--cat-water); background: var(--cat-water-soft); }
@@ -548,7 +508,9 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .cat-bg-park { background: var(--spruce-soft) !important; }
 .cat-bg-playground { background: var(--sun-soft) !important; }
 .cat-bg-zoo { background: var(--cat-zoo-soft) !important; }
+.cat-bg-aquarium { background: var(--cat-aquarium-soft) !important; }
 .cat-bg-museum { background: var(--cat-museum-soft) !important; }
+.cat-bg-science { background: var(--cat-science-soft) !important; }
 .cat-bg-library { background: var(--cat-library-soft) !important; }
 .cat-bg-mall { background: var(--cat-mall-soft) !important; }
 .cat-bg-water { background: var(--cat-water-soft) !important; }
@@ -941,7 +903,6 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   .drawer.open { transform: translate(-50%, 0); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .fab,
   .toast,
   .chip,
   .place-item,
@@ -983,10 +944,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   <div class="search-results" id="searchResults"></div>
 </div>
 
-<!-- 顶部提示条（选点模式） -->
-<div class="hintbar" id="hintbar" role="status"><span aria-hidden="true">📍</span> 点击地图选择位置，点击「+」可取消</div>
-
-<!-- 地图页类别筛选条（仅地图页可见，与搜索框同层；选点模式下隐藏避免与提示条重叠） -->
+<!-- 地图页类别筛选条（仅地图页可见，与搜索框同层） -->
 <div class="map-cat-strip" id="mapCatStrip"></div>
 
 <!-- Toast -->
@@ -1006,8 +964,6 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   <div class="list-body" id="listBody"></div>
 </section>
 
-<!-- 浮动添加按钮 -->
-<button class="fab" id="fab" aria-label="添加地点">＋</button>
 </main>
 
 <!-- 兼容旧版页面切换逻辑；精简版仅保留地图首页 -->
@@ -1025,8 +981,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   <h2 id="drawerAddTitle">添加地点</h2>
   <div class="sub" id="addCoordTip">📍 已获取位置坐标</div>
   <div class="field">
-    <label>地点名称（必填）</label>
-    <input type="text" id="addName" placeholder="比如：朝阳公园、家附近的滑梯…" maxlength="30" />
+    <label>地图地点</label>
+    <input type="text" id="addName" maxlength="30" readonly />
   </div>
   <div class="field">
     <label>选择类别</label>
@@ -1153,8 +1109,10 @@ var DEFAULT_ZOOM = 12;
 var CATEGORIES = [
   { value: 'park',       label: '公园',          emoji: '🌳', colorToken: '--cat-park' },
   { value: 'playground', label: '游乐场',        emoji: '🎠', colorToken: '--cat-playground' },
-  { value: 'zoo',        label: '动物园/水族馆', emoji: '🐼', colorToken: '--cat-zoo' },
-  { value: 'museum',     label: '博物馆/科技馆', emoji: '🏛️', colorToken: '--cat-museum' },
+  { value: 'zoo',        label: '动物园',        emoji: '🐼', colorToken: '--cat-zoo' },
+  { value: 'aquarium',   label: '水族馆',        emoji: '🐠', colorToken: '--cat-aquarium' },
+  { value: 'museum',     label: '博物馆',        emoji: '🏛️', colorToken: '--cat-museum' },
+  { value: 'science',    label: '科技馆',        emoji: '🔬', colorToken: '--cat-science' },
   { value: 'library',    label: '图书馆',        emoji: '📚', colorToken: '--cat-library' },
   { value: 'mall',       label: '商场儿童区',    emoji: '🛍️', colorToken: '--cat-mall' },
   { value: 'water',      label: '亲水玩沙',      emoji: '🏖️', colorToken: '--cat-water' },
@@ -1203,7 +1161,7 @@ var PARK_SEED_PLACES = [
   { name: '闵行体育公园', category: 'park', status: 'wish', rating: 0, lat: 31.1450,  lng: 121.3626, tags: ['free','stroller','parking'] }  // 闵行·七宝
 ];
 
-// 六个明确亲子类别各 3 个常设代表点；不预制语义不明确的「其他」类别。
+// 八个明确亲子类别共 18 个常设代表点；不预制语义不明确的「其他」类别。
 var CATEGORY_SEED_PLACES = [
   { name: '上海迪士尼度假区', category: 'playground', status: 'wish', rating: 0, lat: 31.1415, lng: 121.6600, tags: ['ticket','stroller','parking','toilet','nursing','food'] },
   { name: '上海海昌海洋公园', category: 'playground', status: 'wish', rating: 0, lat: 30.9255, lng: 121.9070, tags: ['ticket','stroller','parking','toilet','nursing','food'] },
@@ -1211,10 +1169,10 @@ var CATEGORY_SEED_PLACES = [
 
   { name: '上海野生动物园', category: 'zoo', status: 'wish', rating: 0, lat: 31.0543, lng: 121.7208, tags: ['ticket','stroller','parking','toilet','nursing','food'] },
   { name: '上海动物园', category: 'zoo', status: 'wish', rating: 0, lat: 31.1925, lng: 121.3601, tags: ['ticket','stroller','parking','toilet','nursing','food'] },
-  { name: '上海海洋水族馆', category: 'zoo', status: 'wish', rating: 0, lat: 31.2422, lng: 121.4988, tags: ['ticket','indoor','stroller','toilet','nursing','food'] },
+  { name: '上海海洋水族馆', category: 'aquarium', status: 'wish', rating: 0, lat: 31.2422, lng: 121.4988, tags: ['ticket','indoor','stroller','toilet','nursing','food'] },
 
   { name: '上海自然博物馆', category: 'museum', status: 'wish', rating: 0, lat: 31.2359, lng: 121.4608, tags: ['ticket','indoor','stroller','toilet','nursing','food'] },
-  { name: '上海天文馆', category: 'museum', status: 'wish', rating: 0, lat: 30.9169, lng: 121.9167, tags: ['ticket','indoor','stroller','parking','toilet','nursing','food'] },
+  { name: '上海天文馆', category: 'science', status: 'wish', rating: 0, lat: 30.9169, lng: 121.9167, tags: ['ticket','indoor','stroller','parking','toilet','nursing','food'] },
   { name: '上海儿童博物馆', category: 'museum', status: 'wish', rating: 0, lat: 31.1969, lng: 121.4172, tags: ['free','indoor','stroller','toilet','nursing'] },
 
   { name: '上海少年儿童图书馆（长风新馆）', category: 'library', status: 'wish', rating: 0, lat: 31.2268, lng: 121.3855, tags: ['free','indoor','stroller','parking','toilet','nursing'] },
@@ -1263,7 +1221,7 @@ function makePinSvg(color, emoji, visited) {
   return svg;
 }
 
-// 预生成 8 类别 × 2 状态 = 16 个图钉样式（MultiMarker 的 styles 为构造时映射，id 形如 park-wish）
+// 预生成 10 类别 × 2 状态 = 20 个图钉样式（MultiMarker 的 styles 为构造时映射，id 形如 park-wish）
 function buildMarkerStyles() {
   var styles = {};
   CATEGORIES.forEach(function (c) {
@@ -1293,11 +1251,10 @@ function svgToDataUri(svg) {
 var state = {
   places: [],          // 所有地点
   activeTab: 'map',    // 当前页面 map | list
-  pickMode: false,     // 选点模式
   filter: 'all',       // 清单筛选 all | wish | visited
   mapCatFilter: 'all', // 地图页类别筛选 all | 各类别 value（V1.1）
   currentDetailId: null,
-  addForm: { lat: 0, lng: 0, category: 'park', status: 'wish', tags: [] }
+  addForm: { name: '', lat: 0, lng: 0, category: 'park', status: 'wish', tags: [], source: null }
 };
 
 function uid() {
@@ -1332,11 +1289,16 @@ function sanitizePlace(raw) {
   }
   var rating = parseInt(raw.rating, 10);
   if (!(rating >= 1 && rating <= 5)) rating = 0; // 0 = 未评分
+  var name = String(raw.name || '未命名地点').slice(0, 30);
+  var category = raw.category;
+  // 旧版曾合并「动物园/水族馆」与「博物馆/科技馆」；仅对名称语义明确的旧数据拆分。
+  if (category === 'zoo' && /(水族馆|海洋馆)/.test(name)) category = 'aquarium';
+  if (category === 'museum' && /(科技馆|科学馆|天文馆)/.test(name)) category = 'science';
   return {
     id: typeof raw.id === 'string' ? raw.id : uid(),
-    name: String(raw.name || '未命名地点').slice(0, 30),
-    category: typeof raw.category === 'string' && CATEGORIES.some(function (c) { return c.value === raw.category; })
-      ? raw.category : 'other',
+    name: name,
+    category: typeof category === 'string' && CATEGORIES.some(function (c) { return c.value === category; })
+      ? category : 'other',
     status: raw.status === 'visited' ? 'visited' : 'wish',
     rating: rating,
     lat: parseFloat(raw.lat),
@@ -1409,10 +1371,18 @@ function loadState() {
     try {
       var parsed = JSON.parse(raw);
       var arr = (parsed && Array.isArray(parsed.places)) ? parsed.places : [];
-      state.places = arr.map(sanitizePlace).filter(function (p) {
+      var sanitizedPlaces = arr.map(sanitizePlace);
+      var categorySplit = sanitizedPlaces.some(function (place, index) {
+        return place && arr[index] &&
+          ((arr[index].category === 'zoo' && place.category === 'aquarium') ||
+           (arr[index].category === 'museum' && place.category === 'science'));
+      });
+      state.places = sanitizedPlaces.filter(function (p) {
         return p && isFinite(p.lat) && isFinite(p.lng);
       });
       try { lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); } catch (e) { lastSavedPlaces = null; }
+      // 将明确拆分出的旧类别写回；其余历史字段由 sanitizePlace 原样兼容保留。
+      if (categorySplit) saveState();
       trySeedCategoryUpgrade();
       return;
     } catch (e) {
@@ -1830,7 +1800,7 @@ function initMap() {
     zoom: DEFAULT_ZOOM
   });
 
-  // 标记图层（Multi 前缀：MultiMarker + MarkerStyle）；styles 为 8 类别 × 2 状态 = 16 个
+  // 标记图层（Multi 前缀：MultiMarker + MarkerStyle）；styles 为 10 类别 × 2 状态 = 20 个
   markerLayer = new TMap.MultiMarker({
     map: map,
     styles: buildMarkerStyles(),
@@ -1847,16 +1817,10 @@ function initMap() {
     }
   });
 
-  // 点击地图空白：仅收起搜索结果；只有「＋」选点模式下点击才弹添加表单（取点击坐标）
+  // 点击地图空白只收起搜索结果；用户新增地点必须来自在线地图 POI。
   map.on('click', function (evt) {
     if (Date.now() - lastMarkerClickAt < 400) return; // 忽略图钉点击冒泡
     hideSearchResults(); // 点击地图空白：收起搜索结果列表
-    if (anyDrawerOpen()) return;
-    if (!state.pickMode) return; // 非选点模式：点击地图不添加地点，须先点右下角「＋」
-    var latLng = evt.latLng;
-    if (!latLng) return;
-    exitPickMode(false); // 选点模式下点击地图：静默退出选点（不弹"已取消"提示），直接弹添加表单
-    openAddForm(latLng.getLat(), latLng.getLng());
   });
 
   // 浏览器定位，失败静默降级
@@ -1954,15 +1918,26 @@ function renderCatGrid() {
   restoreFocus($('catGrid'), focusSnapshot);
 }
 
-function openAddForm(lat, lng) {
-  state.addForm = { lat: lat, lng: lng, category: 'park', status: 'wish', tags: [] };
-  $('addName').value = '';
-  $('addCoordTip').textContent = '📍 坐标：' + lat.toFixed(5) + ', ' + lng.toFixed(5);
+function openAddForm(name, lat, lng) {
+  state.addForm = {
+    name: String(name || '').trim().slice(0, 30),
+    lat: lat,
+    lng: lng,
+    category: 'park',
+    status: 'wish',
+    tags: [],
+    source: 'map-poi'
+  };
+  $('addName').value = state.addForm.name;
+  $('addCoordTip').textContent = '📍 腾讯地图地点 · ' + lat.toFixed(5) + ', ' + lng.toFixed(5);
   renderCatGrid();
   renderAddTags();
   renderAddStatusSeg();
   openDrawer('drawerAdd');
-  setTimeout(function () { $('addName').focus(); }, 300);
+  setTimeout(function () {
+    var firstCategory = $('catGrid').querySelector('button');
+    if (firstCategory) firstCategory.focus();
+  }, 300);
 }
 
 function renderAddTags() {
@@ -1987,10 +1962,11 @@ function renderAddStatusSeg() {
 }
 
 function submitAdd() {
-  var name = $('addName').value.trim();
-  if (!name) {
-    showToast('请填写地点名称哦');
-    $('addName').focus();
+  var name = state.addForm.name;
+  if (state.addForm.source !== 'map-poi' || !name ||
+      !isFinite(state.addForm.lat) || !isFinite(state.addForm.lng)) {
+    showToast('请先从地图搜索结果中选择地点');
+    closeAllDrawers();
     return;
   }
   var place = sanitizePlace({
@@ -2070,8 +2046,7 @@ function openPoiPreview(name, lat, lng) {
   openDrawer('drawerDetail');
   $('btnNav').addEventListener('click', function () { openNavigation(poi); });
   $('btnSavePoi').addEventListener('click', function () {
-    openAddForm(poi.lat, poi.lng);
-    $('addName').value = poi.name.slice(0, 30);
+    openAddForm(poi.name, poi.lat, poi.lng);
   });
 }
 
@@ -2534,7 +2509,7 @@ function renderMapCatStrip() {
 }
 
 /* ============================================================
-   8. Tab 切换 & 选点模式
+   8. Tab 切换
    ============================================================ */
 function switchTab(tab) {
   state.activeTab = tab;
@@ -2545,35 +2520,11 @@ function switchTab(tab) {
   $('pageList').classList.toggle('active', tab === 'list');
   $('pageList').hidden = tab !== 'list';
   $('map').setAttribute('aria-hidden', tab === 'map' ? 'false' : 'true');
-  if (tab === 'map') exitPickMode(false); // 回地图不弹提示
   if (tab === 'list') {
     hideSearchResults(); // 清单页不需要搜索框
     // 进入清单尝试取定位，拿到后刷新距离显示（V1.2）
     ensureUserPos(function () { if (state.activeTab === 'list') renderList(); });
   }
-}
-
-function enterPickMode() {
-  state.pickMode = true;
-  $('searchBox').classList.add('hidden'); // 选点模式下隐藏搜索框，避免与提示条重叠
-  $('mapCatStrip').classList.add('hidden'); // 同步隐藏筛选条
-  $('fab').classList.add('pick-active');
-  $('fab').textContent = '✕';
-  $('fab').setAttribute('aria-label', '取消添加地点');
-  $('hintbar').classList.add('show');
-  showToast('📍 已进入选点模式，点击地图选择位置');
-}
-
-function exitPickMode(showToastFlag) {
-  if (!state.pickMode) return;
-  state.pickMode = false;
-  $('searchBox').classList.remove('hidden');
-  $('mapCatStrip').classList.remove('hidden');
-  $('fab').classList.remove('pick-active');
-  $('fab').textContent = '＋';
-  $('fab').setAttribute('aria-label', '添加地点');
-  $('hintbar').classList.remove('show');
-  if (showToastFlag !== false) showToast('已取消选点');
 }
 
 /* ============================================================
@@ -2609,8 +2560,7 @@ function hideSearchResults() {
   $('searchResults').innerHTML = '';
   lastSearchPois = [];
   lastLocalHits = [];
-  // 结果收起后恢复筛选条；选点模式下保持隐藏（由 exitPickMode 负责恢复）
-  if (!state.pickMode) $('mapCatStrip').classList.remove('hidden');
+  $('mapCatStrip').classList.remove('hidden');
 }
 
 function clearSearchBox() {
@@ -2847,7 +2797,6 @@ function selectSearchResult(idx) {
   }
   if (!isFinite(lat) || !isFinite(lng)) return;
   $('searchInput').blur();
-  if (state.pickMode) exitPickMode(false);
   map.easeTo({
     center: new TMap.LatLng(lat, lng),
     zoom: Math.max(map.getZoom(), 15),
@@ -2894,7 +2843,6 @@ function bindSearchEvents() {
       if (!lp) return;
       hideSearchResults();
       $('searchInput').blur();
-      if (state.pickMode) exitPickMode(false);
       if (state.activeTab !== 'map') switchTab('map');
       focusPlace(lp);
       openDetail(lp.id);
@@ -2911,13 +2859,6 @@ function bindEvents() {
   // Tab
   $('tabMap').addEventListener('click', function () { switchTab('map'); });
   $('tabList').addEventListener('click', function () { switchTab('list'); });
-
-  // 浮动 + ：进入选点模式（再次点击取消）
-  $('fab').addEventListener('click', function () {
-    if (state.pickMode) { exitPickMode(); return; }
-    if (state.activeTab !== 'map') switchTab('map');
-    enterPickMode();
-  });
 
   // 遮罩关闭抽屉
   $('mask').addEventListener('click', closeAllDrawers);

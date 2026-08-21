@@ -82,7 +82,7 @@ test.beforeEach(async ({ page }) => {
 test('map exposes only the essential decision controls', async ({ page }) => {
   await expect(page.getByRole('tablist', { name: '主导航' })).toBeHidden();
   await expect(page.locator('#searchInput')).toBeVisible();
-  await expect(page.getByRole('button', { name: '添加地点' })).toBeVisible();
+  await expect(page.locator('#fab')).toHaveCount(0);
   await expect(page.locator('#mapCatStrip')).toBeVisible();
 });
 
@@ -93,7 +93,7 @@ test('production placeholders do not configure an invalid map proxy', async ({ p
   }));
 
   expect(mapConfig.securityConfig).toBeUndefined();
-  expect(mapConfig.anchors).toHaveLength(16);
+  expect(mapConfig.anchors).toHaveLength(20);
   expect(mapConfig.anchors.every(anchor => anchor.x === 22 && anchor.y === 52)).toBe(true);
 });
 
@@ -115,10 +115,50 @@ test('existing maps receive representative points for every explicit category', 
     }, {});
   });
 
-  for (const category of ['playground', 'zoo', 'museum', 'library', 'mall', 'water']) {
-    expect(categories[category]).toBe(3);
-  }
+  expect(categories).toMatchObject({
+    playground: 3,
+    zoo: 2,
+    aquarium: 1,
+    museum: 2,
+    science: 1,
+    library: 3,
+    mall: 3,
+    water: 3
+  });
   expect(categories.other || 0).toBe(0);
+});
+
+test('combined venue categories are exposed as independent filters', async ({ page }) => {
+  for (const label of ['动物园', '水族馆', '博物馆', '科技馆']) {
+    await expect(page.locator('#mapCatStrip').getByRole('button').filter({ hasText: label })).toBeVisible();
+  }
+  await expect(page.locator('#mapCatStrip')).not.toContainText('动物园/水族馆');
+  await expect(page.locator('#mapCatStrip')).not.toContainText('博物馆/科技馆');
+});
+
+test('legacy combined categories split only when the place name is explicit', async ({ page }) => {
+  await page.evaluate(() => {
+    sessionStorage.setItem('playmap_test_keep_storage', '1');
+    const base = { status: 'wish', rating: 0, lat: 31.23, lng: 121.47, tags: [] };
+    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 1, places: [
+      { ...base, id: 'aquarium', name: '旧海洋水族馆', category: 'zoo' },
+      { ...base, id: 'zoo', name: '旧动物乐园', category: 'zoo' },
+      { ...base, id: 'science', name: '旧天文馆', category: 'museum' },
+      { ...base, id: 'museum', name: '旧自然展馆', category: 'museum' }
+    ] }));
+    localStorage.setItem('baby_playmap_seeded_categories_v1', 'true');
+  });
+  await page.reload();
+
+  const categories = await page.evaluate(() => Object.fromEntries(
+    JSON.parse(localStorage.getItem('baby_playmap_v1')).places.map(item => [item.id, item.category])
+  ));
+  expect(categories).toEqual({
+    aquarium: 'aquarium',
+    zoo: 'zoo',
+    science: 'science',
+    museum: 'museum'
+  });
 });
 
 test('category seed upgrade does not repopulate a deliberately empty map', async ({ page }) => {
@@ -137,14 +177,23 @@ test('category seed upgrade does not repopulate a deliberately empty map', async
   )).toBe('true');
 });
 
-test('online search can navigate before saving a place', async ({ page }) => {
+test('online search results are the only way to add a place', async ({ page }) => {
   await page.locator('#searchInput').fill('搜索公园');
   await expect(page.getByText('搜索公园', { exact: true })).toBeVisible();
   await page.getByText('搜索公园', { exact: true }).click();
 
   const dialog = page.getByRole('dialog', { name: '搜索公园' });
   await expect(dialog.getByRole('button', { name: '导航去这里' })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: '添加到我的地图' })).toBeVisible();
+  await dialog.getByRole('button', { name: '添加到我的地图' }).click();
+
+  const addDialog = page.getByRole('dialog', { name: '添加地点' });
+  await expect(addDialog.locator('#addName')).toHaveValue('搜索公园');
+  await expect(addDialog.locator('#addName')).toHaveAttribute('readonly', '');
+  await addDialog.locator('#btnSubmitAdd').click();
+
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places
+    .find(item => item.name === '搜索公园'));
+  expect(saved).toMatchObject({ name: '搜索公园', lat: 31.24, lng: 121.48 });
 });
 
 test('detail drawer traps focus and closes with Escape', async ({ page }) => {
