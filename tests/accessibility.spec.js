@@ -179,13 +179,13 @@ test('location permission denial is explained and can be retried', async ({ page
   expect(mapState.marker).toEqual(mapState.center);
 });
 
-test('location outside China keeps the browser coordinates unchanged', async ({ page }) => {
+test('nearby location outside mainland China keeps browser coordinates unchanged', async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'geolocation', {
       configurable: true,
       value: {
         getCurrentPosition(success) {
-          success({ coords: { latitude: 51.5074, longitude: -0.1278 } });
+          success({ coords: { latitude: 37.5665, longitude: 126.978 } });
         }
       }
     });
@@ -196,9 +196,9 @@ test('location outside China keeps the browser coordinates unchanged', async ({ 
 
   const mapState = await readLocationMapState(page);
   expect(mapState).toEqual({
-    center: [51.5074, -0.1278],
+    center: [37.5665, 126.978],
     zoom: 15,
-    marker: [51.5074, -0.1278]
+    marker: [37.5665, 126.978]
   });
 });
 

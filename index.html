@@ -1807,8 +1807,44 @@ function distText(km) {
   return Math.round(km) + 'km';
 }
 
+var gcj02Regions = [
+  [
+    [73.5, 39.5], [74.8, 37.2], [78, 32.5], [80, 30.5], [82.5, 30], [84, 29.3],
+    [86, 28], [89, 27.2], [92, 27.5], [95, 28], [97.3, 27.2], [98.7, 24],
+    [100.2, 21.5], [101.8, 21.2], [103.5, 22.5], [105.8, 22.5], [107.5, 21.5],
+    [109, 21.5], [110.8, 21.2], [112.5, 21.8], [114, 22.4], [116, 23], [118, 24],
+    [120, 26], [121, 28], [122, 30.5], [121.5, 32], [121, 34], [120, 36],
+    [121.5, 37.5], [122, 39], [124, 40], [125, 40.5], [128, 42], [131, 43],
+    [134.5, 48], [130, 49], [127, 50], [125, 53], [121, 53], [119, 50],
+    [119.5, 47], [117, 46.5], [115, 45], [113, 44], [111, 43], [108, 42.5],
+    [105, 41.8], [102, 42.5], [99, 42.7], [96, 42], [93, 45], [90, 47],
+    [88, 49], [83, 47], [80, 45], [78, 42], [75, 41]
+  ],
+  [[108.5, 18], [111.3, 18], [111.3, 20.5], [108.5, 20.5]]
+];
+
+function coordinateInPolygon(lat, lng, polygon) {
+  var inside = false;
+  for (var i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    var xi = polygon[i][0];
+    var yi = polygon[i][1];
+    var xj = polygon[j][0];
+    var yj = polygon[j][1];
+    if ((yi > lat) !== (yj > lat) && lng < (xj - xi) * (lat - yi) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function usesGcj02Coordinates(lat, lng) {
+  return gcj02Regions.some(function (polygon) {
+    return coordinateInPolygon(lat, lng, polygon);
+  });
+}
+
 function wgs84ToGcj02(lat, lng) {
-  if (lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271) {
+  if (!usesGcj02Coordinates(lat, lng)) {
     return { lat: lat, lng: lng };
   }
   var a = 6378245;
