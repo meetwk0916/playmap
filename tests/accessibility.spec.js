@@ -34,7 +34,11 @@ const tmapStub = `
       this.easeTo = function () {};
       this.on = function () {};
     },
-    MarkerStyle: function (options) { Object.assign(this, options); },
+    MarkerStyle: function (options) {
+      window.__markerStyleOptions = window.__markerStyleOptions || [];
+      window.__markerStyleOptions.push(options);
+      Object.assign(this, options);
+    },
     MultiMarker: function () {
       this.setGeometries = function () {};
       this.on = function (event, callback) {
@@ -80,6 +84,17 @@ test('map exposes only the essential decision controls', async ({ page }) => {
   await expect(page.locator('#searchInput')).toBeVisible();
   await expect(page.getByRole('button', { name: '添加地点' })).toBeVisible();
   await expect(page.locator('#mapCatStrip')).toBeVisible();
+});
+
+test('production placeholders do not configure an invalid map proxy', async ({ page }) => {
+  const mapConfig = await page.evaluate(() => ({
+    securityConfig: window._TMapSecurityConfig,
+    anchors: window.__markerStyleOptions.map(options => options.anchor)
+  }));
+
+  expect(mapConfig.securityConfig).toBeUndefined();
+  expect(mapConfig.anchors).toHaveLength(16);
+  expect(mapConfig.anchors.every(anchor => anchor.x === 22 && anchor.y === 52)).toBe(true);
 });
 
 test('existing maps receive representative points for every explicit category', async ({ page }) => {

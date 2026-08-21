@@ -958,9 +958,12 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 
 <!-- 腾讯地图 GL JS 密钥代理配置（占位符由运行时代理替换） -->
 <script type="text/javascript">
-    window._TMapSecurityConfig = {
-        serviceHost: 'http://127.0.0.1:__WB_HTTP_PORT__/_TMapService/_wbt/__WB_TMAP_SECRET__',
-    };
+    (function () {
+        var serviceHost = 'http://127.0.0.1:__WB_HTTP_PORT__/_TMapService/_wbt/__WB_TMAP_SECRET__';
+        if (serviceHost.indexOf('__WB_') === -1) {
+            window._TMapSecurityConfig = { serviceHost: serviceHost };
+        }
+    }());
 </script>
 <script src="https://map.qq.com/api/gljs?v=1.exp&libraries=service"></script>
 </head>
@@ -1267,13 +1270,13 @@ function buildMarkerStyles() {
     styles[c.value + '-wish'] = new TMap.MarkerStyle({
       width: 44,
       height: 52,
-      anchor: 'bottom-center',
+      anchor: { x: 22, y: 52 },
       src: svgToDataUri(makePinSvg(cssToken(c.colorToken), c.emoji, false))
     });
     styles[c.value + '-visited'] = new TMap.MarkerStyle({
       width: 44,
       height: 52,
-      anchor: 'bottom-center',
+      anchor: { x: 22, y: 52 },
       src: svgToDataUri(makePinSvg(cssToken(c.colorToken), c.emoji, true))
     });
   });
