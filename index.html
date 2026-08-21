@@ -32,17 +32,56 @@
   --visited-soft: #E2F1E7;/* 已去过浅底 */
   --sky-soft: #E2EEF6;    /* 天空蓝浅底（导航/信息） */
   --sky-ink: #2F5D87;     /* 天空蓝文字（sky-soft 上 6:1） */
+  --white: #FFFFFF;
+  --black: #000000;
+  --line-strong: #EDE8D8;
+  --line-soft: #EFE9DA;
+  --line-card: #EDE7D6;
+  --surface-muted: #FBFAF4;
+  --star-off: #E4DEC9;
+  --icon-muted: #A8B0A6;
+  --danger-soft: #FBEAE7;
+  --neutral-soft: #EFEBE1;
+  --cat-park: #3D9970;
+  --cat-playground: #F2822E;
+  --cat-zoo: #A06BC8;
+  --cat-museum: #6478D8;
+  --cat-library: #2FA8A0;
+  --cat-mall: #E06A8B;
+  --cat-water: #2FA3C7;
+  --cat-other: #8A8378;
+  --cat-zoo-soft: #F1E8F9;
+  --cat-museum-soft: #E8EBFA;
+  --cat-library-soft: #E0F2F2;
+  --cat-mall-soft: #FAE6ED;
+  --cat-water-soft: #E0F2F7;
+  --cat-other-soft: #EFEDE6;
+  --overlay-hint: rgba(36, 53, 43, 0.88);
+  --overlay-toast: rgba(36, 53, 43, 0.92);
+  --overlay-mask: rgba(36, 53, 43, 0.45);
+  --overlay-welcome: rgba(36, 53, 43, 0.55);
+  --overlay-confirm: rgba(36, 53, 43, 0.5);
+  --overlay-photo: rgba(20, 12, 10, 0.94);
+  --surface-glass: rgba(255, 254, 250, 0.94);
+  --surface-results: rgba(255, 255, 255, 0.97);
+  --surface-photo-control: rgba(255, 255, 255, 0.22);
+  --text-photo-count: rgba(255, 255, 255, 0.9);
   --shadow: 0 4px 16px rgba(47, 107, 79, 0.12);
+  --shadow-fab: 0 6px 18px rgba(35, 84, 61, 0.30);
+  --shadow-button: 0 4px 14px rgba(35, 84, 61, 0.30);
+  --dur-fast: 150ms;
+  --dur-base: 180ms;
+  --dur-slow: 260ms;
+  --ease-out: cubic-bezier(.22, 1, .36, 1);
   --font-display: "ZCOOL KuaiLe", "PingFang SC", -apple-system, sans-serif;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-html, body { margin: 0; padding: 0; height: 100%; }
+html, body { margin: 0; padding: 0; height: 100%; overflow: clip; }
 body {
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
   font-size: 16px;
   color: var(--text);
   background: var(--bg);
-  overflow: hidden;
 }
 button { font-family: inherit; cursor: pointer; }
 input, textarea, select { font-family: inherit; font-size: 16px; color: var(--text); }
@@ -77,8 +116,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   /* 两端渐隐遮罩，提示可横滑 */
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 18px, #000 calc(100% - 18px), transparent);
+  -webkit-mask-image: linear-gradient(90deg, transparent, var(--black) 18px, var(--black) calc(100% - 18px), transparent);
+  mask-image: linear-gradient(90deg, transparent, var(--black) 18px, var(--black) calc(100% - 18px), transparent);
 }
 .map-cat-strip::-webkit-scrollbar { display: none; }
 .map-cat-strip.hidden { display: none; }
@@ -92,7 +131,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   left: 0; right: 0; bottom: 0;
   display: flex;
   background: var(--card);
-  border-top: 1px solid #EDE8D8;
+  border-top: 1px solid var(--line-strong);
   padding-bottom: env(safe-area-inset-bottom, 0px);
   z-index: 30;
   user-select: none;
@@ -124,15 +163,15 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   border-radius: 50%;
   border: none;
   background: var(--primary-strong);
-  color: #fff;
+  color: var(--white);
   font-size: 34px;
   line-height: 1;
-  box-shadow: 0 6px 18px rgba(35, 84, 61, 0.30);
+  box-shadow: var(--shadow-fab);
   z-index: 25;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform .15s;
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 .fab:active { transform: scale(0.92); }
 .fab.pick-active { background: var(--danger); }
@@ -152,7 +191,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   display: flex;
   align-items: center;
   gap: 9px;
-  background: rgba(255, 254, 250, 0.94);
+  background: var(--surface-glass);
   border-radius: 999px;
   padding: 12px 16px;
   box-shadow: var(--shadow);
@@ -174,7 +213,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 #searchInput::-webkit-search-cancel-button { display: none; }
 .s-clear {
   border: none;
-  background: #E7E2D2;
+  background: var(--line);
   color: var(--text-light);
   width: 32px;
   height: 32px;
@@ -199,7 +238,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .s-clear.show { display: flex; }
 .search-results {
   margin-top: 6px;
-  background: rgba(255, 255, 255, 0.97);
+  background: var(--surface-results);
   border-radius: 14px;
   box-shadow: var(--shadow);
   max-height: 322px;
@@ -210,10 +249,11 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .search-results.show { display: block; }
 .sr-item {
   padding: 10px 14px;
-  border-bottom: 1px solid #EFE9DA;
+  border-bottom: 1px solid var(--line-soft);
 }
 .sr-item:last-child { border-bottom: none; }
-.sr-item:active { background: #FCF0D8; }
+.sr-item:active { background: var(--sun-soft); }
+.sr-section { text-align: left; padding: 8px 14px 2px; }
 .sr-item .sr-title {
   font-size: 15px;
   font-weight: 500;
@@ -244,8 +284,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   top: calc(14px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(36, 53, 43, 0.88);
-  color: #fff;
+  background: var(--overlay-hint);
+  color: var(--white);
   padding: 10px 18px;
   border-radius: 999px;
   font-size: 15px;
@@ -262,8 +302,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   top: calc(14px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(36, 53, 43, 0.92);
-  color: #fff;
+  background: var(--overlay-toast);
+  color: var(--white);
   padding: 10px 18px;
   border-radius: 999px;
   font-size: 14px;
@@ -271,7 +311,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   z-index: 60;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .25s;
+  transition: opacity var(--dur-slow) var(--ease-out);
 }
 .toast.show { opacity: 1; }
 
@@ -291,7 +331,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .list-header {
   padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 10px;
   background: var(--card);
-  border-bottom: 1px solid #EDE8D8;
+  border-bottom: 1px solid var(--line-strong);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -319,7 +359,9 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
-  transition: all .18s cubic-bezier(.22,1,.36,1);
+  transition: background-color var(--dur-base) var(--ease-out),
+              border-color var(--dur-base) var(--ease-out),
+              color var(--dur-base) var(--ease-out);
 }
 .chip.active {
   background: var(--spruce-soft);
@@ -342,7 +384,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   display: flex;
   align-items: center;
   gap: 12px;
-  transition: transform .18s cubic-bezier(.22,1,.36,1), box-shadow .18s;
+  transition: transform var(--dur-base) var(--ease-out), box-shadow var(--dur-base) var(--ease-out);
 }
 .place-item:active { transform: translateY(-2px); }
 .place-item .p-emoji {
@@ -356,7 +398,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   font-size: 24px;
   flex-shrink: 0;
 }
-.place-item.visited .p-emoji { background: #E2F1E7; }
+.place-item.visited .p-emoji { background: var(--visited-soft); }
 .place-item .p-main { flex: 1; min-width: 0; }
 .place-item .p-name {
   font-size: 17px;
@@ -375,7 +417,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   flex-wrap: wrap;
 }
 .stars { color: var(--accent); letter-spacing: 1px; }
-.stars .off { color: #E4DEC9; }
+.stars .off { color: var(--star-off); }
 .badge {
   font-size: 12px;
   padding: 3px 9px;
@@ -389,7 +431,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   background: transparent;
   font-size: 20px;
   padding: 12px;
-  color: #A8B0A6;
+  color: var(--icon-muted);
 }
 .empty-tip {
   text-align: center;
@@ -406,11 +448,11 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .mask {
   position: fixed;
   inset: 0;
-  background: rgba(36, 53, 43, 0.45);
+  background: var(--overlay-mask);
   z-index: 39;
   opacity: 0;
   pointer-events: none;
-  transition: opacity .22s;
+  transition: opacity var(--dur-base) var(--ease-out);
 }
 .mask.show { opacity: 1; pointer-events: auto; }
 .drawer {
@@ -420,7 +462,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   border-radius: 24px 24px 0 0;
   z-index: 40;
   transform: translateY(105%);
-  transition: transform .26s ease-out;
+  transition: transform var(--dur-slow) var(--ease-out);
   max-height: 86vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -431,7 +473,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   width: 42px;
   height: 5px;
   border-radius: 3px;
-  background: #E7E2D2;
+  background: var(--line);
   margin: 6px auto 4px;
 }
 .drawer h2 {
@@ -460,10 +502,10 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .field input[type="number"],
 .field textarea {
   width: 100%;
-  border: 1.5px solid #E7E2D2;
+  border: 1.5px solid var(--line);
   border-radius: 12px;
   padding: 11px 12px;
-  background: #FBFAF4;
+  background: var(--surface-muted);
   outline: none;
 }
 .field textarea { min-height: 76px; resize: vertical; }
@@ -476,8 +518,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   gap: 8px;
 }
 .cat-btn {
-  border: 1.5px solid #E7E2D2;
-  background: #FBFAF4;
+  border: 1.5px solid var(--line);
+  background: var(--surface-muted);
   border-radius: 12px;
   padding: 9px 2px;
   display: flex;
@@ -488,25 +530,41 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   color: var(--text-light);
 }
 .cat-btn .ce { font-size: 20px; line-height: 1; }
-/* 激活态配色由 JS 按类别注入 inline style（border-color=类别色 / background=类别浅底）；
-   文字统一用 --text（深可可 4.5:1+），类别主色压浅底多数不达 AA */
 .cat-btn.active {
   border-color: var(--primary);
-  background: #FCF0D8;
+  background: var(--sun-soft);
   color: var(--text);
   font-weight: 700;
 }
+.cat-btn.active.cat-park { border-color: var(--cat-park); background: var(--spruce-soft); }
+.cat-btn.active.cat-playground { border-color: var(--cat-playground); background: var(--sun-soft); }
+.cat-btn.active.cat-zoo { border-color: var(--cat-zoo); background: var(--cat-zoo-soft); }
+.cat-btn.active.cat-museum { border-color: var(--cat-museum); background: var(--cat-museum-soft); }
+.cat-btn.active.cat-library { border-color: var(--cat-library); background: var(--cat-library-soft); }
+.cat-btn.active.cat-mall { border-color: var(--cat-mall); background: var(--cat-mall-soft); }
+.cat-btn.active.cat-water { border-color: var(--cat-water); background: var(--cat-water-soft); }
+.cat-btn.active.cat-other { border-color: var(--cat-other); background: var(--cat-other-soft); }
+.cat-bg-park { background: var(--spruce-soft) !important; }
+.cat-bg-playground { background: var(--sun-soft) !important; }
+.cat-bg-zoo { background: var(--cat-zoo-soft) !important; }
+.cat-bg-museum { background: var(--cat-museum-soft) !important; }
+.cat-bg-library { background: var(--cat-library-soft) !important; }
+.cat-bg-mall { background: var(--cat-mall-soft) !important; }
+.cat-bg-water { background: var(--cat-water-soft) !important; }
+.cat-bg-other { background: var(--cat-other-soft) !important; }
 
 /* 亲子便利标签（V1.2）：详情页点选 + 添加表单多选共用 */
 .tag-chips, .tag-grid { display: flex; flex-wrap: wrap; gap: 8px; }
 .tag-chip {
   border: 1.5px solid var(--line);
-  background: #FBFAF4;
+  background: var(--surface-muted);
   color: var(--text-light);
   border-radius: 999px;
   padding: 7px 12px;
   font-size: 13px;
-  transition: all .15s cubic-bezier(.22,1,.36,1);
+  transition: background-color var(--dur-fast) var(--ease-out),
+              border-color var(--dur-fast) var(--ease-out),
+              color var(--dur-fast) var(--ease-out);
 }
 .tag-chip.active {
   border-color: var(--primary-deep);
@@ -518,20 +576,20 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 /* 状态分段选择 */
 .seg {
   display: flex;
-  border: 1.5px solid #E7E2D2;
+  border: 1.5px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
 }
 .seg button {
   flex: 1;
   border: none;
-  background: #FBFAF4;
+  background: var(--surface-muted);
   padding: 11px 0;
   font-size: 15px;
   color: var(--text-light);
 }
-.seg button.active.wish { background: var(--primary-strong); color: #fff; font-weight: 700; }
-.seg button.active.visited { background: var(--green); color: #fff; font-weight: 700; }
+.seg button.active.wish { background: var(--primary-strong); color: var(--white); font-weight: 700; }
+.seg button.active.visited { background: var(--green); color: var(--white); font-weight: 700; }
 
 /* 主按钮 */
 .btn-primary {
@@ -541,10 +599,10 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   padding: 14px 0;
   font-size: 17px;
   font-weight: 800;
-  color: #fff;
+  color: var(--white);
   background: var(--primary-strong);
-  box-shadow: 0 4px 14px rgba(35, 84, 61, 0.30);
-  transition: transform .15s cubic-bezier(.22,1,.36,1);
+  box-shadow: var(--shadow-button);
+  transition: transform var(--dur-fast) var(--ease-out);
 }
 .btn-primary:active { transform: scale(0.98); }
 .btn-ghost {
@@ -553,7 +611,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   border-radius: var(--radius);
   padding: 12px 0;
   font-size: 15px;
-  background: #FBFAF4;
+  background: var(--surface-muted);
   color: var(--text-light);
   margin-top: 10px;
 }
@@ -562,7 +620,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   border-radius: 12px;
   padding: 10px 16px;
   font-size: 15px;
-  background: #FBEAE7;
+  background: var(--danger-soft);
   color: var(--danger);
   font-weight: 700;
 }
@@ -596,16 +654,16 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   font-size: 15px;
   font-weight: 700;
 }
-.btn-toggle-wish { background: #FCF0D8; color: var(--primary-deep); }
-.btn-toggle-visited { background: #E2F1E7; color: var(--green-deep); }
+.btn-toggle-wish { background: var(--sun-soft); color: var(--primary-deep); }
+.btn-toggle-visited { background: var(--visited-soft); color: var(--green-deep); }
 /* 导航按钮（天空蓝系，语义=信息/行动） */
-.btn-nav { background: #E2EEF6; color: #2F5D87; }
+.btn-nav { background: var(--sky-soft); color: var(--sky-ink); }
 .rating-row { display: flex; align-items: center; gap: 6px; justify-content: center; margin: 6px 0 2px; }
 .rating-row .star-btn {
   border: none;
   background: transparent;
   font-size: 30px;
-  color: #E4DEC9;
+  color: var(--star-off);
   padding: 4px 3px;
 }
 .rating-row .star-btn.on { color: var(--accent); }
@@ -618,8 +676,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   gap: 6px;
 }
 .visit-card {
-  background: #FBFAF4;
-  border: 1px solid #EDE7D6;
+  background: var(--surface-muted);
+  border: 1px solid var(--line-card);
   border-radius: 12px;
   padding: 10px 12px;
   margin-bottom: 8px;
@@ -634,7 +692,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .visit-card .v-top .v-del {
   border: none;
   background: transparent;
-  color: #A8B0A6;
+  color: var(--icon-muted);
   font-size: 16px;
   padding: 12px 14px;
   margin: -6px -12px -6px 0; /* 抵消大触控区对行高的影响，保持视觉轻量 */
@@ -650,7 +708,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   align-items: center;
   justify-content: space-between;
   padding: 13px 2px;
-  border-bottom: 1px solid #EFE9DA;
+  border-bottom: 1px solid var(--line-soft);
   font-size: 15px;
 }
 .settings-block .s-btn {
@@ -660,9 +718,18 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   font-size: 13px;
   font-weight: 700;
 }
-.s-btn.orange { background: #FCF0D8; color: var(--primary-deep); }
-.s-btn.green { background: #E2F1E7; color: var(--green-deep); }
-.s-btn.red { background: #FBEAE7; color: var(--danger); }
+.s-btn.orange { background: var(--sun-soft); color: var(--primary-deep); }
+.s-btn.green { background: var(--visited-soft); color: var(--green-deep); }
+.s-btn.red { background: var(--danger-soft); color: var(--danger); }
+.storage-usage { font-size: 13px; color: var(--text-light); }
+.storage-usage.warning { color: var(--danger); font-weight: 700; }
+.settings-key-field { margin: 10px 0 4px; }
+.settings-full-button { width: 100%; }
+.sub-left { text-align: left; }
+.settings-key-status { margin-top: 8px; }
+.settings-key-help { margin-top: 10px; line-height: 1.7; }
+.settings-footer { margin-top: 14px; }
+.visually-hidden-input { display: none; }
 
 /* ============================================================
    欢迎引导 & 确认弹窗
@@ -670,7 +737,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .welcome {
   position: fixed;
   inset: 0;
-  background: rgba(36, 53, 43, 0.55);
+  background: var(--overlay-welcome);
   z-index: 70;
   display: none;
   align-items: center;
@@ -691,11 +758,14 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .welcome h2 { margin: 8px 0 4px; font-size: 20px; font-family: var(--font-display); font-weight: 400; }
 .welcome p { font-size: 15px; color: var(--text-light); line-height: 1.8; margin: 6px 0; text-align: left; }
 .welcome p b { color: var(--primary-deep); }
+.welcome-seed-hint { display: none; }
+.welcome-seed-hint.show { display: block; }
+.welcome-action { margin-top: 12px; }
 
 .modal-confirm {
   position: fixed;
   inset: 0;
-  background: rgba(36, 53, 43, 0.5);
+  background: var(--overlay-confirm);
   z-index: 80;
   display: none;
   align-items: center;
@@ -721,8 +791,19 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   font-size: 15px;
   font-weight: 700;
 }
-.modal-confirm .btn-ok { background: var(--primary-strong); color: #fff; }
-.modal-confirm .btn-no { background: #EFEBE1; color: var(--text-light); }
+.modal-confirm .btn-ok { background: var(--primary-strong); color: var(--white); }
+.modal-confirm .btn-no { background: var(--neutral-soft); color: var(--text-light); }
+.detail-main { flex: 1; min-width: 0; }
+.detail-rating-copy { margin: 0 0 4px; }
+.detail-tags-help { text-align: left; margin: 6px 0 0; }
+.detail-notes-field { margin-top: 6px; }
+.detail-save-notes { margin-top: 0; }
+.detail-visit-field { margin-top: 4px; }
+.detail-photo-button { margin-top: 4px; }
+.detail-save-visit { margin-top: 6px; }
+.detail-delete { width: 100%; margin-top: 14px; }
+.detail-empty { padding: 16px; }
+.empty-go-map { width: auto; padding: 12px 28px; margin: 16px auto 0; display: block; }
 
 /* ============================================================
    游玩照片（表单预览 / 记录缩略图 / 全屏查看器）
@@ -745,7 +826,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   height: 100%;
   object-fit: cover;
   border-radius: 10px;
-  border: 1px solid #E7E2D2;
+  border: 1px solid var(--line);
   display: block;
 }
 .photo-thumb .ph-rm {
@@ -756,8 +837,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   height: 20px;
   border-radius: 50%;
   border: none;
-  background: rgba(36, 53, 43, 0.88);
-  color: #fff;
+  background: var(--overlay-hint);
+  color: var(--white);
   font-size: 13px;
   line-height: 1;
   padding: 0;
@@ -776,16 +857,16 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   height: 64px;
   object-fit: cover;
   border-radius: 10px;
-  border: 1px solid #E7E2D2;
+  border: 1px solid var(--line);
   display: block;
   padding: 0;
-  background: #FCF0D8;
+  background: var(--sun-soft);
   cursor: pointer;
 }
 .photo-viewer {
   position: fixed;
   inset: 0;
-  background: rgba(20, 12, 10, 0.94);
+  background: var(--overlay-photo);
   z-index: 90;
   display: none;
   align-items: center;
@@ -811,8 +892,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   height: 44px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
+  background: var(--surface-photo-control);
+  color: var(--white);
   font-size: 26px;
   line-height: 1;
   padding: 0;
@@ -824,9 +905,34 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   top: calc(14px + env(safe-area-inset-top, 0px));
   left: 50%;
   transform: translateX(-50%);
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--text-photo-count);
   font-size: 13px;
   letter-spacing: 1px;
+}
+@media (min-width: 768px) {
+  .tabbar,
+  .drawer {
+    left: 50%;
+    right: auto;
+    width: min(420px, 100%);
+    transform: translateX(-50%);
+  }
+  .drawer { transform: translate(-50%, 105%); }
+  .drawer.open { transform: translate(-50%, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fab,
+  .toast,
+  .chip,
+  .place-item,
+  .mask,
+  .drawer,
+  .tag-chip,
+  .btn-primary {
+    transition-property: opacity;
+    transition-duration: var(--dur-fast);
+    transition-timing-function: linear;
+  }
 }
 </style>
 
@@ -840,13 +946,14 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 </head>
 <body>
 
+<main aria-label="亲子游玩地图">
 <!-- 地图容器 -->
-<div id="map"></div>
+<div id="map" role="tabpanel" aria-labelledby="tabMap"></div>
 
 <!-- 顶部地点搜索框（仅地图页可见，z-index 低于清单页/抽屉遮罩） -->
 <div class="search-box" id="searchBox">
   <div class="search-input-wrap">
-    <span class="s-icon">🔍</span>
+    <span class="s-icon" aria-hidden="true">🔍</span>
     <input type="search" id="searchInput" placeholder="搜地点，如：朝阳公园" autocomplete="off" enterkeyhint="search" />
     <button class="s-clear" id="searchClear" title="清空">✕</button>
   </div>
@@ -854,19 +961,19 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 </div>
 
 <!-- 顶部提示条（选点模式） -->
-<div class="hintbar" id="hintbar">📍 点击地图选择位置，点击「+」可取消</div>
+<div class="hintbar" id="hintbar" role="status"><span aria-hidden="true">📍</span> 点击地图选择位置，点击「+」可取消</div>
 
 <!-- 地图页类别筛选条（仅地图页可见，与搜索框同层；选点模式下隐藏避免与提示条重叠） -->
 <div class="map-cat-strip" id="mapCatStrip"></div>
 
 <!-- Toast -->
-<div class="toast" id="toast"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <!-- 清单页 -->
-<div class="page-list" id="pageList">
+<section class="page-list" id="pageList" role="tabpanel" aria-labelledby="tabList" hidden>
   <div class="list-header">
-    <h1>🎒 游玩清单</h1>
-    <button class="settings-btn" id="btnOpenSettings" title="设置">⚙️</button>
+    <h1><span aria-hidden="true">🎒</span> 游玩清单</h1>
+    <button class="settings-btn" id="btnOpenSettings" title="设置" aria-label="设置">⚙️</button>
   </div>
   <div class="filter-chips" id="filterChips">
     <button class="chip active" data-filter="all">全部</button>
@@ -874,24 +981,25 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
     <button class="chip" data-filter="visited">已去过</button>
   </div>
   <div class="list-body" id="listBody"></div>
-</div>
+</section>
 
 <!-- 浮动添加按钮 -->
-<button class="fab" id="fab">＋</button>
+<button class="fab" id="fab" aria-label="推荐好去处">＋</button>
+</main>
 
 <!-- 底部 Tab 栏 -->
-<div class="tabbar">
-  <button class="tab active" id="tabMap"><span class="tab-icon">🗺️</span>地图</button>
-  <button class="tab" id="tabList"><span class="tab-icon">🎒</span>清单</button>
-</div>
+<nav class="tabbar" role="tablist" aria-label="主导航">
+  <button class="tab active" id="tabMap" role="tab" aria-selected="true" aria-controls="map"><span class="tab-icon" aria-hidden="true">🗺️</span>地图</button>
+  <button class="tab" id="tabList" role="tab" aria-selected="false" aria-controls="pageList"><span class="tab-icon" aria-hidden="true">🎒</span>清单</button>
+</nav>
 
 <!-- 遮罩 -->
 <div class="mask" id="mask"></div>
 
 <!-- 抽屉：添加地点 -->
-<div class="drawer" id="drawerAdd">
-  <div class="grabber"></div>
-  <h2>添加地点</h2>
+<div class="drawer" id="drawerAdd" role="dialog" aria-modal="true" aria-labelledby="drawerAddTitle" aria-hidden="true" inert>
+  <div class="grabber" aria-hidden="true"></div>
+  <h2 id="drawerAddTitle">添加地点</h2>
   <div class="sub" id="addCoordTip">📍 已获取位置坐标</div>
   <div class="field">
     <label>地点名称（必填）</label>
@@ -917,15 +1025,15 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 </div>
 
 <!-- 抽屉：地点详情 -->
-<div class="drawer" id="drawerDetail">
-  <div class="grabber"></div>
+<div class="drawer" id="drawerDetail" role="dialog" aria-modal="true" aria-labelledby="detailTitle" aria-hidden="true" inert>
+  <div class="grabber" aria-hidden="true"></div>
   <div id="detailContent"></div>
 </div>
 
 <!-- 抽屉：设置 -->
-<div class="drawer" id="drawerSettings">
-  <div class="grabber"></div>
-  <h2>⚙️ 设置</h2>
+<div class="drawer" id="drawerSettings" role="dialog" aria-modal="true" aria-labelledby="drawerSettingsTitle" aria-hidden="true" inert>
+  <div class="grabber" aria-hidden="true"></div>
+  <h2 id="drawerSettingsTitle"><span aria-hidden="true">⚙️</span> 设置</h2>
   <div class="sub" id="settingsStats"></div>
   <div class="settings-block">
     <div class="s-row">
@@ -946,7 +1054,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
     </div>
     <div class="s-row">
       <span>💾 存储占用</span>
-      <span id="storageUsage" style="font-size:13px;color:var(--text-light)">已用约 0.0 MB / 5 MB</span>
+      <span class="storage-usage" id="storageUsage">已用约 0.0 MB / 5 MB</span>
     </div>
   </div>
   <!-- 腾讯地图 Key（用户自备，选填）：用于地点搜索降级通道 -->
@@ -954,35 +1062,35 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
     <div class="s-row">
       <span>🔑 腾讯地图 Key（选填，用于地点搜索）</span>
     </div>
-    <div class="field" style="margin:10px 0 4px">
+    <div class="field settings-key-field">
       <input type="text" id="tmapKeyInput" placeholder="可到 lbs.qq.com 免费申请" maxlength="64" autocomplete="off" spellcheck="false" />
     </div>
-    <button class="s-btn orange" id="btnSaveTmapKey" style="width:100%">保存 Key</button>
-    <p class="sub" id="tmapKeyStatus" style="text-align:left;margin-top:8px"></p>
-    <p class="sub" style="text-align:left;margin-top:10px;line-height:1.7">
+    <button class="s-btn orange settings-full-button" id="btnSaveTmapKey">保存 Key</button>
+    <p class="sub sub-left settings-key-status" id="tmapKeyStatus"></p>
+    <p class="sub sub-left settings-key-help">
       申请入口：腾讯位置服务 lbs.qq.com（控制台创建应用 → 添加 Key，勾选 WebServiceAPI，域名白名单可留空或填预览域名）。Key 仅保存在本机浏览器，不会上传。
     </p>
   </div>
-  <input type="file" id="importFile" accept=".json,application/json" style="display:none" />
+  <input class="visually-hidden-input" type="file" id="importFile" accept=".json,application/json" />
   <button class="btn-ghost" id="btnCloseSettings">关闭</button>
-  <p class="sub" style="margin-top:14px">🧸 11去哪玩 V1.2 · 数据仅保存在本机浏览器，不上传任何服务器</p>
+  <p class="sub settings-footer"><span aria-hidden="true">🧸</span> 11去哪玩 V1.2 · 数据仅保存在本机浏览器，不上传任何服务器</p>
 </div>
 
 <!-- 欢迎引导 -->
-<div class="welcome" id="welcome">
+<div class="welcome" id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle" aria-hidden="true">
   <div class="card">
-    <div class="w-icon">🧸</div>
-    <h2>欢迎使用「11去哪玩」</h2>
-    <p>1️⃣ 点击右下角 <b>「＋」</b> 按钮，再点击地图上想要标记的位置</p>
-    <p>2️⃣ 图钉颜色 = 地点类别，右下角带 <b>✓</b> 徽章的表示已去过</p>
-    <p>3️⃣ 点击图钉可以 <b>记录每次游玩</b>：日期、时长和宝宝的表现</p>
-    <p id="welcomeSeedHint" style="display:none"></p>
-    <button class="btn-primary" id="btnWelcomeOk" style="margin-top:12px">开始探索 🎉</button>
+    <div class="w-icon" aria-hidden="true">🧸</div>
+    <h2 id="welcomeTitle">欢迎使用「11去哪玩」</h2>
+    <p><span aria-hidden="true">1️⃣</span> 点击右下角 <b>「＋」</b> 按钮，再点击地图上想要标记的位置</p>
+    <p><span aria-hidden="true">2️⃣</span> 图钉颜色 = 地点类别，右下角带 <b>✓</b> 徽章的表示已去过</p>
+    <p><span aria-hidden="true">3️⃣</span> 点击图钉可以 <b>记录每次游玩</b>：日期、时长和宝宝的表现</p>
+    <p class="welcome-seed-hint" id="welcomeSeedHint"></p>
+    <button class="btn-primary welcome-action" id="btnWelcomeOk">开始探索 🎉</button>
   </div>
 </div>
 
 <!-- 确认弹窗 -->
-<div class="modal-confirm" id="modalConfirm">
+<div class="modal-confirm" id="modalConfirm" role="alertdialog" aria-modal="true" aria-labelledby="confirmMsg" aria-hidden="true">
   <div class="card">
     <div class="msg" id="confirmMsg">确定吗？</div>
     <div class="btns">
@@ -993,10 +1101,10 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 </div>
 
 <!-- 游玩照片选择（隐藏 input，手机上唤起相册/相机） -->
-<input type="file" id="visitPhotoInput" accept="image/*" multiple style="display:none" />
+<input class="visually-hidden-input" type="file" id="visitPhotoInput" accept="image/*" multiple />
 
 <!-- 全屏照片查看层（点击任意处关闭，左右切换） -->
-<div class="photo-viewer" id="photoViewer">
+<div class="photo-viewer" id="photoViewer" role="dialog" aria-modal="true" aria-label="游玩照片预览" aria-hidden="true">
   <span class="pv-count" id="pvCount"></span>
   <img class="pv-img" id="photoViewerImg" alt="游玩照片预览" />
   <button class="pv-nav pv-prev" id="pvPrev" title="上一张">‹</button>
@@ -1017,16 +1125,16 @@ var TMAP_KEY_STORAGE = 'baby_playmap_tmap_key'; // 用户自备腾讯地图 Key�
 var DEFAULT_CENTER = { lat: 31.2304, lng: 121.4737 }; // 上海人民广场一带
 var DEFAULT_ZOOM = 12;
 
-// 类别定义（value 唯一，emoji 作为图标；color=类别主色，bg=类别浅底色，仅用于样式注入，为常量非用户输入）
+// 类别定义（value 唯一，emoji 作为图标；颜色由 :root 设计令牌提供）
 var CATEGORIES = [
-  { value: 'park',       label: '公园',          emoji: '🌳', color: '#3D9970', bg: '#E3EFE6' },
-  { value: 'playground', label: '游乐场',        emoji: '🎠', color: '#F2822E', bg: '#FCF0D8' },
-  { value: 'zoo',        label: '动物园/水族馆', emoji: '🐼', color: '#A06BC8', bg: '#F1E8F9' },
-  { value: 'museum',     label: '博物馆/科技馆', emoji: '🏛️', color: '#6478D8', bg: '#E8EBFA' },
-  { value: 'library',    label: '图书馆',        emoji: '📚', color: '#2FA8A0', bg: '#E0F2F2' },
-  { value: 'mall',       label: '商场儿童区',    emoji: '🛍️', color: '#E06A8B', bg: '#FAE6ED' },
-  { value: 'water',      label: '亲水玩沙',      emoji: '🏖️', color: '#2FA3C7', bg: '#E0F2F7' },
-  { value: 'other',      label: '其他',          emoji: '📍', color: '#8A8378', bg: '#EFEDE6' }
+  { value: 'park',       label: '公园',          emoji: '🌳', colorToken: '--cat-park' },
+  { value: 'playground', label: '游乐场',        emoji: '🎠', colorToken: '--cat-playground' },
+  { value: 'zoo',        label: '动物园/水族馆', emoji: '🐼', colorToken: '--cat-zoo' },
+  { value: 'museum',     label: '博物馆/科技馆', emoji: '🏛️', colorToken: '--cat-museum' },
+  { value: 'library',    label: '图书馆',        emoji: '📚', colorToken: '--cat-library' },
+  { value: 'mall',       label: '商场儿童区',    emoji: '🛍️', colorToken: '--cat-mall' },
+  { value: 'water',      label: '亲水玩沙',      emoji: '🏖️', colorToken: '--cat-water' },
+  { value: 'other',      label: '其他',          emoji: '📍', colorToken: '--cat-other' }
 ];
 
 function categoryOf(value) {
@@ -1078,19 +1186,24 @@ var seededThisSession = false;
 //   底色 = 类别主色（白描边保证奶白地图底上的辨识度），emoji = 类别图标，
 //   已去过 = 右下角白色小圆徽章 + 类别色对勾；待探索 = 无徽章。
 // color/emoji 均来自 CATEGORIES 常量，非用户输入，无注入风险。
+function cssToken(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 function makePinSvg(color, emoji, visited) {
+  var white = cssToken('--white');
   var svg =
     '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="52" viewBox="0 0 44 52">' +
       // 底部小三角尖（图钉尾部）
-      '<path d="M22 51 L14 37 L30 37 Z" fill="' + color + '" stroke="#FFFFFF" stroke-width="2.5" stroke-linejoin="round"/>' +
+      '<path d="M22 51 L14 37 L30 37 Z" fill="' + color + '" stroke="' + white + '" stroke-width="2.5" stroke-linejoin="round"/>' +
       // 圆形主体：类别主色填充 + 白色描边
-      '<circle cx="22" cy="21" r="19" fill="' + color + '" stroke="#FFFFFF" stroke-width="2.5"/>' +
+      '<circle cx="22" cy="21" r="19" fill="' + color + '" stroke="' + white + '" stroke-width="2.5"/>' +
       // 类别 emoji 居中（dy=.35em 做垂直光学居中，兼容性好于 dominant-baseline）
-      '<text x="22" y="21" dy=".35em" font-size="17" text-anchor="middle" fill="#FFFFFF">' + emoji + '</text>';
+      '<text x="22" y="21" dy=".35em" font-size="17" text-anchor="middle" fill="' + white + '">' + emoji + '</text>';
   if (visited) {
     svg +=
       // 已去过徽章：白色小圆 + 类别色对勾（stroke 画勾）
-      '<circle cx="35" cy="36" r="8" fill="#FFFFFF" stroke="' + color + '" stroke-width="1.5"/>' +
+      '<circle cx="35" cy="36" r="8" fill="' + white + '" stroke="' + color + '" stroke-width="1.5"/>' +
       '<path d="M31.4 36 l2.4 2.4 l4.6 -4.8" stroke="' + color + '" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
   }
   svg += '</svg>';
@@ -1105,13 +1218,13 @@ function buildMarkerStyles() {
       width: 44,
       height: 52,
       anchor: 'bottom-center',
-      src: svgToDataUri(makePinSvg(c.color, c.emoji, false))
+      src: svgToDataUri(makePinSvg(cssToken(c.colorToken), c.emoji, false))
     });
     styles[c.value + '-visited'] = new TMap.MarkerStyle({
       width: 44,
       height: 52,
       anchor: 'bottom-center',
-      src: svgToDataUri(makePinSvg(c.color, c.emoji, true))
+      src: svgToDataUri(makePinSvg(cssToken(c.colorToken), c.emoji, true))
     });
   });
   return styles;
@@ -1280,6 +1393,114 @@ function findPlace(id) {
    ============================================================ */
 function $(id) { return document.getElementById(id); }
 
+var focusLayers = [];
+var FOCUSABLE_SELECTOR = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled]):not([type="hidden"])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])'
+].join(',');
+
+function focusableElements(container) {
+  return Array.prototype.slice.call(container.querySelectorAll(FOCUSABLE_SELECTOR)).filter(function (el) {
+    return !el.hidden && el.getClientRects().length > 0;
+  });
+}
+
+function captureFocus(container) {
+  var active = document.activeElement;
+  if (!(active instanceof HTMLElement) || !container.contains(active)) return null;
+  var attributes = ['data-star', 'data-tag', 'data-cat', 'data-rm', 'data-del-visit'];
+  for (var i = 0; i < attributes.length; i++) {
+    if (active.hasAttribute(attributes[i])) {
+      return { attribute: attributes[i], value: active.getAttribute(attributes[i]) };
+    }
+  }
+  if (active.id) return { id: active.id };
+  return { index: focusableElements(container).indexOf(active) };
+}
+
+function restoreFocus(container, snapshot) {
+  if (!snapshot) return;
+  var target = snapshot.id ? document.getElementById(snapshot.id) : null;
+  if (!target && snapshot.attribute) {
+    var candidates = container.querySelectorAll('[' + snapshot.attribute + ']');
+    for (var i = 0; i < candidates.length; i++) {
+      if (candidates[i].getAttribute(snapshot.attribute) === snapshot.value) {
+        target = candidates[i];
+        break;
+      }
+    }
+  }
+  if (!target) {
+    var focusables = focusableElements(container);
+    target = focusables[Math.max(0, Math.min(snapshot.index || 0, focusables.length - 1))];
+  }
+  if (target && container.contains(target)) target.focus();
+}
+
+function activateFocusLayer(container, onEscape) {
+  var layer = {
+    container: container,
+    returnFocus: document.activeElement instanceof HTMLElement ? document.activeElement : null,
+    onEscape: onEscape
+  };
+  focusLayers.push(layer);
+  container.setAttribute('aria-hidden', 'false');
+  container.removeAttribute('inert');
+  var focusables = focusableElements(container);
+  if (focusables.length) focusables[0].focus();
+  else {
+    container.setAttribute('tabindex', '-1');
+    container.focus();
+  }
+  return layer;
+}
+
+function deactivateFocusLayer(container, restoreFocus) {
+  for (var i = focusLayers.length - 1; i >= 0; i--) {
+    if (focusLayers[i].container !== container) continue;
+    var layer = focusLayers.splice(i, 1)[0];
+    container.setAttribute('aria-hidden', 'true');
+    if (restoreFocus !== false && layer.returnFocus && document.contains(layer.returnFocus)) {
+      layer.returnFocus.focus();
+    }
+    return;
+  }
+  container.setAttribute('aria-hidden', 'true');
+}
+
+document.addEventListener('keydown', function (evt) {
+  if (!focusLayers.length) return;
+  var layer = focusLayers[focusLayers.length - 1];
+  if (evt.key === 'Escape') {
+    evt.preventDefault();
+    layer.onEscape();
+    return;
+  }
+  if (evt.key !== 'Tab') return;
+  var focusables = focusableElements(layer.container);
+  if (!focusables.length) {
+    evt.preventDefault();
+    layer.container.focus();
+    return;
+  }
+  var first = focusables[0];
+  var last = focusables[focusables.length - 1];
+  if (!layer.container.contains(document.activeElement)) {
+    evt.preventDefault();
+    (evt.shiftKey ? last : first).focus();
+  } else if (evt.shiftKey && document.activeElement === first) {
+    evt.preventDefault();
+    last.focus();
+  } else if (!evt.shiftKey && document.activeElement === last) {
+    evt.preventDefault();
+    first.focus();
+  }
+});
+
 function escapeHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -1298,10 +1519,13 @@ function showToast(msg) {
 // 确认弹窗（Promise 风格）
 function confirmDialog(msg) {
   return new Promise(function (resolve) {
+    var modal = $('modalConfirm');
     $('confirmMsg').textContent = msg;
-    $('modalConfirm').classList.add('show');
+    modal.classList.add('show');
+    activateFocusLayer(modal, no);
     function done(result) {
-      $('modalConfirm').classList.remove('show');
+      modal.classList.remove('show');
+      deactivateFocusLayer(modal);
       $('confirmYes').removeEventListener('click', yes);
       $('confirmNo').removeEventListener('click', no);
       resolve(result);
@@ -1382,9 +1606,11 @@ function compressImageFile(file) {
 function renderPendingPhotos() {
   var row = $('photoPreviewRow');
   if (!row) return;
+  var focusSnapshot = captureFocus(row);
   row.innerHTML = '';
   if (!pendingPhotos.length) {
     row.classList.remove('show');
+    if (focusSnapshot && $('btnAddVisitPhotos')) $('btnAddVisitPhotos').focus();
     return;
   }
   pendingPhotos.forEach(function (src, i) {
@@ -1403,6 +1629,7 @@ function renderPendingPhotos() {
     row.appendChild(thumb);
   });
   row.classList.add('show');
+  restoreFocus(row, focusSnapshot);
 }
 
 // 移除暂存照片（事件委托，供详情抽屉内动态元素复用）
@@ -1429,14 +1656,19 @@ function openPhotoViewer(photos, idx) {
   viewerPhotos = photos.slice();
   viewerIdx = Math.min(Math.max(idx || 0, 0), viewerPhotos.length - 1);
   updatePhotoViewer();
-  $('photoViewer').classList.add('show');
+  var viewer = $('photoViewer');
+  viewer.classList.add('show');
+  activateFocusLayer(viewer, closePhotoViewer);
 }
 
 function closePhotoViewer() {
-  $('photoViewer').classList.remove('show');
+  var viewer = $('photoViewer');
+  if (!viewer.classList.contains('show')) return;
+  viewer.classList.remove('show');
   $('photoViewerImg').src = '';
   viewerPhotos = [];
   viewerIdx = 0;
+  deactivateFocusLayer(viewer);
 }
 
 function stepPhotoViewer(delta) {
@@ -1607,29 +1839,35 @@ function anyDrawerOpen() {
 }
 
 function closeAllDrawers() {
-  DRAWERS.forEach(function (id) { $(id).classList.remove('open'); });
+  DRAWERS.forEach(function (id) {
+    var drawer = $(id);
+    if (!drawer.classList.contains('open')) return;
+    drawer.classList.remove('open');
+    drawer.setAttribute('inert', '');
+    deactivateFocusLayer(drawer);
+  });
   $('mask').classList.remove('show');
 }
 
 function openDrawer(id) {
   closeAllDrawers();
-  $(id).classList.add('open');
+  var drawer = $(id);
+  drawer.classList.add('open');
   $('mask').classList.add('show');
+  activateFocusLayer(drawer, closeAllDrawers);
 }
 
 /* ---------- 添加地点表单 ---------- */
 function renderCatGrid() {
+  var focusSnapshot = captureFocus($('catGrid'));
   var html = '';
   CATEGORIES.forEach(function (c) {
     html += '<button type="button" class="cat-btn' +
-      (state.addForm.category === c.value ? ' active' : '') + '"' +
-      // 激活态注入类别专属配色（常量，非用户输入）；文字统一 --text 保证类别浅底上 4.5:1+
-      (state.addForm.category === c.value
-        ? ' style="border-color:' + c.color + ';background:' + c.bg + ';color:var(--text)"'
-        : '') +
-      ' data-cat="' + c.value + '"><span class="ce">' + c.emoji + '</span>' + c.label + '</button>';
+      (state.addForm.category === c.value ? ' active cat-' + c.value : '') + '"' +
+      ' data-cat="' + c.value + '"><span class="ce" aria-hidden="true">' + c.emoji + '</span>' + c.label + '</button>';
   });
   $('catGrid').innerHTML = html;
+  restoreFocus($('catGrid'), focusSnapshot);
 }
 
 function openAddForm(lat, lng) {
@@ -1644,6 +1882,7 @@ function openAddForm(lat, lng) {
 }
 
 function renderAddTags() {
+  var focusSnapshot = captureFocus($('addTagGrid'));
   var html = '';
   PRACTICAL_TAGS.forEach(function (t) {
     var on = state.addForm.tags.indexOf(t.id) !== -1;
@@ -1651,6 +1890,7 @@ function renderAddTags() {
       '" data-tag="' + t.id + '">' + t.emoji + ' ' + t.label + '</button>';
   });
   $('addTagGrid').innerHTML = html;
+  restoreFocus($('addTagGrid'), focusSnapshot);
 }
 
 function renderAddStatusSeg() {
@@ -1658,6 +1898,7 @@ function renderAddStatusSeg() {
   btns.forEach(function (b) {
     var s = b.getAttribute('data-status');
     b.className = (state.addForm.status === s ? 'active ' : '') + s;
+    b.setAttribute('aria-pressed', state.addForm.status === s ? 'true' : 'false');
   });
 }
 
@@ -1720,6 +1961,7 @@ function openDetail(placeId) {
 function renderDetail() {
   var p = findPlace(state.currentDetailId);
   if (!p) { closeAllDrawers(); return; }
+  var focusSnapshot = captureFocus($('detailContent'));
   // 同一地点内重渲染（评分/状态切换等）保留未保存的暂存照片；切换地点才清空
   if (pendingPhotosPlaceId !== p.id) {
     pendingPhotos = [];
@@ -1735,12 +1977,13 @@ function renderDetail() {
   var starsBtns = '';
   for (var i = 1; i <= 5; i++) {
     starsBtns += '<button class="star-btn' + (i <= p.rating ? ' on' : '') +
-      '" data-star="' + i + '" title="' + i + '星">★</button>';
+      '" data-star="' + i + '" title="' + i + '星" aria-label="' + i + ' 星" aria-pressed="' +
+      (p.rating === i ? 'true' : 'false') + '">★</button>';
   }
 
   var visitsHtml = '';
   if (p.visits.length === 0) {
-    visitsHtml = '<div class="empty-tip" style="padding:16px">还没有游玩记录，快来添加第一条吧 ✨</div>';
+    visitsHtml = '<div class="empty-tip detail-empty">还没有游玩记录，快来添加第一条吧 ✨</div>';
   } else {
     // 最近的记录排在前面
     var sorted = p.visits.slice().sort(function (a, b) { return (b.date || '').localeCompare(a.date || ''); });
@@ -1767,9 +2010,9 @@ function renderDetail() {
   var html =
     '<div class="grabber"></div>' +
     '<div class="detail-head">' +
-      '<div class="d-emoji" style="background:' + cat.bg + '">' + cat.emoji + '</div>' +
-      '<div style="flex:1;min-width:0">' +
-        '<div class="d-name">' + escapeHtml(p.name) + '</div>' +
+      '<div class="d-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
+      '<div class="detail-main">' +
+        '<div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' +
         '<div class="d-cat">' + cat.label + ' · 📍 ' +
           (userPos
             ? '距我 ' + distText(haversineKm(userPos.lat, userPos.lng, p.lat, p.lng))
@@ -1779,25 +2022,26 @@ function renderDetail() {
     '</div>' +
 
     '<div class="rating-row" id="ratingRow">' + starsBtns + '</div>' +
-    '<div class="sub" style="margin:0 0 4px">' + (p.rating ? p.rating + ' 星' : '点击星星评分') + ' · 共 ' + p.visits.length + ' 条记录</div>' +
+    '<div class="sub detail-rating-copy" aria-live="polite">' + (p.rating ? p.rating + ' 星' : '点击星星评分') + ' · 共 ' + p.visits.length + ' 条记录</div>' +
 
     '<div class="detail-actions">' +
-      '<button class="' + (p.status === 'wish' ? 'btn-toggle-visited' : 'btn-toggle-wish') + '" id="btnToggleStatus">' +
+      '<button class="' + (p.status === 'wish' ? 'btn-toggle-visited' : 'btn-toggle-wish') +
+        '" id="btnToggleStatus" aria-pressed="' + (p.status === 'visited' ? 'true' : 'false') + '">' +
         (p.status === 'wish' ? '✅ 标记为已去过' : '↩️ 标记为待探索') +
       '</button>' +
       '<button class="btn-nav" id="btnNav">🧭 导航去这里</button>' +
     '</div>' +
 
-    '<div class="section-title">🧸 亲子便利设施</div>' +
+    '<div class="section-title"><span aria-hidden="true">🧸</span> 亲子便利设施</div>' +
     '<div class="tag-chips" id="detailTags">' + tagChipsHtml(p.tags) + '</div>' +
-    '<div class="sub" style="text-align:left;margin:6px 0 0">点标签补充/取消，自动保存</div>' +
+    '<div class="sub detail-tags-help">点标签补充/取消，自动保存</div>' +
 
     '<div class="section-title">📝 亲子实用备注</div>' +
-    '<div class="field" style="margin-top:6px">' +
+    '<div class="field detail-notes-field">' +
       '<textarea id="notesArea" data-place-id="' + escapeHtml(p.id) + '" placeholder="停车、入口、卫生间、推车是否友好、门票、人多时段… 自由记录">' +
         escapeHtml(p.practicalNotes) + '</textarea>' +
     '</div>' +
-    '<button class="btn-ghost" id="btnSaveNotes" style="margin-top:0">💾 保存备注</button>' +
+    '<button class="btn-ghost detail-save-notes" id="btnSaveNotes">💾 保存备注</button>' +
 
     '<div class="section-title">🎡 游玩记录（' + p.visits.length + '）</div>' + visitsHtml +
 
@@ -1806,17 +2050,18 @@ function renderDetail() {
       '<div class="field"><label>日期</label><input type="date" id="visitDate" value="' + todayStr() + '" /></div>' +
       '<div class="field"><label>时长（分钟）</label><input type="number" id="visitMinutes" inputmode="numeric" min="0" max="1440" placeholder="60" /></div>' +
     '</div>' +
-    '<div class="field" style="margin-top:4px">' +
+    '<div class="field detail-visit-field">' +
       '<label>一句话感想</label>' +
       '<input type="text" id="visitNote" maxlength="80" placeholder="宝宝玩滑梯超开心，午睡了两小时 😴" />' +
     '</div>' +
-    '<button class="btn-ghost" id="btnAddVisitPhotos" style="margin-top:4px">📷 添加照片（最多 3 张，仅存本机）</button>' +
+    '<button class="btn-ghost detail-photo-button" id="btnAddVisitPhotos">📷 添加照片（最多 3 张，仅存本机）</button>' +
     '<div class="photo-preview-row" id="photoPreviewRow"></div>' +
-    '<button class="btn-primary" id="btnAddVisit" style="margin-top:6px">🎡 保存游玩记录</button>' +
-    '<button class="btn-danger" id="btnDeletePlace" style="width:100%;margin-top:14px">🗑️ 删除这个地点</button>';
+    '<button class="btn-primary detail-save-visit" id="btnAddVisit">🎡 保存游玩记录</button>' +
+    '<button class="btn-danger detail-delete" id="btnDeletePlace">🗑️ 删除这个地点</button>';
 
   $('detailContent').innerHTML = html;
   renderPendingPhotos(); // 恢复本地点未保存的暂存照片预览（无照片时不占位）
+  restoreFocus($('detailContent'), focusSnapshot);
 
   /* --- 详情内事件绑定 --- */
   // 评分
@@ -1827,6 +2072,8 @@ function renderDetail() {
       saveState();
       renderDetail();
       renderList();
+      var nextStar = $('ratingRow').querySelector('[data-star="' + val + '"]');
+      if (nextStar) nextStar.focus();
     });
   });
   // 状态切换
@@ -1843,6 +2090,7 @@ function renderDetail() {
     renderDetail();
     renderList();
     showToast(p.status === 'visited' ? '💚 太棒了，又打卡一个地方！' : '🧡 已放回待探索清单');
+    $('btnToggleStatus').focus();
   });
   // 详情页标签点选：切换即自动保存（V1.2）
   $('detailTags').addEventListener('click', function (evt) {
@@ -2011,8 +2259,7 @@ function openSettings() {
   }
   var usageEl = $('storageUsage');
   usageEl.textContent = '已用约 ' + usedMb.toFixed(1) + ' MB / 5 MB';
-  usageEl.style.color = usedMb > 3.5 ? 'var(--danger)' : '';
-  usageEl.style.fontWeight = usedMb > 3.5 ? '700' : '';
+  usageEl.classList.toggle('warning', usedMb > 3.5);
   // 预填已保存的 Key（通过 value 属性赋值，不经 innerHTML，天然防注入）
   $('tmapKeyInput').value = getUserTmapKey();
   updateTmapKeyStatus();
@@ -2091,7 +2338,7 @@ function renderList() {
         ? '还没有添加任何地点<br/>去地图上点击一个位置，<br/>标记你们的第一站吧！'
         : '这个分类下暂时没有地点') +
       '</div>' +
-      '<button class="btn-primary" id="btnEmptyGoMap" style="width:auto;padding:12px 28px;margin:16px auto 0;display:block">📍 去地图标记</button>';
+      '<button class="btn-primary empty-go-map" id="btnEmptyGoMap">📍 去地图标记</button>';
     var goMapBtn = document.getElementById('btnEmptyGoMap');
     if (goMapBtn) {
       goMapBtn.addEventListener('click', function () { switchTab('map'); });
@@ -2109,7 +2356,7 @@ function renderList() {
     }
     html +=
       '<div class="place-item' + (p.status === 'visited' ? ' visited' : '') + '" data-id="' + escapeHtml(p.id) + '">' +
-        '<div class="p-emoji" style="background:' + cat.bg + '">' + cat.emoji + '</div>' +
+        '<div class="p-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
         '<div class="p-main">' +
           '<div class="p-name">' + escapeHtml(p.name) + '</div>' +
           '<div class="p-meta">' +
@@ -2154,7 +2401,9 @@ function renderList() {
 function renderFilterChips() {
   var chips = $('filterChips').querySelectorAll('.chip');
   chips.forEach(function (c) {
-    c.classList.toggle('active', c.getAttribute('data-filter') === state.filter);
+    var active = c.getAttribute('data-filter') === state.filter;
+    c.classList.toggle('active', active);
+    c.setAttribute('aria-pressed', active ? 'true' : 'false');
   });
 }
 
@@ -2175,7 +2424,11 @@ function switchTab(tab) {
   state.activeTab = tab;
   $('tabMap').classList.toggle('active', tab === 'map');
   $('tabList').classList.toggle('active', tab === 'list');
+  $('tabMap').setAttribute('aria-selected', tab === 'map' ? 'true' : 'false');
+  $('tabList').setAttribute('aria-selected', tab === 'list' ? 'true' : 'false');
   $('pageList').classList.toggle('active', tab === 'list');
+  $('pageList').hidden = tab !== 'list';
+  $('map').setAttribute('aria-hidden', tab === 'map' ? 'false' : 'true');
   if (tab === 'map') exitPickMode(false); // 回地图不弹提示
   if (tab === 'list') {
     hideSearchResults(); // 清单页不需要搜索框
@@ -2190,6 +2443,7 @@ function enterPickMode() {
   $('mapCatStrip').classList.add('hidden'); // 同步隐藏筛选条
   $('fab').classList.add('pick-active');
   $('fab').textContent = '✕';
+  $('fab').setAttribute('aria-label', '取消推荐地点');
   $('hintbar').classList.add('show');
   showToast('📍 已进入选点模式，点击地图选择位置');
 }
@@ -2201,6 +2455,7 @@ function exitPickMode(showToastFlag) {
   $('mapCatStrip').classList.remove('hidden');
   $('fab').classList.remove('pick-active');
   $('fab').textContent = '＋';
+  $('fab').setAttribute('aria-label', '推荐好去处');
   $('hintbar').classList.remove('show');
   if (showToastFlag !== false) showToast('已取消选点');
 }
@@ -2265,7 +2520,7 @@ function renderSearchResults(pois, localHits, tipText) {
   }
   var html = '';
   if (lastLocalHits.length) {
-    html += '<div class="sr-tip" style="text-align:left;padding:8px 14px 2px">📍 我的地图</div>';
+    html += '<div class="sr-tip sr-section">📍 我的地图</div>';
     lastLocalHits.forEach(function (p, i) {
       var c = categoryOf(p.category);
       html += '<div class="sr-item" data-lidx="' + i + '">' +
@@ -2275,7 +2530,7 @@ function renderSearchResults(pois, localHits, tipText) {
     });
   }
   if (lastSearchPois.length) {
-    if (lastLocalHits.length) html += '<div class="sr-tip" style="text-align:left;padding:8px 14px 2px">🌐 在线结果</div>';
+    if (lastLocalHits.length) html += '<div class="sr-tip sr-section">🌐 在线结果</div>';
     lastSearchPois.forEach(function (p, i) {
       html += '<div class="sr-item" data-idx="' + i + '">' +
         '<div class="sr-title">' + escapeHtml(p.title || '未命名地点') + '</div>' +
@@ -2728,10 +2983,14 @@ function bindEvents() {
   });
 
   // 欢迎引导
-  $('btnWelcomeOk').addEventListener('click', function () {
-    $('welcome').classList.remove('show');
+  function closeWelcome() {
+    var welcome = $('welcome');
+    welcome.classList.remove('show');
+    deactivateFocusLayer(welcome);
     try { localStorage.setItem(ONBOARD_KEY, '1'); } catch (e) { /* 忽略 */ }
-  });
+  }
+  $('btnWelcomeOk').addEventListener('click', closeWelcome);
+  $('welcome')._closeDialog = closeWelcome;
 }
 
 function init() {
@@ -2748,9 +3007,11 @@ function init() {
     if (seededThisSession && state.places.length > 0) {
       $('welcomeSeedHint').textContent =
         '🌳 已为您预置了 ' + state.places.length + ' 个上海亲子公园，点击图钉即可查看';
-      $('welcomeSeedHint').style.display = '';
+      $('welcomeSeedHint').classList.add('show');
     }
-    $('welcome').classList.add('show');
+    var welcome = $('welcome');
+    welcome.classList.add('show');
+    activateFocusLayer(welcome, welcome._closeDialog);
   }
 }
 

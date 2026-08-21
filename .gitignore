@@ -1,3 +1,6 @@
 # WorkBuddy 项目数据（记忆/状态，不入库）
 .workbuddy/
 .DS_Store
+node_modules/
+playwright-report/
+test-results/

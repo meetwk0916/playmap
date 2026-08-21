@@ -1,0 +1,11 @@
+{
+  "name": "playmap",
+  "private": true,
+  "scripts": {
+    "check:design": "node scripts/check-design-discipline.mjs",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}
