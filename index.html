@@ -1790,8 +1790,6 @@ function countAllPhotos() {
    3.6 距离显示（V1.2 决策增强）：浏览器定位 + haversine
    ============================================================ */
 var userPos = null;      // {lat, lng} 最近一次定位
-var userPosAt = 0;       // 定位时间戳
-var POS_CACHE_MS = 5 * 60 * 1000; // 定位缓存 5 分钟
 
 function haversineKm(lat1, lng1, lat2, lng2) {
   var R = 6371;
@@ -1807,23 +1805,6 @@ function distText(km) {
   if (km < 1) return Math.round(km * 1000) + 'm';
   if (km < 100) return (Math.round(km * 10) / 10) + 'km';
   return Math.round(km) + 'km';
-}
-
-// 获取定位（带 5 分钟缓存）；成功后回调（用于刷新清单距离）；失败/拒绝静默降级
-function ensureUserPos(onGot) {
-  var now = Date.now();
-  if (userPos && now - userPosAt < POS_CACHE_MS) {
-    if (onGot) onGot(userPos);
-    return;
-  }
-  if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(function (pos) {
-    if (pos && pos.coords && isFinite(pos.coords.latitude)) {
-      userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      userPosAt = Date.now();
-      if (onGot) onGot(userPos);
-    }
-  }, function () { /* 定位失败：静默，不显示距离 */ }, { timeout: 5000, maximumAge: 300000 });
 }
 
 /* ============================================================
@@ -1888,16 +1869,17 @@ function locateUser() {
       return;
     }
     userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-    userPosAt = Date.now();
     var position = new TMap.LatLng(userPos.lat, userPos.lng);
     var layer = ensureUserLocationLayer();
     if (layer) {
       layer.setGeometries([{ id: 'user-location', styleId: 'location', position: position }]);
     }
-    map.easeTo({ center: position, zoom: Math.max(map.getZoom(), 15), duration: 600 });
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    map.easeTo({ center: position, zoom: Math.max(map.getZoom(), 15), duration: reduceMotion ? 0 : 600 });
     button.classList.add('is-located');
     button.setAttribute('aria-pressed', 'true');
     finishLocationRequest();
+    if (state.activeTab === 'list') renderList();
     showToast('📍 已找到你的位置');
   }, function (error) {
     finishLocationRequest();
@@ -2625,8 +2607,6 @@ function switchTab(tab) {
   $('map').setAttribute('aria-hidden', tab === 'map' ? 'false' : 'true');
   if (tab === 'list') {
     hideSearchResults(); // 清单页不需要搜索框
-    // 进入清单尝试取定位，拿到后刷新距离显示（V1.2）
-    ensureUserPos(function () { if (state.activeTab === 'list') renderList(); });
   }
 }
 

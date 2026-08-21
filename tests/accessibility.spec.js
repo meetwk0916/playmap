@@ -142,11 +142,17 @@ test('location is requested only after the user activates the map control', asyn
 
 test('location permission denial is explained and can be retried', async ({ page }) => {
   await page.addInitScript(() => {
+    window.__geoCalls = 0;
     Object.defineProperty(navigator, 'geolocation', {
       configurable: true,
       value: {
         getCurrentPosition(success, failure) {
-          failure({ code: 1 });
+          window.__geoCalls += 1;
+          if (window.__geoCalls === 1) {
+            failure({ code: 1 });
+          } else {
+            success({ coords: { latitude: 31.215, longitude: 121.455 } });
+          }
         }
       }
     });
@@ -158,6 +164,47 @@ test('location permission denial is explained and can be retried', async ({ page
   await expect(page.getByRole('status')).toContainText('请在浏览器设置中允许定位');
   await expect(locate).toBeEnabled();
   await expect(locate).toHaveAttribute('aria-busy', 'false');
+
+  await locate.click();
+
+  await expect.poll(() => page.evaluate(() => window.__geoCalls)).toBe(2);
+  await expect(locate).toHaveAttribute('aria-pressed', 'true');
+  const mapState = await page.evaluate(() => {
+    const call = window.__mapEaseToCalls.at(-1);
+    const locationLayer = window.__markerLayers.find(layer =>
+      layer.geometries.some(geometry => geometry.id === 'user-location')
+    );
+    const marker = locationLayer.geometries[0];
+    return {
+      center: [call.center.getLat(), call.center.getLng()],
+      zoom: call.zoom,
+      marker: [marker.position.getLat(), marker.position.getLng()]
+    };
+  });
+  expect(mapState).toEqual({
+    center: [31.215, 121.455],
+    zoom: 15,
+    marker: [31.215, 121.455]
+  });
+});
+
+test('location recentering is immediate when reduced motion is requested', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition(success) {
+          success({ coords: { latitude: 31.218, longitude: 121.458 } });
+        }
+      }
+    });
+  });
+  await page.reload();
+
+  await page.getByRole('button', { name: '找到我的位置' }).click();
+
+  await expect.poll(() => page.evaluate(() => window.__mapEaseToCalls.at(-1).duration)).toBe(0);
 });
 
 test('production placeholders do not configure an invalid map proxy', async ({ page }) => {
