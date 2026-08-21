@@ -965,7 +965,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
         }
     }());
 </script>
-<script src="https://map.qq.com/api/gljs?v=1.exp&libraries=service"></script>
+<script id="tmapSdk" src="https://map.qq.com/api/gljs?v=1.exp&key=EDSBZ-UPW3Q-T7L5E-2PU6H-2Y3D6-AOBY5&libraries=service"></script>
 </head>
 <body>
 
@@ -2327,13 +2327,18 @@ function renderDetail() {
 }
 
 /* ---------- 设置 ---------- */
-// 读取用户自备的腾讯地图 Key（仅存本机 localStorage，代码中不预置任何 Key）
+function getConfiguredTmapKey() {
+  var sdkScript = document.getElementById('tmapSdk');
+  return sdkScript ? new URL(sdkScript.src).searchParams.get('key') || '' : '';
+}
+
+// 本机 Key 优先，未设置时使用站点已配置的域名受限 Key
 function getUserTmapKey() {
   try {
     var k = localStorage.getItem(TMAP_KEY_STORAGE);
-    return (typeof k === 'string') ? k.trim() : '';
+    return (typeof k === 'string' && k.trim()) ? k.trim() : getConfiguredTmapKey();
   } catch (e) {
-    return '';
+    return getConfiguredTmapKey();
   }
 }
 

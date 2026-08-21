@@ -97,6 +97,15 @@ test('production placeholders do not configure an invalid map proxy', async ({ p
   expect(mapConfig.anchors.every(anchor => anchor.x === 22 && anchor.y === 52)).toBe(true);
 });
 
+test('configured browser key is included in the GL JS request', async ({ page }) => {
+  const sdkKey = await page.evaluate(() => {
+    const sdkUrl = new URL(document.getElementById('tmapSdk').src);
+    return sdkUrl.searchParams.get('key');
+  });
+
+  expect(sdkKey).toMatch(/^[A-Z0-9-]+$/);
+});
+
 test('existing maps receive representative points for every explicit category', async ({ page }) => {
   const categories = await page.evaluate(() => {
     const stored = JSON.parse(localStorage.getItem('baby_playmap_v1'));
