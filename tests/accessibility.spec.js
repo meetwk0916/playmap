@@ -144,15 +144,30 @@ test('location is requested only after the user activates the map control', asyn
 });
 
 test('eastern Shanghai operating locations use GCJ-02 coordinates', async ({ page }) => {
-  const converted = await page.evaluate(() => [
-    wgs84ToGcj02(30.9255, 121.9070),
-    wgs84ToGcj02(30.9169, 121.9167)
-  ]);
+  await page.addInitScript(() => {
+    window.__geoPoint = { latitude: 30.9255, longitude: 121.9070 };
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition(success) {
+          success({ coords: window.__geoPoint });
+        }
+      }
+    });
+  });
+  await page.reload();
 
-  expect(converted[0].lat).not.toBe(30.9255);
-  expect(converted[0].lng).not.toBe(121.9070);
-  expect(converted[1].lat).not.toBe(30.9169);
-  expect(converted[1].lng).not.toBe(121.9167);
+  for (const point of [
+    { latitude: 30.9255, longitude: 121.9070 },
+    { latitude: 30.9169, longitude: 121.9167 }
+  ]) {
+    await page.evaluate(value => { window.__geoPoint = value; }, point);
+    await page.getByRole('button', { name: '找到我的位置' }).click();
+    const mapState = await readLocationMapState(page);
+    expect(mapState.center[0]).not.toBe(point.latitude);
+    expect(mapState.center[1]).not.toBe(point.longitude);
+    expect(mapState.marker).toEqual(mapState.center);
+  }
 });
 
 test('location permission denial is explained and can be retried', async ({ page }) => {
