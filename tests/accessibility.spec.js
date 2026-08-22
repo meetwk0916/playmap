@@ -143,6 +143,18 @@ test('location is requested only after the user activates the map control', asyn
   expect(mapState.marker).toEqual(mapState.center);
 });
 
+test('eastern Shanghai operating locations use GCJ-02 coordinates', async ({ page }) => {
+  const converted = await page.evaluate(() => [
+    wgs84ToGcj02(30.9255, 121.9070),
+    wgs84ToGcj02(30.9169, 121.9167)
+  ]);
+
+  expect(converted[0].lat).not.toBe(30.9255);
+  expect(converted[0].lng).not.toBe(121.9070);
+  expect(converted[1].lat).not.toBe(30.9169);
+  expect(converted[1].lng).not.toBe(121.9167);
+});
+
 test('location permission denial is explained and can be retried', async ({ page }) => {
   await page.addInitScript(() => {
     window.__geoCalls = 0;
