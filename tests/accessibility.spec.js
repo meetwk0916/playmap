@@ -31,7 +31,10 @@ const tmapStub = `
     Map: function () {
       this.getZoom = function () { return 12; };
       this.getCenter = function () { return new window.TMap.LatLng(31.23, 121.47); };
-      this.easeTo = function () {};
+      this.easeTo = function (options) {
+        window.__mapEaseToCalls = window.__mapEaseToCalls || [];
+        window.__mapEaseToCalls.push(options);
+      };
       this.on = function () {};
     },
     MarkerStyle: function (options) {
@@ -39,8 +42,12 @@ const tmapStub = `
       window.__markerStyleOptions.push(options);
       Object.assign(this, options);
     },
-    MultiMarker: function () {
-      this.setGeometries = function () {};
+    MultiMarker: function (options) {
+      this.options = options;
+      this.geometries = [];
+      window.__markerLayers = window.__markerLayers || [];
+      window.__markerLayers.push(this);
+      this.setGeometries = function (geometries) { this.geometries = geometries; };
       this.on = function (event, callback) {
         if (event === 'click') {
           window.__openTestPlace = function () {
@@ -79,11 +86,166 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/index.html');
 });
 
+async function readLocationMapState(page) {
+  return page.evaluate(() => {
+    const call = window.__mapEaseToCalls.at(-1);
+    const locationLayer = window.__markerLayers.find(layer =>
+      layer.geometries.some(geometry => geometry.id === 'user-location')
+    );
+    const marker = locationLayer.geometries[0];
+    return {
+      center: [call.center.getLat(), call.center.getLng()],
+      zoom: call.zoom,
+      marker: [marker.position.getLat(), marker.position.getLng()]
+    };
+  });
+}
+
 test('map exposes only the essential decision controls', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
   await expect(page.getByRole('tablist', { name: '主导航' })).toBeHidden();
   await expect(page.locator('#searchInput')).toBeVisible();
   await expect(page.locator('#fab')).toHaveCount(0);
   await expect(page.locator('#mapCatStrip')).toBeVisible();
+  const locate = page.getByRole('button', { name: '找到我的位置' });
+  await expect(locate).toBeVisible();
+  const locateBox = await locate.boundingBox();
+  expect(locateBox).toMatchObject({ width: 48, height: 48 });
+  expect(375 - locateBox.x - locateBox.width).toBeCloseTo(16, 0);
+  expect(812 - locateBox.y - locateBox.height).toBeCloseTo(18, 0);
+});
+
+test('location is requested only after the user activates the map control', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__geoCalls = 0;
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition(success) {
+          window.__geoCalls += 1;
+          success({ coords: { latitude: 31.221, longitude: 121.441 } });
+        }
+      }
+    });
+  });
+  await page.reload();
+
+  await expect.poll(() => page.evaluate(() => window.__geoCalls)).toBe(0);
+  const locate = page.getByRole('button', { name: '找到我的位置' });
+  await locate.click();
+
+  await expect.poll(() => page.evaluate(() => window.__geoCalls)).toBe(1);
+  await expect(locate).toHaveAttribute('aria-pressed', 'true');
+  const mapState = await readLocationMapState(page);
+  expect(mapState.zoom).toBe(15);
+  expect(mapState.center[0]).toBeCloseTo(31.21913, 5);
+  expect(mapState.center[1]).toBeCloseTo(121.44561, 5);
+  expect(mapState.marker).toEqual(mapState.center);
+});
+
+test('eastern Shanghai operating locations use GCJ-02 coordinates', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__geoPoint = { latitude: 30.9255, longitude: 121.9070 };
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition(success) {
+          success({ coords: window.__geoPoint });
+        }
+      }
+    });
+  });
+  await page.reload();
+
+  for (const point of [
+    { latitude: 30.9255, longitude: 121.9070 },
+    { latitude: 30.9169, longitude: 121.9167 }
+  ]) {
+    await page.evaluate(value => { window.__geoPoint = value; }, point);
+    await page.getByRole('button', { name: '找到我的位置' }).click();
+    const mapState = await readLocationMapState(page);
+    expect(mapState.center[0]).not.toBe(point.latitude);
+    expect(mapState.center[1]).not.toBe(point.longitude);
+    expect(mapState.marker).toEqual(mapState.center);
+  }
+});
+
+test('location permission denial is explained and can be retried', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.__geoCalls = 0;
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition(success, failure) {
+          window.__geoCalls += 1;
+          if (window.__geoCalls === 1) {
+            failure({ code: 1 });
+          } else {
+            success({ coords: { latitude: 31.215, longitude: 121.455 } });
+          }
+        }
+      }
+    });
+  });
+  await page.reload();
+
+  const locate = page.getByRole('button', { name: '找到我的位置' });
+  await locate.click();
+  await expect(page.getByRole('status')).toContainText('请在浏览器设置中允许定位');
+  await expect(locate).toBeEnabled();
+  await expect(locate).toHaveAttribute('aria-busy', 'false');
+
+  await locate.click();
+
+  await expect.poll(() => page.evaluate(() => window.__geoCalls)).toBe(2);
+  await expect(locate).toHaveAttribute('aria-pressed', 'true');
+  const mapState = await readLocationMapState(page);
+  expect(mapState.zoom).toBe(15);
+  expect(mapState.center[0]).toBeCloseTo(31.21310, 5);
+  expect(mapState.center[1]).toBeCloseTo(121.45958, 5);
+  expect(mapState.marker).toEqual(mapState.center);
+});
+
+test('nearby location outside mainland China keeps browser coordinates unchanged', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition(success) {
+          success({ coords: { latitude: 37.5665, longitude: 126.978 } });
+        }
+      }
+    });
+  });
+  await page.reload();
+
+  await page.getByRole('button', { name: '找到我的位置' }).click();
+
+  const mapState = await readLocationMapState(page);
+  expect(mapState).toEqual({
+    center: [37.5665, 126.978],
+    zoom: 15,
+    marker: [37.5665, 126.978]
+  });
+});
+
+test('location recentering is immediate when reduced motion is requested', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: {
+        getCurrentPosition(success) {
+          success({ coords: { latitude: 31.218, longitude: 121.458 } });
+        }
+      }
+    });
+  });
+  await page.reload();
+
+  await page.getByRole('button', { name: '找到我的位置' }).click();
+
+  await expect.poll(() => page.evaluate(() => window.__mapEaseToCalls.at(-1).duration)).toBe(0);
 });
 
 test('production placeholders do not configure an invalid map proxy', async ({ page }) => {

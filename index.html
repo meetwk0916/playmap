@@ -126,6 +126,36 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .map-cat-strip.hidden { display: none; }
 .map-cat-strip .chip { flex-shrink: 0; box-shadow: var(--shadow); }
 
+/* 用户主动触发的地图定位控件：不在页面加载时申请权限 */
+.location-control {
+  position: fixed;
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  z-index: 16;
+  width: 48px;
+  height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--surface-glass);
+  color: var(--primary-strong);
+  box-shadow: var(--shadow-button);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  transition: background-color var(--dur-base) var(--ease-out),
+              color var(--dur-base) var(--ease-out),
+              opacity var(--dur-base) var(--ease-out);
+}
+.location-control svg { width: 24px; height: 24px; }
+.location-control.is-locating { opacity: 0.62; cursor: wait; }
+.location-control.is-located {
+  background: var(--spruce-soft);
+  color: var(--primary-deep);
+}
+
 /* ============================================================
    底部 Tab 栏（地图 / 清单）
    ============================================================ */
@@ -909,7 +939,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   .mask,
   .drawer,
   .tag-chip,
-  .btn-primary {
+  .btn-primary,
+  .location-control {
     transition-property: opacity;
     transition-duration: var(--dur-fast);
     transition-timing-function: linear;
@@ -946,6 +977,16 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 
 <!-- 地图页类别筛选条（仅地图页可见，与搜索框同层） -->
 <div class="map-cat-strip" id="mapCatStrip"></div>
+
+<!-- 右下角按需定位：用户点击后才请求浏览器位置权限 -->
+<button class="location-control" id="btnLocate" type="button" title="找到我的位置"
+  aria-label="找到我的位置" aria-busy="false" aria-pressed="false">
+  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    <circle cx="12" cy="12" r="4" fill="currentColor"></circle>
+    <path d="M12 2v3M12 19v3M2 12h3M19 12h3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+    <circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="1.8"></circle>
+  </svg>
+</button>
 
 <!-- Toast -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -1749,8 +1790,6 @@ function countAllPhotos() {
    3.6 距离显示（V1.2 决策增强）：浏览器定位 + haversine
    ============================================================ */
 var userPos = null;      // {lat, lng} 最近一次定位
-var userPosAt = 0;       // 定位时间戳
-var POS_CACHE_MS = 5 * 60 * 1000; // 定位缓存 5 分钟
 
 function haversineKm(lat1, lng1, lat2, lng2) {
   var R = 6371;
@@ -1768,21 +1807,66 @@ function distText(km) {
   return Math.round(km) + 'km';
 }
 
-// 获取定位（带 5 分钟缓存）；成功后回调（用于刷新清单距离）；失败/拒绝静默降级
-function ensureUserPos(onGot) {
-  var now = Date.now();
-  if (userPos && now - userPosAt < POS_CACHE_MS) {
-    if (onGot) onGot(userPos);
-    return;
-  }
-  if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(function (pos) {
-    if (pos && pos.coords && isFinite(pos.coords.latitude)) {
-      userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-      userPosAt = Date.now();
-      if (onGot) onGot(userPos);
+var gcj02Regions = [
+  [[120.85, 30.65], [122.25, 30.65], [122.25, 31.9], [120.85, 31.9]],
+  [
+    [73.5, 39.5], [74.8, 37.2], [78, 32.5], [80, 30.5], [82.5, 30], [84, 29.3],
+    [86, 28], [89, 27.2], [92, 27.5], [95, 28], [97.3, 27.2], [98.7, 24],
+    [100.2, 21.5], [101.8, 21.2], [103.5, 22.5], [105.8, 22.5], [107.5, 21.5],
+    [109, 21.5], [110.8, 21.2], [112.5, 21.8], [114, 22.4], [116, 23], [118, 24],
+    [120, 26], [121, 28], [122, 30.5], [121.5, 32], [121, 34], [120, 36],
+    [121.5, 37.5], [122, 39], [124, 40], [125, 40.5], [128, 42], [131, 43],
+    [134.5, 48], [130, 49], [127, 50], [125, 53], [121, 53], [119, 50],
+    [119.5, 47], [117, 46.5], [115, 45], [113, 44], [111, 43], [108, 42.5],
+    [105, 41.8], [102, 42.5], [99, 42.7], [96, 42], [93, 45], [90, 47],
+    [88, 49], [83, 47], [80, 45], [78, 42], [75, 41]
+  ],
+  [[108.5, 18], [111.3, 18], [111.3, 20.5], [108.5, 20.5]]
+];
+
+function coordinateInPolygon(lat, lng, polygon) {
+  var inside = false;
+  for (var i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    var xi = polygon[i][0];
+    var yi = polygon[i][1];
+    var xj = polygon[j][0];
+    var yj = polygon[j][1];
+    if ((yi > lat) !== (yj > lat) && lng < (xj - xi) * (lat - yi) / (yj - yi) + xi) {
+      inside = !inside;
     }
-  }, function () { /* 定位失败：静默，不显示距离 */ }, { timeout: 5000, maximumAge: 300000 });
+  }
+  return inside;
+}
+
+function usesGcj02Coordinates(lat, lng) {
+  return gcj02Regions.some(function (polygon) {
+    return coordinateInPolygon(lat, lng, polygon);
+  });
+}
+
+function wgs84ToGcj02(lat, lng) {
+  if (!usesGcj02Coordinates(lat, lng)) {
+    return { lat: lat, lng: lng };
+  }
+  var a = 6378245;
+  var ee = 0.006693421622965943;
+  var x = lng - 105;
+  var y = lat - 35;
+  var dLat = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+  dLat += (20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2 / 3;
+  dLat += (20 * Math.sin(y * Math.PI) + 40 * Math.sin(y / 3 * Math.PI)) * 2 / 3;
+  dLat += (160 * Math.sin(y / 12 * Math.PI) + 320 * Math.sin(y * Math.PI / 30)) * 2 / 3;
+  var dLng = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+  dLng += (20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2 / 3;
+  dLng += (20 * Math.sin(x * Math.PI) + 40 * Math.sin(x / 3 * Math.PI)) * 2 / 3;
+  dLng += (150 * Math.sin(x / 12 * Math.PI) + 300 * Math.sin(x / 30 * Math.PI)) * 2 / 3;
+  var radLat = lat * Math.PI / 180;
+  var magic = Math.sin(radLat);
+  magic = 1 - ee * magic * magic;
+  var sqrtMagic = Math.sqrt(magic);
+  dLat = dLat * 180 / ((a * (1 - ee)) / (magic * sqrtMagic) * Math.PI);
+  dLng = dLng * 180 / (a / sqrtMagic * Math.cos(radLat) * Math.PI);
+  return { lat: lat + dLat, lng: lng + dLng };
 }
 
 /* ============================================================
@@ -1790,7 +1874,86 @@ function ensureUserPos(onGot) {
    ============================================================ */
 var map = null;
 var markerLayer = null;
+var userLocationLayer = null;
+var locationPending = false;
 var lastMarkerClickAt = 0; // 防止点击图钉时误触发地图空白点击
+
+function ensureUserLocationLayer() {
+  if (userLocationLayer || !map || typeof TMap === 'undefined') return userLocationLayer;
+  var markerSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">' +
+    '<circle cx="14" cy="14" r="12" fill="white" fill-opacity=".92"/>' +
+    '<circle cx="14" cy="14" r="8" fill="#23543D"/>' +
+    '<circle cx="14" cy="14" r="3" fill="white"/>' +
+    '</svg>';
+  userLocationLayer = new TMap.MultiMarker({
+    map: map,
+    styles: {
+      location: new TMap.MarkerStyle({
+        width: 28,
+        height: 28,
+        anchor: { x: 14, y: 14 },
+        src: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(markerSvg)
+      })
+    },
+    geometries: []
+  });
+  return userLocationLayer;
+}
+
+function finishLocationRequest() {
+  locationPending = false;
+  var button = $('btnLocate');
+  button.disabled = false;
+  button.classList.remove('is-locating');
+  button.setAttribute('aria-busy', 'false');
+}
+
+function locateUser() {
+  if (locationPending) return;
+  if (!map) {
+    showToast('⚠️ 地图尚未加载，请检查网络后重试');
+    return;
+  }
+  if (!navigator.geolocation) {
+    showToast('⚠️ 当前浏览器不支持定位');
+    return;
+  }
+
+  locationPending = true;
+  var button = $('btnLocate');
+  button.disabled = true;
+  button.classList.add('is-locating');
+  button.setAttribute('aria-busy', 'true');
+  navigator.geolocation.getCurrentPosition(function (pos) {
+    if (!pos || !pos.coords || !isFinite(pos.coords.latitude) || !isFinite(pos.coords.longitude)) {
+      finishLocationRequest();
+      showToast('⚠️ 暂时无法获取位置，请稍后重试');
+      return;
+    }
+    userPos = wgs84ToGcj02(pos.coords.latitude, pos.coords.longitude);
+    var position = new TMap.LatLng(userPos.lat, userPos.lng);
+    var layer = ensureUserLocationLayer();
+    if (layer) {
+      layer.setGeometries([{ id: 'user-location', styleId: 'location', position: position }]);
+    }
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    map.easeTo({ center: position, zoom: Math.max(map.getZoom(), 15), duration: reduceMotion ? 0 : 600 });
+    button.classList.add('is-located');
+    button.setAttribute('aria-pressed', 'true');
+    finishLocationRequest();
+    if (state.activeTab === 'list') renderList();
+    showToast('📍 已找到你的位置');
+  }, function (error) {
+    finishLocationRequest();
+    if (error && error.code === 1) {
+      showToast('⚠️ 请在浏览器设置中允许定位后重试');
+    } else if (error && error.code === 3) {
+      showToast('⚠️ 定位超时，请到开阔处重试');
+    } else {
+      showToast('⚠️ 暂时无法获取位置，请稍后重试');
+    }
+  }, { enableHighAccuracy: true, timeout: 8000, maximumAge: 60000 });
+}
 
 function initMap() {
   if (typeof TMap === 'undefined') {
@@ -1825,25 +1988,6 @@ function initMap() {
     hideSearchResults(); // 点击地图空白：收起搜索结果列表
   });
 
-  // 浏览器定位，失败静默降级
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      function (pos) {
-        if (pos && pos.coords && isFinite(pos.coords.latitude)) {
-          // 记录定位供清单/详情距离显示（V1.2）
-          userPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          userPosAt = Date.now();
-          map.easeTo({
-            center: new TMap.LatLng(pos.coords.latitude, pos.coords.longitude),
-            zoom: 13,
-            duration: 600
-          });
-        }
-      },
-      function () { /* 定位失败：静默，保持默认上海 */ },
-      { timeout: 4000, maximumAge: 60000 }
-    );
-  }
 }
 
 /* ============================================================
@@ -2525,8 +2669,6 @@ function switchTab(tab) {
   $('map').setAttribute('aria-hidden', tab === 'map' ? 'false' : 'true');
   if (tab === 'list') {
     hideSearchResults(); // 清单页不需要搜索框
-    // 进入清单尝试取定位，拿到后刷新距离显示（V1.2）
-    ensureUserPos(function () { if (state.activeTab === 'list') renderList(); });
   }
 }
 
@@ -2859,6 +3001,9 @@ function bindSearchEvents() {
    10. 事件绑定 & 启动
    ============================================================ */
 function bindEvents() {
+  // 地图右下角定位：由用户主动点击触发权限请求
+  $('btnLocate').addEventListener('click', locateUser);
+
   // Tab
   $('tabMap').addEventListener('click', function () { switchTab('map'); });
   $('tabList').addEventListener('click', function () { switchTab('list'); });
