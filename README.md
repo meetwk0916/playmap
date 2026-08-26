@@ -48,3 +48,4 @@ npm test
 - [CONTEXT.md](CONTEXT.md)：领域词汇。
 - [docs/product-history.md](docs/product-history.md)：已退役方向及保留下来的决策。
 - [AGENTS.md](AGENTS.md)：Agent 工程约束。
+- [发布「11去哪玩」产品级功能 v1](https://github.com/meetwk0916/playmap/issues/4)：目标 v1 的 Wayfinder 决策地图；其中决策是实施规格，不代表代码已经合并、部署或通过真人验收。
