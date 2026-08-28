@@ -12,4 +12,4 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 
 When a skill mentions a configured role, use the corresponding label string from this table. Do not apply or create labels shown as `—` without maintainer approval.
 
-Verified against `meetwk0916/playmap` on 2026-08-21.
+Verified against `meetwk0916/playmap` on 2026-08-26.
