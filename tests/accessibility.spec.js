@@ -297,6 +297,24 @@ test('base map failure keeps a filterable local place list and details', async (
   await expect(page.getByRole('button', { name: '导航去这里' })).toBeVisible();
 });
 
+test('base map fallback offers an explicit retry', async ({ page }) => {
+  await page.unroute('**/map.qq.com/api/gljs**');
+  let attempts = 0;
+  await page.route('**/map.qq.com/api/gljs**', route => {
+    attempts += 1;
+    route.fulfill(attempts === 1
+      ? { status: 503, contentType: 'application/javascript', body: '' }
+      : { status: 200, contentType: 'application/javascript', body: tmapStub });
+  });
+  await page.reload();
+
+  const fallback = page.getByRole('region', { name: '地图暂不可用' });
+  await expect(fallback.getByRole('button', { name: '重试地图' })).toBeVisible();
+  await fallback.getByRole('button', { name: '重试地图' }).click();
+  await expect(fallback).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__markerLayers?.length || 0)).toBeGreaterThan(0);
+});
+
 test('configured browser key is included in the GL JS request', async ({ page }) => {
   const sdkKey = await page.evaluate(() => {
     const sdkUrl = new URL(document.getElementById('tmapSdk').src);

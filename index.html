@@ -115,6 +115,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 }
 .navigation-fallback .detail-actions { margin-bottom: 0; }
 .navigation-fallback a { text-align: center; text-decoration: none; }
+.fallback-retry { margin: 12px 0 0; }
 
 /* 地图页类别筛选条 */
 .map-cat-strip {
@@ -617,7 +618,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 <div id="map" role="region" aria-label="地点地图"></div>
 <section class="map-fallback" id="mapFallback" role="region" aria-label="地图暂不可用" hidden>
   <h2>地图暂不可用</h2>
-  <div class="sub sub-left">仍可浏览已有地点、按类别筛选并查看详情；恢复后可重试在线搜索。</div>
+  <div class="sub sub-left">仍可浏览已有地点、按类别筛选并查看详情；地图恢复后可重试。</div>
+  <button class="btn-ghost fallback-retry" id="btnRetryMap" type="button">重试地图</button>
   <div class="fallback-list" id="fallbackList"></div>
 </section>
 
@@ -649,7 +651,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 <!-- Toast -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="data-alert" id="dataAlert" role="alert" hidden>
-  本地数据无法完整读取，原数据不会被覆盖。现在可临时浏览预制地点；请在“数据与隐私”中清空损坏数据后再保存。
+  本地数据无法完整读取，原数据不会被覆盖。现在可临时浏览预制地点；请在“数据与隐私”中清空这份数据后再保存。
 </div>
 
 </main>
@@ -931,7 +933,7 @@ function migrateLegacyCategory(raw) {
 }
 
 // 预置种子数据：仅当数据键不存在 且 从未预置过（标记键不存在）时执行。
-// 成功后写入标记键，保证"清空数据"后种子不会复活；导入 JSON 会写数据键，天然不会触发预置。
+// 成功后写入标记键，保证"清空数据"后种子不会复活。
 // localStorage 不可用（隐私模式等）时退化为内存态种子数据，不报错。
 function trySeedPlaces() {
   var marked = false;
@@ -1008,11 +1010,15 @@ function loadState() {
   if (raw) {
     try {
       var parsed = JSON.parse(raw);
-      if (!parsed || !Array.isArray(parsed.places) || Number(parsed.version) > STORAGE_VERSION) {
+      if (!parsed || !Array.isArray(parsed.places)) {
+        throw new Error('unsupported local data');
+      }
+      var parsedVersion = parsed.version === undefined ? 1 : Number(parsed.version);
+      if (!Number.isInteger(parsedVersion) || parsedVersion < 1 || parsedVersion > STORAGE_VERSION) {
         throw new Error('unsupported local data');
       }
       var arr = parsed.places;
-      var needsCategoryMigration = !parsed || !(Number(parsed.version) >= STORAGE_VERSION);
+      var needsCategoryMigration = parsedVersion < STORAGE_VERSION;
       if (needsCategoryMigration) arr = arr.map(migrateLegacyCategory);
       var sanitizedPlaces = arr.map(sanitizePlace);
       state.places = sanitizedPlaces.filter(function (p) {
@@ -1445,13 +1451,24 @@ function showMapFallback() {
   renderMapFallback();
 }
 
+function retryMap() {
+  $('mapFallback').hidden = true;
+  if (typeof TMap !== 'undefined') {
+    initMap();
+    return;
+  }
+  var sdk = $('tmapSdk');
+  if (!sdk) { showMapFallback(); return; }
+  var script = document.createElement('script');
+  script.src = sdk.src;
+  script.onload = initMap;
+  script.onerror = showMapFallback;
+  document.head.appendChild(script);
+}
+
 /* ============================================================
    5. 标记渲染（底色和 emoji 编码类别）
    ============================================================ */
-function markerStyleId(place) {
-  return categoryOf(place.category).value;
-}
-
 function renderMarkers() {
   if (!markerLayer) {
     if (!$('mapFallback').hidden) renderMapFallback();
@@ -1463,7 +1480,7 @@ function renderMarkers() {
   }).map(function (p) {
     return {
       id: p.id,
-      styleId: markerStyleId(p),
+      styleId: categoryOf(p.category).value,
       position: new TMap.LatLng(p.lat, p.lng),
       properties: { placeId: p.id }
     };
@@ -1552,6 +1569,11 @@ function openAddForm(poi) {
 }
 
 function submitAdd() {
+  if (state.protectionMode) {
+    showToast('⚠️ 原数据正在保护中，请先从“数据与隐私”明确清空');
+    closeAllDrawers();
+    return;
+  }
   var name = state.addForm.name;
   if (state.addForm.source !== 'map-poi' || !name || !state.addForm.poiId ||
       !isFinite(state.addForm.lat) || !isFinite(state.addForm.lng)) {
@@ -1676,7 +1698,6 @@ var FACILITIES = [
 ];
 
 function facilityState(place, id) {
-  if (place.name === '上海儿童博物馆' && id === 'stroller') return 'limited';
   var value = place.facilities && place.facilities[id];
   if (value === 'yes' || value === 'limited') return value;
   return Array.isArray(place.tags) && place.tags.indexOf(id) !== -1 ? 'yes' : 'unknown';
@@ -1717,6 +1738,10 @@ function renderDetail() {
   restoreFocus($('detailContent'), focusSnapshot);
   $('btnNav').addEventListener('click', function () { openNavigation(p); });
   $('btnDeletePlace').addEventListener('click', async function () {
+    if (state.protectionMode) {
+      showToast('⚠️ 原数据正在保护中，请先从“数据与隐私”明确清空');
+      return;
+    }
     var ok = await confirmDialog('确定删除「' + p.name + '」及其全部本地数据吗？删除后无法恢复。');
     if (!ok) return;
     state.places = state.places.filter(function (place) { return place.id !== p.id; });
@@ -1737,10 +1762,6 @@ function getConfiguredTmapKey() {
   return sdkScript ? new URL(sdkScript.src).searchParams.get('key') || '' : '';
 }
 
-function openPrivacy() {
-  openDrawer('drawerPrivacy');
-}
-
 /* ---------- 地图页类别筛选条 ---------- */
 function renderMapCatStrip() {
   var html = '<button class="chip' + (state.mapCatFilter === 'all' ? ' active' : '') + '" data-cat="all">✨ 全部</button>';
@@ -1753,7 +1774,7 @@ function renderMapCatStrip() {
 
 /* ============================================================
    7. 地点搜索（双通道：A=SDK searchNearby；B=官方 WebService JSONP 直连）
-      A 失败且用户已配置自备 Key 时自动降级到 B；无 Key 时给出明确指引
+      A 失败且配置有效时自动降级到 B；否则保留本地搜索
    ============================================================ */
 var poiSearcher = null;          // TMap.service.Search 实例（懒创建）
 var searchDebounceTimer = null;  // debounce 定时器
@@ -1952,7 +1973,8 @@ function fallbackToChannelB(keyword, lat, lng, seq) {
 
 function doPlaceSearch(keyword) {
   if (!map) {
-    showSearchTip('🗺️ 地图还没准备好，稍等一下再试');
+    renderSearchResults([], searchLocalPlaces(keyword),
+      '🗺️ 地图暂不可用；仍可浏览已有地点，在线搜索稍后可重试。');
     return;
   }
   var seq = ++searchSeq;
@@ -2111,8 +2133,11 @@ function bindEvents() {
     var button = evt.target.closest('[data-place-id]');
     if (button) openDetail(button.getAttribute('data-place-id'));
   });
+  $('btnRetryMap').addEventListener('click', function () {
+    retryMap();
+  });
 
-  $('btnOpenPrivacy').addEventListener('click', openPrivacy);
+  $('btnOpenPrivacy').addEventListener('click', function () { openDrawer('drawerPrivacy'); });
   $('btnClosePrivacy').addEventListener('click', closeAllDrawers);
   $('btnClear').addEventListener('click', async function () {
     if (!state.places.length && !state.protectionMode) { showToast('当前没有数据可清空'); return; }
