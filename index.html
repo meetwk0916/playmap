@@ -718,6 +718,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 
 var STORAGE_KEY = 'baby_playmap_v1';        // 数据存储键
 var STORAGE_VERSION = 2;                    // 数据结构版本
+var ONBOARD_KEY = 'baby_playmap_onboarded'; // 首次隐私简述标记
 var SEED_KEY = 'baby_playmap_seeded_v1';    // 首次预置标记（防止清空数据后种子复活）
 var SEED_CATEGORIES_KEY = 'baby_playmap_seeded_categories_v1'; // 非公园类别补种标记
 var DEFAULT_CENTER = { lat: 31.2304, lng: 121.4737 }; // 上海人民广场一带
@@ -901,7 +902,7 @@ function sanitizePlace(raw) {
     var value = raw.facilities && raw.facilities[id];
     if (value === 'yes' || value === 'limited') facilities[id] = value;
   });
-  return {
+  var place = {
     id: typeof raw.id === 'string' ? raw.id : uid(),
     name: name,
     category: typeof raw.category === 'string' && CATEGORIES.some(function (c) { return c.value === raw.category; })
@@ -910,17 +911,22 @@ function sanitizePlace(raw) {
     poiId: typeof raw.poiId === 'string' ? raw.poiId : '',
     address: typeof raw.address === 'string' ? raw.address.slice(0, 120) : '',
     facilities: facilities,
-    status: raw.status === 'visited' ? 'visited' : 'wish',
-    rating: rating,
     lat: parseFloat(raw.lat),
-    lng: parseFloat(raw.lng),
-    createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : Date.now(),
-    visits: visits,
-    practicalNotes: typeof raw.practicalNotes === 'string' ? raw.practicalNotes : '',
-    tags: Array.isArray(raw.tags) ? raw.tags.filter(function (t) {
-      return LEGACY_TAG_IDS.indexOf(t) !== -1;
-    }).slice(0, 8) : []
+    lng: parseFloat(raw.lng)
   };
+  if (raw.status !== undefined) place.status = raw.status === 'visited' ? 'visited' : 'wish';
+  if (raw.rating !== undefined) place.rating = rating;
+  if (raw.createdAt !== undefined) place.createdAt = typeof raw.createdAt === 'number' ? raw.createdAt : Date.now();
+  if (raw.visits !== undefined) place.visits = visits;
+  if (raw.practicalNotes !== undefined) {
+    place.practicalNotes = typeof raw.practicalNotes === 'string' ? raw.practicalNotes : '';
+  }
+  if (raw.tags !== undefined) {
+    place.tags = Array.isArray(raw.tags) ? raw.tags.filter(function (t) {
+      return LEGACY_TAG_IDS.indexOf(t) !== -1;
+    }).slice(0, 8) : [];
+  }
+  return place;
 }
 
 function migrateLegacyCategory(raw) {
@@ -983,27 +989,6 @@ function trySeedCategoryUpgrade() {
   return additions.length > 0;
 }
 
-function upgradeKnownPlaceIdentities() {
-  var changed = false;
-  state.places.forEach(function (place) {
-    if (place.provider === 'tencent' && place.poiId) return;
-    var targetName = SEED_NAME_ALIASES[place.name] || place.name;
-    var seed = SEED_PLACES.find(function (candidate) { return candidate.name === targetName; });
-    if (!seed) return;
-    var current = seedPlace(seed);
-    place.name = current.name;
-    place.category = current.category;
-    place.provider = current.provider;
-    place.poiId = current.poiId;
-    place.address = current.address;
-    place.lat = current.lat;
-    place.lng = current.lng;
-    place.facilities = current.facilities;
-    changed = true;
-  });
-  return changed;
-}
-
 function loadState() {
   var raw = null;
   try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
@@ -1021,12 +1006,12 @@ function loadState() {
       var needsCategoryMigration = parsedVersion < STORAGE_VERSION;
       if (needsCategoryMigration) arr = arr.map(migrateLegacyCategory);
       var sanitizedPlaces = arr.map(sanitizePlace);
-      state.places = sanitizedPlaces.filter(function (p) {
-        return p && isFinite(p.lat) && isFinite(p.lng);
-      });
+      if (sanitizedPlaces.some(function (p) { return !p || !isFinite(p.lat) || !isFinite(p.lng); })) {
+        throw new Error('unsupported local data');
+      }
+      state.places = sanitizedPlaces;
       try { lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); } catch (e) { lastSavedPlaces = null; }
-      var identityChanged = upgradeKnownPlaceIdentities();
-      if (needsCategoryMigration || identityChanged) saveState();
+      if (needsCategoryMigration) saveState();
       trySeedCategoryUpgrade();
       return;
     } catch (e) {
@@ -1225,6 +1210,14 @@ function showToast(msg) {
   toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2200);
 }
 
+function showFirstUsePrivacyNote() {
+  try {
+    if (localStorage.getItem(ONBOARD_KEY)) return;
+    localStorage.setItem(ONBOARD_KEY, '1');
+  } catch (e) { /* 仍显示一次内存态提示 */ }
+  showToast('地点与旧档案只保存在当前浏览器；腾讯地图会联网。详情见“数据与隐私”');
+}
+
 // 确认弹窗（Promise 风格）
 function confirmDialog(msg) {
   return new Promise(function (resolve) {
@@ -1332,6 +1325,7 @@ function wgs84ToGcj02(lat, lng) {
 var map = null;
 var markerLayer = null;
 var userLocationLayer = null;
+var mapLoadTimer = null;
 var locationPending = false;
 var lastMarkerClickAt = 0; // 防止点击图钉时误触发地图空白点击
 
@@ -1412,6 +1406,7 @@ function locateUser() {
 }
 
 function initMap() {
+  clearTimeout(mapLoadTimer);
   if (typeof TMap === 'undefined') {
     showMapFallback();
     return;
@@ -1439,14 +1434,32 @@ function initMap() {
       if (Date.now() - lastMarkerClickAt < 400) return;
       hideSearchResults();
     });
+    var currentMap = map;
+    map.on('tilesloaded', function () {
+      if (map !== currentMap) return;
+      clearTimeout(mapLoadTimer);
+      mapLoadTimer = null;
+      $('mapFallback').hidden = true;
+    });
+    mapLoadTimer = setTimeout(function () {
+      if (map !== currentMap) return;
+      try { if (map && map.destroy) map.destroy(); } catch (e) { /* 忽略 */ }
+      map = null;
+      markerLayer = null;
+      userLocationLayer = null;
+      showMapFallback();
+    }, 8000);
   } catch (e) {
     map = null;
     markerLayer = null;
+    userLocationLayer = null;
     showMapFallback();
   }
 }
 
 function showMapFallback() {
+  clearTimeout(mapLoadTimer);
+  mapLoadTimer = null;
   $('mapFallback').hidden = false;
   renderMapFallback();
 }
@@ -1476,7 +1489,7 @@ function renderMarkers() {
   }
   // all 显示全部，否则只渲染选中类别的图钉
   var geometries = state.places.filter(function (p) {
-    return isTencentPlace(p) && (state.mapCatFilter === 'all' || p.category === state.mapCatFilter);
+    return state.mapCatFilter === 'all' || p.category === state.mapCatFilter;
   }).map(function (p) {
     return {
       id: p.id,
@@ -1490,7 +1503,7 @@ function renderMarkers() {
 
 function renderMapFallback() {
   var places = state.places.filter(function (place) {
-    return isTencentPlace(place) && (state.mapCatFilter === 'all' || place.category === state.mapCatFilter);
+    return state.mapCatFilter === 'all' || place.category === state.mapCatFilter;
   });
   $('fallbackList').innerHTML = places.length ? places.map(function (place) {
     return '<button class="fallback-place" data-place-id="' + escapeHtml(place.id) + '">' +
@@ -1643,6 +1656,12 @@ function copyDestination(place) {
   return Promise.resolve();
 }
 
+function copyDestinationWithToast(place) {
+  copyDestination(place).then(function () { showToast('已复制目的地'); }, function () {
+    showToast('复制失败，请长按地点名称复制');
+  });
+}
+
 function showNavigationFallback(place, url) {
   var existing = $('navigationFallback');
   if (existing) existing.remove();
@@ -1654,15 +1673,9 @@ function showNavigationFallback(place, url) {
     '<div class="detail-actions">' +
       '<button class="btn-nav" id="btnRetryNavigation">重试</button>' +
       '<a class="btn-nav" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">打开腾讯地图</a>' +
-      '<button class="btn-nav" id="btnCopyDestination">复制目的地</button>' +
     '</div>';
   $('detailContent').appendChild(block);
   $('btnRetryNavigation').addEventListener('click', function () { openNavigation(place); });
-  $('btnCopyDestination').addEventListener('click', function () {
-    copyDestination(place).then(function () { showToast('已复制目的地'); }, function () {
-      showToast('复制失败，请长按地点名称复制');
-    });
-  });
 }
 
 function openPoiPreview(poi) {
@@ -1680,10 +1693,12 @@ function openPoiPreview(poi) {
         '</div>' +
       '</div>' +
     '</div>' +
-    '<div class="detail-actions"><button class="btn-nav" id="btnNav">🧭 导航去这里</button></div>' +
+    '<div class="detail-actions"><button class="btn-nav" id="btnNav">🧭 导航去这里</button>' +
+      '<button class="btn-ghost" id="btnCopyDestination">复制目的地</button></div>' +
     '<button class="btn-ghost" id="btnSavePoi">＋ 添加到我的地图</button>';
   openDrawer('drawerDetail');
   $('btnNav').addEventListener('click', function () { openNavigation(poi); });
+  $('btnCopyDestination').addEventListener('click', function () { copyDestinationWithToast(poi); });
   $('btnSavePoi').addEventListener('click', function () {
     openAddForm(poi);
   });
@@ -1730,13 +1745,15 @@ function renderDetail() {
         '<div class="d-cat">' + cat.label + ' · 📍 ' + escapeHtml(locationText) + '</div>' +
       '</div>' +
     '</div>' +
-    '<div class="detail-actions"><button class="btn-nav" id="btnNav">🧭 导航去这里</button></div>' +
+    '<div class="detail-actions"><button class="btn-nav" id="btnNav">🧭 导航去这里</button>' +
+      '<button class="btn-ghost" id="btnCopyDestination">复制目的地</button></div>' +
     '<div class="section-title">亲子便利设施</div>' +
     '<div class="facility-list">' + facilitiesHtml(p) + '</div>' +
     '<button class="btn-danger detail-delete" id="btnDeletePlace">删除这个地点</button>';
 
   restoreFocus($('detailContent'), focusSnapshot);
   $('btnNav').addEventListener('click', function () { openNavigation(p); });
+  $('btnCopyDestination').addEventListener('click', function () { copyDestinationWithToast(p); });
   $('btnDeletePlace').addEventListener('click', async function () {
     if (state.protectionMode) {
       showToast('⚠️ 原数据正在保护中，请先从“数据与隐私”明确清空');
@@ -1818,7 +1835,7 @@ function clearSearchBox() {
 function searchLocalPlaces(kw) {
   if (!kw) return [];
   return state.places.filter(function (p) {
-    return isTencentPlace(p) && String(p.name).indexOf(kw) !== -1;
+    return String(p.name).indexOf(kw) !== -1;
   }).slice(0, 4);
 }
 
@@ -2171,6 +2188,7 @@ function init() {
   bindSearchEvents();
   renderMapCatStrip();
   initMap();
+  showFirstUsePrivacyNote();
 }
 
 if (document.readyState === 'loading') {

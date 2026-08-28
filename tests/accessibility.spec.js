@@ -38,7 +38,10 @@ const tmapStub = `
         window.__mapEaseToCalls = window.__mapEaseToCalls || [];
         window.__mapEaseToCalls.push(options);
       };
-      this.on = function () {};
+      this.on = function (event, callback) {
+        if (event === 'tilesloaded' && !window.__skipMapTilesLoaded) setTimeout(callback, 0);
+      };
+      this.destroy = function () { window.__mapDestroyed = true; };
     },
     MarkerStyle: function (options) {
       window.__markerStyleOptions = window.__markerStyleOptions || [];
@@ -128,6 +131,7 @@ test('first use opens the map directly with a permanent data and privacy entry',
 
   await expect(page.locator('#welcome')).toHaveCount(0);
   await expect(page.getByRole('button', { name: '设置' })).toHaveCount(0);
+  await expect(page.getByRole('status')).toContainText('地点与旧档案只保存在当前浏览器');
 
   await page.getByRole('button', { name: '数据与隐私' }).click();
   const dialog = page.getByRole('dialog', { name: '数据与隐私' });
@@ -315,6 +319,16 @@ test('base map fallback offers an explicit retry', async ({ page }) => {
   await expect.poll(() => page.evaluate(() => window.__markerLayers?.length || 0)).toBeGreaterThan(0);
 });
 
+test('base map tile timeout falls back to the local place list', async ({ page }) => {
+  await page.addInitScript(() => { window.__skipMapTilesLoaded = true; });
+  await page.reload();
+
+  const fallback = page.getByRole('region', { name: '地图暂不可用' });
+  await expect(fallback).toBeVisible({ timeout: 9000 });
+  await expect(fallback.getByRole('button', { name: '测试公园' })).toBeVisible();
+  expect(await page.evaluate(() => window.__mapDestroyed)).toBe(true);
+});
+
 test('configured browser key is included in the GL JS request', async ({ page }) => {
   const sdkKey = await page.evaluate(() => {
     const sdkUrl = new URL(document.getElementById('tmapSdk').src);
@@ -414,6 +428,25 @@ test('current category choices are preserved regardless of place name', async ({
     JSON.parse(localStorage.getItem('baby_playmap_v1')).places.map(item => [item.id, item.category])
   ));
   expect(categories).toEqual({ zoo: 'zoo', museum: 'museum' });
+});
+
+test('legacy unbound saved places remain browsable without inferred identity', async ({ page }) => {
+  const legacy = { ...place, name: '世纪公园', address: '用户保存地址', lat: 31.2, lng: 121.4 };
+  delete legacy.provider;
+  delete legacy.poiId;
+  await page.evaluate(value => {
+    sessionStorage.setItem('playmap_test_keep_storage', '1');
+    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 2, places: [value] }));
+    localStorage.setItem('baby_playmap_seeded_categories_v1', 'true');
+  }, legacy);
+  await page.reload();
+
+  await page.locator('#searchInput').fill('世纪公园');
+  await expect(page.locator('#searchResults .sr-title')).toContainText('世纪公园');
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places[0]);
+  expect(stored).toMatchObject({ name: '世纪公园', address: '用户保存地址', lat: 31.2, lng: 121.4 });
+  expect(stored).not.toHaveProperty('provider');
+  expect(stored).not.toHaveProperty('poiId');
 });
 
 test('category seed upgrade does not repopulate a deliberately empty map', async ({ page }) => {
@@ -536,6 +569,36 @@ test('future local data versions are protected without being rewritten', async (
   expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe(future);
 });
 
+test('invalid legacy places enter protection mode without rewriting storage', async ({ page }) => {
+  const invalid = JSON.stringify({ version: 1, places: [{ ...place, lat: 'not-a-coordinate' }] });
+  await page.evaluate(value => {
+    sessionStorage.setItem('playmap_test_keep_storage', '1');
+    localStorage.setItem('baby_playmap_v1', value);
+  }, invalid);
+  await page.reload();
+
+  await expect(page.getByRole('alert')).toContainText('原数据不会被覆盖');
+  expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe(invalid);
+});
+
+test('migration does not add retired fields to current places', async ({ page }) => {
+  const current = {
+    id: 'current-place', name: '现役地点', category: 'park', provider: 'tencent',
+    poiId: 'current-poi', address: '现役地址', lat: 31.2, lng: 121.4, facilities: {}
+  };
+  await page.evaluate(value => {
+    sessionStorage.setItem('playmap_test_keep_storage', '1');
+    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 1, places: [value] }));
+    localStorage.setItem('baby_playmap_seeded_categories_v1', 'true');
+  }, current);
+  await page.reload();
+
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places[0]);
+  for (const retired of ['status', 'rating', 'createdAt', 'visits', 'practicalNotes', 'tags']) {
+    expect(stored).not.toHaveProperty(retired);
+  }
+});
+
 test('detail drawer traps focus and closes with Escape', async ({ page }) => {
   await page.evaluate(() => window.__openTestPlace());
   const dialog = page.getByRole('dialog', { name: '测试公园' });
@@ -579,6 +642,7 @@ test('detail prioritizes navigation and hides archive controls', async ({ page }
   await expect(dialog).toBeVisible();
 
   await expect(dialog.getByRole('button', { name: '导航去这里' })).toBeVisible();
+  await expect(dialog.getByRole('button', { name: '复制目的地' })).toBeVisible();
   await expect(dialog.locator('.facility-row')).toHaveCount(5);
   for (const label of ['场馆停车', '童车通行', '亲子卫生间', '母婴室', '场馆内餐饮']) {
     await expect(dialog.getByText(label, { exact: true })).toBeVisible();
