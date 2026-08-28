@@ -449,6 +449,27 @@ test('legacy unbound saved places remain browsable without inferred identity', a
   expect(stored).not.toHaveProperty('poiId');
 });
 
+test('published legacy presets upgrade to Tencent identity by exact fingerprint', async ({ page }) => {
+  const legacyPreset = {
+    ...place, name: '奉贤碧海金沙', category: 'water', address: '', lat: 30.8248, lng: 121.5034
+  };
+  delete legacyPreset.provider;
+  delete legacyPreset.poiId;
+  await page.evaluate(value => {
+    sessionStorage.setItem('playmap_test_keep_storage', '1');
+    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 2, places: [value] }));
+    localStorage.setItem('baby_playmap_seeded_categories_v1', 'true');
+  }, legacyPreset);
+  await page.reload();
+
+  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places[0]);
+  expect(stored).toMatchObject({
+    name: '奉贤碧海金沙', provider: 'tencent', poiId: '13490717915174695213',
+    address: '上海市奉贤区海涵路6号', lat: 30.823412, lng: 121.572192
+  });
+  expect(stored.visits[0].photos).toHaveLength(1);
+});
+
 test('category seed upgrade does not repopulate a deliberately empty map', async ({ page }) => {
   await page.evaluate(() => {
     sessionStorage.setItem('playmap_test_keep_storage', '1');

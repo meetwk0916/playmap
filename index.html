@@ -800,6 +800,43 @@ var SEED_NAME_ALIASES = {
   '前滩休闲公园（红砂坑区）': '前滩休闲公园-粉色沙滩'
 };
 
+// 已发布旧版预制点的精确指纹；名称和坐标同时命中才升级，避免覆盖用户自建的同名地点。
+var LEGACY_SEED_COORDS = {
+  '世纪公园': [31.2178, 121.5490],
+  '世博文化公园': [31.1816, 121.4711],
+  '共青森林公园': [31.3218, 121.5458],
+  '滨江森林公园': [31.3860, 121.5240],
+  '辰山植物园': [31.0780, 121.1785],
+  '上海植物园': [31.1478, 121.4381],
+  '顾村公园': [31.3474, 121.3845],
+  '鲁迅公园': [31.2728, 121.4784],
+  '中山公园': [31.2205, 121.4138],
+  '复兴公园': [31.2163, 121.4695],
+  '长风公园': [31.2271, 121.3948],
+  '大宁公园': [31.2750, 121.4420],
+  '和平公园': [31.2737, 121.5005],
+  '徐家汇公园': [31.2004, 121.4384],
+  '闵行体育公园': [31.1450, 121.3626],
+  '上海迪士尼度假区': [31.1415, 121.6600],
+  '上海海昌海洋公园': [30.9255, 121.9070],
+  '上海欢乐谷': [31.0991, 121.2152],
+  '上海野生动物园': [31.0543, 121.7208],
+  '上海动物园': [31.1925, 121.3601],
+  '上海海洋水族馆': [31.2422, 121.4988],
+  '上海自然博物馆': [31.2359, 121.4608],
+  '上海天文馆': [30.9169, 121.9167],
+  '上海儿童博物馆': [31.1969, 121.4172],
+  '上海少年儿童图书馆（长风新馆）': [31.2268, 121.3855],
+  '上海少年儿童图书馆（南京西路馆）': [31.2298, 121.4580],
+  '上海图书馆东馆（少儿区）': [31.2201, 121.5518],
+  '上海虹桥南丰城': [31.2078, 121.4093],
+  '上海南翔印象城MEGA': [31.3129, 121.3149],
+  '上海万象城（吴中路店）': [31.1685, 121.3655],
+  '金山城市沙滩': [30.7077, 121.3440],
+  '奉贤碧海金沙': [30.8248, 121.5034],
+  '前滩休闲公园（红砂坑区）': [31.1555, 121.4720]
+};
+
 function seedPlace(seed) {
   var facilities = {};
   (seed.facilityYes || []).forEach(function (id) { facilities[id] = 'yes'; });
@@ -989,6 +1026,29 @@ function trySeedCategoryUpgrade() {
   return additions.length > 0;
 }
 
+function upgradeLegacySeedIdentities() {
+  var changed = false;
+  state.places.forEach(function (place) {
+    if (isTencentPlace(place)) return;
+    var legacyCoords = LEGACY_SEED_COORDS[place.name];
+    if (!legacyCoords || place.lat !== legacyCoords[0] || place.lng !== legacyCoords[1]) return;
+    var targetName = SEED_NAME_ALIASES[place.name] || place.name;
+    var seed = SEED_PLACES.find(function (candidate) { return candidate.name === targetName; });
+    if (!seed) return;
+    var current = seedPlace(seed);
+    place.name = current.name;
+    place.category = current.category;
+    place.provider = current.provider;
+    place.poiId = current.poiId;
+    place.address = current.address;
+    place.lat = current.lat;
+    place.lng = current.lng;
+    place.facilities = current.facilities;
+    changed = true;
+  });
+  return changed;
+}
+
 function loadState() {
   var raw = null;
   try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
@@ -1011,7 +1071,8 @@ function loadState() {
       }
       state.places = sanitizedPlaces;
       try { lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); } catch (e) { lastSavedPlaces = null; }
-      if (needsCategoryMigration) saveState();
+      var seedIdentityChanged = upgradeLegacySeedIdentities();
+      if (needsCategoryMigration || seedIdentityChanged) saveState();
       trySeedCategoryUpgrade();
       return;
     } catch (e) {
