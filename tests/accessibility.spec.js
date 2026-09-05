@@ -34,11 +34,19 @@ const tmapStub = `
     Map: function () {
       this.getZoom = function () { return 12; };
       this.getCenter = function () { return new window.TMap.LatLng(31.23, 121.47); };
+      this.getBounds = function () {
+        return {
+          getSouthWest: function () { return new window.TMap.LatLng(31.20, 121.40); },
+          getNorthEast: function () { return new window.TMap.LatLng(31.30, 121.55); }
+        };
+      };
       this.easeTo = function (options) {
         window.__mapEaseToCalls = window.__mapEaseToCalls || [];
         window.__mapEaseToCalls.push(options);
       };
       this.on = function (event, callback) {
+        window.__mapEvents = window.__mapEvents || {};
+        window.__mapEvents[event] = callback;
         if (event === 'tilesloaded' && !window.__skipMapTilesLoaded) setTimeout(callback, 0);
       };
       this.destroy = function () { window.__mapDestroyed = true; };
@@ -56,8 +64,12 @@ const tmapStub = `
       this.setGeometries = function (geometries) { this.geometries = geometries; };
       this.on = function (event, callback) {
         if (event === 'click') {
+          const layer = this;
           window.__openTestPlace = function () {
             callback({ geometry: { properties: { placeId: 'place-1' } } });
+          };
+          window.__openMarkerById = function (id) {
+            callback({ geometry: layer.geometries.find(geometry => geometry.id === id) });
           };
         }
       };
@@ -120,6 +132,52 @@ test('map exposes only the essential decision controls', async ({ page }) => {
   expect(locateBox).toMatchObject({ width: 48, height: 48 });
   expect(375 - locateBox.x - locateBox.width).toBeCloseTo(16, 0);
   expect(812 - locateBox.y - locateBox.height).toBeCloseTo(18, 0);
+});
+
+test('active category keeps a weighted, spaced shortlist of online candidates', async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const onlinePois = [
+    { id: 'far-first', title: '远处公园', category: '旅游景点:公园', location: { lat: 31.295, lng: 121.545 } },
+    { id: 'wrong-category', title: '附近商场', category: '购物:购物中心', location: { lat: 31.285, lng: 121.535 } },
+    { id: 'near-saved', title: '公园内部景点', category: '旅游景点:公园', location: { lat: 31.206, lng: 121.406 } },
+    { id: 'center-late', title: '中心公园', category: '旅游景点:公园', location: { lat: 31.23, lng: 121.47 } },
+    { id: 'candidate-1', title: '候选公园 1', category: '旅游景点:公园', location: { lat: 31.21, lng: 121.45 } },
+    { id: 'candidate-2', title: '候选公园 2', category: '旅游景点:公园', location: { lat: 31.21, lng: 121.50 } },
+    { id: 'candidate-3', title: '候选公园 3', category: '旅游景点:公园', location: { lat: 31.25, lng: 121.42 } },
+    { id: 'candidate-4', title: '候选公园 4', category: '旅游景点:公园', location: { lat: 31.25, lng: 121.52 } },
+    { id: 'candidate-5', title: '候选公园 5', category: '旅游景点:公园', location: { lat: 31.27, lng: 121.45 } },
+    { id: 'candidate-6', title: '候选公园 6', category: '旅游景点:公园', location: { lat: 31.27, lng: 121.50 } },
+    { id: 'candidate-7', title: '候选公园 7', category: '旅游景点:公园', location: { lat: 31.29, lng: 121.42 } }
+  ];
+  await page.route('**/ws/place/v1/search**', async route => {
+    const url = new URL(route.request().url());
+    const callback = url.searchParams.get('callback');
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/javascript',
+      body: `${callback}(${JSON.stringify({ status: 0, count: onlinePois.length, data: onlinePois })})`
+    });
+  });
+  await page.evaluate(seed => {
+    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 2, places: [seed] }));
+    localStorage.setItem('baby_playmap_seeded_categories_v1', 'true');
+    sessionStorage.setItem('playmap_test_keep_storage', '1');
+  }, { ...place, lat: 31.205, lng: 121.405 });
+  await page.reload();
+
+  await page.locator('#mapCatStrip').getByRole('button', { name: '🌳 公园' }).click();
+  await expect.poll(() => page.evaluate(() => window.__markerLayers[0].geometries.length)).toBe(9);
+  const markerIds = await page.evaluate(() => window.__markerLayers[0].geometries.map(marker => marker.id));
+  expect(markerIds[1]).toBe('explore-center-late');
+  expect(markerIds).not.toContain('explore-wrong-category');
+  expect(markerIds).not.toContain('explore-near-saved');
+  expect(await page.evaluate(() => window.__markerLayers[0].geometries[1].styleId)).toBe('park-explore');
+  await expect(page.locator('#toast')).toContainText('已显示 8 个附近候选，移动地图查看更多');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places)).toHaveLength(1);
+
+  await page.evaluate(() => window.__openMarkerById('explore-center-late'));
+  await expect(page.getByRole('dialog', { name: '中心公园' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '添加到我的地图' })).toBeVisible();
 });
 
 test('first use opens the map directly with a permanent data and privacy entry', async ({ page }) => {
@@ -282,8 +340,9 @@ test('production placeholders do not configure an invalid map proxy', async ({ p
   }));
 
   expect(mapConfig.securityConfig).toBeUndefined();
-  expect(mapConfig.anchors).toHaveLength(10);
-  expect(mapConfig.anchors.every(anchor => anchor.x === 22 && anchor.y === 52)).toBe(true);
+  expect(mapConfig.anchors).toHaveLength(20);
+  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 52)).toHaveLength(10);
+  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 22)).toHaveLength(10);
 });
 
 test('base map failure keeps a filterable local place list and details', async ({ page }) => {
