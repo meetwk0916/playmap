@@ -338,29 +338,20 @@ test('configured browser key is included in the GL JS request', async ({ page })
   expect(sdkKey).toMatch(/^[A-Z0-9-]+$/);
 });
 
-test('existing maps receive representative points for every explicit category', async ({ page }) => {
-  const categories = await page.evaluate(() => {
-    const stored = JSON.parse(localStorage.getItem('baby_playmap_v1'));
-    return stored.places.reduce((counts, item) => {
-      counts[item.category] = (counts[item.category] || 0) + 1;
-      return counts;
-    }, {});
-  });
+test('existing maps stay unchanged when the startup sample list changes', async ({ page }) => {
+  const existingPlace = { ...place, createdAt: 1787270400000, facilities: {} };
+  await page.evaluate(value => {
+    sessionStorage.setItem('playmap_test_keep_storage', '1');
+    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 2, places: [value] }));
+    localStorage.removeItem('baby_playmap_seeded_categories_v1');
+  }, existingPlace);
+  await page.reload();
 
-  expect(categories).toMatchObject({
-    playground: 3,
-    zoo: 2,
-    aquarium: 1,
-    museum: 2,
-    science: 1,
-    library: 3,
-    mall: 3,
-    water: 3
-  });
-  expect(categories.other || 0).toBe(0);
+  const places = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places);
+  expect(places).toEqual([existingPlace]);
 });
 
-test('fresh maps persist 33 Tencent-bound presets without retired archive fields', async ({ page }) => {
+test('fresh maps persist one Tencent-bound startup sample for each explicit category', async ({ page }) => {
   await page.evaluate(() => {
     sessionStorage.setItem('playmap_test_keep_storage', '1');
     localStorage.removeItem('baby_playmap_v1');
@@ -370,7 +361,10 @@ test('fresh maps persist 33 Tencent-bound presets without retired archive fields
   await page.reload();
 
   const places = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places);
-  expect(places).toHaveLength(33);
+  expect(places).toHaveLength(9);
+  expect(places.map(item => item.category).sort()).toEqual([
+    'aquarium', 'library', 'mall', 'museum', 'park', 'playground', 'science', 'water', 'zoo'
+  ]);
   expect(places.every(item => item.provider === 'tencent' && item.poiId && item.address)).toBe(true);
   for (const item of places) {
     for (const retired of ['status', 'rating', 'createdAt', 'visits', 'practicalNotes', 'tags']) {
@@ -465,12 +459,13 @@ test('published legacy presets upgrade to Tencent identity by exact fingerprint'
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places[0]);
   expect(stored).toMatchObject({
     name: '奉贤碧海金沙', provider: 'tencent', poiId: '13490717915174695213',
-    address: '上海市奉贤区海涵路6号', lat: 30.823412, lng: 121.572192
+    address: '上海市奉贤区海涵路6号', lat: 30.823412, lng: 121.572192,
+    status: 'wish', rating: 0, practicalNotes: '', tags: [], createdAt: expect.any(Number)
   });
-  expect(stored.visits[0].photos).toHaveLength(1);
+  expect(stored.visits).toEqual(legacyPreset.visits);
 });
 
-test('category seed upgrade does not repopulate a deliberately empty map', async ({ page }) => {
+test('a deliberately empty map stays empty across refreshes', async ({ page }) => {
   await page.evaluate(() => {
     sessionStorage.setItem('playmap_test_keep_storage', '1');
     localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 1, places: [] }));
@@ -479,11 +474,9 @@ test('category seed upgrade does not repopulate a deliberately empty map', async
   });
   await page.reload();
 
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')));
-  expect(stored.places).toHaveLength(0);
-  await expect.poll(() => page.evaluate(
-    () => localStorage.getItem('baby_playmap_seeded_categories_v1')
-  )).toBe('true');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places)).toEqual([]);
+  await page.reload();
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places)).toEqual([]);
 });
 
 test('online search results are the only way to add a place', async ({ page }) => {

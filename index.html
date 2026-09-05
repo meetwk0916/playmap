@@ -751,7 +751,7 @@ var LEGACY_TAG_IDS = ['parking', 'stroller', 'toilet', 'nursing', 'indoor', 'fre
 /* ------------------------------------------------------------
    预置种子数据：腾讯地图在线 POI 绑定的上海亲子地点
    ------------------------------------------------------------ */
-var SEED_PLACES = [
+var KNOWN_SEED_IDENTITIES = [
   { name: '世纪公园', category: 'park', poiId: '14300273488509357288', address: '上海市浦东新区锦绣路1001号', lat: 31.216317, lng: 121.552864, facilityYes: ['parking', 'stroller'] },
   { name: '上海世博文化公园', category: 'park', poiId: '3033795029453281534', address: '上海市浦东新区济坤路100号', lat: 31.17913, lng: 121.476834, facilityYes: ['parking', 'stroller'] },
   { name: '共青国家森林公园', category: 'park', poiId: '211564852148582250', address: '上海市杨浦区军工路2000号', lat: 31.318802, lng: 121.552193, facilityYes: ['parking', 'stroller'] },
@@ -786,6 +786,22 @@ var SEED_PLACES = [
   { name: '奉贤碧海金沙', category: 'water', poiId: '13490717915174695213', address: '上海市奉贤区海涵路6号', lat: 30.823412, lng: 121.572192, facilityYes: ['parking', 'stroller', 'toilet', 'food'] },
   { name: '前滩休闲公园-粉色沙滩', category: 'water', poiId: '11200070049300313709', address: '上海市浦东新区三林镇前滩大道前滩休闲公园内', lat: 31.149004, lng: 121.463357, facilityYes: ['stroller'] }
 ];
+
+var STARTUP_SAMPLE_NAMES = [
+  '复兴公园',
+  '上海迪士尼度假区',
+  '上海动物园',
+  '上海海洋水族馆',
+  '上海自然博物馆',
+  '上海天文馆',
+  '上海少年儿童图书馆(南西馆)',
+  '虹桥南丰城',
+  '前滩休闲公园-粉色沙滩'
+];
+
+var SEED_PLACES = STARTUP_SAMPLE_NAMES.map(function (name) {
+  return KNOWN_SEED_IDENTITIES.find(function (place) { return place.name === name; });
+}).filter(Boolean);
 
 var SEED_NAME_ALIASES = {
   '世博文化公园': '上海世博文化公园',
@@ -996,36 +1012,6 @@ function trySeedPlaces() {
   return true;
 }
 
-function trySeedCategoryUpgrade() {
-  var upgraded = false;
-  try { upgraded = localStorage.getItem(SEED_CATEGORIES_KEY) !== null; } catch (e) { upgraded = false; }
-  if (upgraded) return false;
-
-  // 用户主动清空后的空地图保持为空，只记录已处理，避免种子数据复活。
-  if (!state.places.length) {
-    try { localStorage.setItem(SEED_CATEGORIES_KEY, 'true'); } catch (e) { /* 忽略 */ }
-    return false;
-  }
-
-  var existingNames = {};
-  state.places.forEach(function (place) {
-    var name = String(place.name || '').trim();
-    existingNames[SEED_NAME_ALIASES[name] || name] = true;
-  });
-  var additions = SEED_PLACES.filter(function (seed) {
-    return !existingNames[String(seed.name || '').trim()];
-  }).map(seedPlace).filter(function (place) {
-    return place && isFinite(place.lat) && isFinite(place.lng);
-  });
-
-  if (additions.length) {
-    state.places = state.places.concat(additions);
-    if (!saveState()) return false;
-  }
-  try { localStorage.setItem(SEED_CATEGORIES_KEY, 'true'); } catch (e) { /* 忽略 */ }
-  return additions.length > 0;
-}
-
 function upgradeLegacySeedIdentities() {
   var changed = false;
   state.places.forEach(function (place) {
@@ -1033,7 +1019,7 @@ function upgradeLegacySeedIdentities() {
     var legacyCoords = LEGACY_SEED_COORDS[place.name];
     if (!legacyCoords || place.lat !== legacyCoords[0] || place.lng !== legacyCoords[1]) return;
     var targetName = SEED_NAME_ALIASES[place.name] || place.name;
-    var seed = SEED_PLACES.find(function (candidate) { return candidate.name === targetName; });
+    var seed = KNOWN_SEED_IDENTITIES.find(function (candidate) { return candidate.name === targetName; });
     if (!seed) return;
     var current = seedPlace(seed);
     place.name = current.name;
@@ -1073,7 +1059,6 @@ function loadState() {
       try { lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); } catch (e) { lastSavedPlaces = null; }
       var seedIdentityChanged = upgradeLegacySeedIdentities();
       if (needsCategoryMigration || seedIdentityChanged) saveState();
-      trySeedCategoryUpgrade();
       return;
     } catch (e) {
       state.protectionMode = true;
