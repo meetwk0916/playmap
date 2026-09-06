@@ -575,7 +575,6 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 }
 .modal-confirm .btn-ok { background: var(--primary-strong); color: var(--white); }
 .modal-confirm .btn-no { background: var(--neutral-soft); color: var(--text-light); }
-.map-notice { position: fixed; top: calc(112px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; z-index: 10; margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--surface-glass); color: var(--text-light); font-size: 13px; pointer-events: none; }
 .visit-heading { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
 .visit-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--spruce-soft); display: grid; place-items: center; font-weight: 700; }
 .assessment { padding: 12px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
@@ -585,8 +584,6 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .level-high { background: var(--spruce-soft); color: var(--primary-strong); }
 .level-medium { background: var(--sun-soft); color: var(--amber-ink); }
 .level-low { background: var(--danger-soft); color: var(--danger); }
-.visit-sources { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
-.visit-sources a { color: var(--sky-ink); }
 .detail-main { flex: 1; min-width: 0; }
 .detail-delete { width: 100%; margin-top: 14px; }
 @media (min-width: 768px) {
@@ -648,7 +645,6 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 
 <!-- 地图页类别筛选条 -->
 <div class="map-cat-strip" id="mapCatStrip"></div>
-<p class="map-notice" id="mapNotice" hidden></p>
 
 <!-- 右下角按需定位：用户点击后才请求浏览器位置权限 -->
 <button class="location-control" id="btnLocate" type="button" title="找到我的位置"
@@ -1566,7 +1562,6 @@ function showMapFallback() {
   clearTimeout(mapLoadTimer);
   mapLoadTimer = null;
   $('mapFallback').hidden = false;
-  $('mapNotice').hidden = true;
   renderMapFallback();
 }
 
@@ -1589,9 +1584,6 @@ function retryMap() {
    5. 标记渲染（底色和 emoji 编码类别）
    ============================================================ */
 function renderMarkers() {
-  $('mapNotice').hidden = !publicPlaces.length && !!state.places.length;
-  $('mapNotice').textContent = publicPlaces.length ? '头像 / 11：11 去过 · 普通图钉：我的地点' :
-    '11 的到访地点尚未发布，可先搜索并添加自己的地点。';
   if (!markerLayer) {
     if (!$('mapFallback').hidden) renderMapFallback();
     return;
@@ -1867,22 +1859,7 @@ function visitHtml(place) {
     if (dimension.key === 'child' && contentText(assessment.ages)) html += '<p>年龄参考：' + contentText(assessment.ages) + '</p>';
     html += '</div>';
   });
-  html += '<p class="visit-note">以带 11 到访的实际体验为主，资料为辅；到访不代表适合所有家庭。</p>';
   if (contentText(visit.notes)) html += '<p class="visit-note">补充说明：' + contentText(visit.notes) + '</p>';
-  var sources = Array.isArray(visit.sources) ? visit.sources : [];
-  if (sources.length) {
-    html += '<details class="visit-sources"><summary>资料来源与核实日期</summary>';
-    sources.forEach(function (source) {
-      if (!source || !contentText(source.title)) return;
-      var title = contentText(source.title);
-      try {
-        var url = new URL(source.url);
-        if (/^https?:$/.test(url.protocol)) title = '<a href="' + escapeHtml(url.href) + '" target="_blank" rel="noopener noreferrer">' + title + '</a>';
-      } catch (e) { /* 电话、现场资料等保留纯文本来源。 */ }
-      html += '<p>' + title + (contentText(source.checkedOn) ? ' · 核实于 ' + contentText(source.checkedOn) : '') + '</p>';
-    });
-    html += '</details>';
-  }
   return html + '</section>';
 }
 

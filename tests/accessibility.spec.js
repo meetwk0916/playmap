@@ -81,6 +81,7 @@ const tmapStub = `
 `;
 
 test.beforeEach(async ({ page }) => {
+  await servePublicPlaces(page, []);
   await page.route('**/map.qq.com/api/gljs**', route => {
     route.fulfill({ status: 200, contentType: 'application/javascript', body: tmapStub });
   });
@@ -358,7 +359,7 @@ test('fresh maps do not seed personal places when public content is empty', asyn
     localStorage.clear();
   });
   await page.reload();
-  await expect(page.locator('#mapNotice')).toContainText('11 的到访地点尚未发布');
+  await expect(page.locator('#mapNotice')).toHaveCount(0);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places)).toEqual([]);
 });
 
@@ -743,6 +744,18 @@ async function openMapPlace(page, name) {
   await page.locator('.sr-item').filter({ hasText: name }).first().click();
 }
 
+test('published public places load with the configured avatar', async ({ page }) => {
+  const published = require('../public-places.json');
+  await page.unroute('**/public-places.json');
+  await setPersonalPlaces(page, []);
+  await page.reload();
+  await expect.poll(() => page.evaluate(() => window.__markerLayers?.[0]?.geometries.length)).toBe(published.places.length);
+  await openMapPlace(page, published.places[0].name);
+  await expect(page.locator('#drawerDetail')).toContainText('11 去过');
+  await expect(page.locator('#drawerDetail .visit-avatar')).toHaveJSProperty('naturalWidth', 64);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places)).toEqual([]);
+});
+
 test('public visits appear without seeding personal storage and coexist with personal places', async ({ page }) => {
   await servePublicPlaces(page);
   await setPersonalPlaces(page, [place]);
@@ -770,8 +783,8 @@ test('public visit details show independent experience levels and an avatar mark
   await expect(detail).toContainText('约 3–8 岁');
   await expect(detail).toContainText('2026-09-01');
   await expect(detail).toContainText(publicVisit.experience);
-  await detail.getByText('资料来源与核实日期', { exact: true }).click();
-  await expect(detail.getByRole('link', { name: '场馆资料（测试）' })).toHaveAttribute('href', 'https://example.com/venue');
+  await expect(detail.getByText('资料来源与核实日期', { exact: true })).toHaveCount(0);
+  await expect(detail.getByRole('link', { name: '场馆资料（测试）' })).toHaveCount(0);
   const marker = await page.evaluate(() => {
     const layer = window.__markerLayers[0];
     const styleId = layer.geometries[0].styleId;

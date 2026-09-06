@@ -1,4 +1,45 @@
 {
-  "avatar": "",
-  "places": []
+  "avatar": "assets/11-avatar.png",
+  "places": [
+    {
+      "provider": "tencent",
+      "poiId": "3033795029453281534",
+      "name": "上海世博文化公园",
+      "address": "上海市浦东新区济坤路100号",
+      "category": "park",
+      "lat": 31.17913,
+      "lng": 121.476834,
+      "child": {
+        "level": "high",
+        "reason": "草坪很大，有帐篷区，很适合遛娃。"
+      },
+      "parent": {
+        "level": "medium",
+        "reason": "停车场车位多，但吃的选择有限，有时需要排队。"
+      },
+      "facilities": {
+        "parking": "yes",
+        "stroller": "yes",
+        "nursing": "yes",
+        "food": "yes"
+      },
+      "sources": [
+        {
+          "title": "公园官网：游园须知（允许婴儿专用车入园）",
+          "url": "https://www.expoculturepark.cn/park-information",
+          "checkedOn": "2026-09-06"
+        },
+        {
+          "title": "上海市儿童友好空间画报：世博文化公园（母婴室、停车场）",
+          "url": "https://sghexport.shobserver.com/html/baijiahao/2024/12/29/1487514.html",
+          "checkedOn": "2026-09-06"
+        },
+        {
+          "title": "公园官网：保留场馆（园内餐饮）",
+          "url": "https://www.expoculturepark.cn/baoliuchangguan",
+          "checkedOn": "2026-09-06"
+        }
+      ]
+    }
+  ]
 }
