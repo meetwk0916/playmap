@@ -29,6 +29,7 @@
   --line-strong: #EDE8D8;
   --line-soft: #EFE9DA;
   --surface-muted: #FBFAF4;
+  --amber-ink: #795500;
   --danger-soft: #FBEAE7;
   --neutral-soft: #EFEBE1;
   --cat-park: #3D9970;
@@ -574,6 +575,18 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 }
 .modal-confirm .btn-ok { background: var(--primary-strong); color: var(--white); }
 .modal-confirm .btn-no { background: var(--neutral-soft); color: var(--text-light); }
+.map-notice { position: fixed; top: calc(112px + env(safe-area-inset-top, 0px)); left: 12px; right: 12px; z-index: 10; margin: 0; padding: 10px 14px; border-radius: 12px; background: var(--surface-glass); color: var(--text-light); font-size: 13px; pointer-events: none; }
+.visit-heading { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
+.visit-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--spruce-soft); display: grid; place-items: center; font-weight: 700; }
+.assessment { padding: 12px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.assessment-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.assessment p, .visit-note { margin: 8px 0; line-height: 1.6; font-size: 14px; overflow-wrap: anywhere; }
+.level { border-radius: 999px; padding: 4px 10px; font-size: 13px; white-space: nowrap; background: var(--neutral-soft); color: var(--text-light); }
+.level-high { background: var(--spruce-soft); color: var(--primary-strong); }
+.level-medium { background: var(--sun-soft); color: var(--amber-ink); }
+.level-low { background: var(--danger-soft); color: var(--danger); }
+.visit-sources { font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.visit-sources a { color: var(--sky-ink); }
 .detail-main { flex: 1; min-width: 0; }
 .detail-delete { width: 100%; margin-top: 14px; }
 @media (min-width: 768px) {
@@ -635,6 +648,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 
 <!-- 地图页类别筛选条 -->
 <div class="map-cat-strip" id="mapCatStrip"></div>
+<p class="map-notice" id="mapNotice" hidden></p>
 
 <!-- 右下角按需定位：用户点击后才请求浏览器位置权限 -->
 <button class="location-control" id="btnLocate" type="button" title="找到我的位置"
@@ -651,7 +665,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 <!-- Toast -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="data-alert" id="dataAlert" role="alert" hidden>
-  本地数据无法完整读取，原数据不会被覆盖。现在可临时浏览预制地点；请在“数据与隐私”中清空这份数据后再保存。
+  本地数据无法完整读取，原数据不会被覆盖。现在仍可浏览 11 的公开地点；请在“数据与隐私”中清空这份数据后再保存。
 </div>
 
 </main>
@@ -686,13 +700,13 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 <div class="drawer" id="drawerPrivacy" role="dialog" aria-modal="true" aria-labelledby="drawerPrivacyTitle" aria-hidden="true" inert>
   <div class="grabber" aria-hidden="true"></div>
   <h2 id="drawerPrivacyTitle">数据与隐私</h2>
-  <p class="sub sub-left">“我的地图”和旧家庭游玩档案只保存在当前浏览器；清除浏览器数据或更换设备会丢失。</p>
+  <p class="sub sub-left">你保存的地点和旧家庭游玩档案只保存在当前浏览器；清除浏览器数据或更换设备会丢失。11 的到访地点、头像和体验由维护者公开发布，不属于你的个人数据。</p>
   <p class="sub sub-left">只有点击定位按钮后才会请求位置，位置仅在当前页面用于距离判断，不会保存。</p>
   <p class="sub sub-left">腾讯地图会接收加载地图、在线搜索和打开导航所必需的网络信息。本站不设置账号，不上传业务数据，也不使用统计、广告追踪或用户画像。</p>
   <div class="settings-block">
     <div class="s-row">
-      <span>清空全部本地数据</span>
-      <button class="s-btn red" id="btnClear">清空</button>
+      <span>仅清空个人地点与旧档案，11 的公开地点保留</span>
+      <button class="s-btn red" id="btnClear">清空我的地点</button>
     </div>
   </div>
   <button class="btn-ghost" id="btnClosePrivacy">关闭</button>
@@ -717,10 +731,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 'use strict';
 
 var STORAGE_KEY = 'baby_playmap_v1';        // 数据存储键
-var STORAGE_VERSION = 2;                    // 数据结构版本
+var STORAGE_VERSION = 3;                    // 数据结构版本
 var ONBOARD_KEY = 'baby_playmap_onboarded'; // 首次隐私简述标记
-var SEED_KEY = 'baby_playmap_seeded_v1';    // 首次预置标记（防止清空数据后种子复活）
-var SEED_CATEGORIES_KEY = 'baby_playmap_seeded_categories_v1'; // 非公园类别补种标记
 var DEFAULT_CENTER = { lat: 31.2304, lng: 121.4737 }; // 上海人民广场一带
 var DEFAULT_ZOOM = 12;
 
@@ -786,22 +798,6 @@ var KNOWN_SEED_IDENTITIES = [
   { name: '奉贤碧海金沙', category: 'water', poiId: '13490717915174695213', address: '上海市奉贤区海涵路6号', lat: 30.823412, lng: 121.572192, facilityYes: ['parking', 'stroller', 'toilet', 'food'] },
   { name: '前滩休闲公园-粉色沙滩', category: 'water', poiId: '11200070049300313709', address: '上海市浦东新区三林镇前滩大道前滩休闲公园内', lat: 31.149004, lng: 121.463357, facilityYes: ['stroller'] }
 ];
-
-var STARTUP_SAMPLE_NAMES = [
-  '复兴公园',
-  '上海迪士尼度假区',
-  '上海动物园',
-  '上海海洋水族馆',
-  '上海自然博物馆',
-  '上海天文馆',
-  '上海少年儿童图书馆(南西馆)',
-  '虹桥南丰城',
-  '前滩休闲公园-粉色沙滩'
-];
-
-var SEED_PLACES = STARTUP_SAMPLE_NAMES.map(function (name) {
-  return KNOWN_SEED_IDENTITIES.find(function (place) { return place.name === name; });
-}).filter(Boolean);
 
 var SEED_NAME_ALIASES = {
   '世博文化公园': '上海世博文化公园',
@@ -900,6 +896,16 @@ function buildMarkerStyles() {
       src: svgToDataUri(makePinSvg(cssToken(c.colorToken), c.emoji))
     });
   });
+  CATEGORIES.forEach(function (c) {
+    var svg = makePinSvg(cssToken(c.colorToken), '11');
+    if (publicAvatar) {
+      svg = svg.replace('</svg>', '<defs><clipPath id="avatar"><circle cx="22" cy="21" r="16"/></clipPath></defs>' +
+        '<image href="' + publicAvatar + '" x="6" y="5" width="32" height="32" clip-path="url(#avatar)"/></svg>');
+    }
+    styles['public-' + c.value] = new TMap.MarkerStyle({
+      width: 44, height: 52, anchor: { x: 22, y: 52 }, src: svgToDataUri(svg)
+    });
+  });
   return styles;
 }
 
@@ -979,7 +985,8 @@ function sanitizePlace(raw) {
       return LEGACY_TAG_IDS.indexOf(t) !== -1;
     }).slice(0, 8) : [];
   }
-  return place;
+  // 未知旧字段可能含个人修改；兼容读写时一并保留。
+  return Object.assign(Object.create(null), raw, place);
 }
 
 function migrateLegacyCategory(raw) {
@@ -989,27 +996,6 @@ function migrateLegacyCategory(raw) {
   if (raw.category === 'zoo' && /(水族馆|海洋馆)/.test(name)) migrated.category = 'aquarium';
   if (raw.category === 'museum' && /(科技馆|科学馆|天文馆)/.test(name)) migrated.category = 'science';
   return migrated;
-}
-
-// 预置种子数据：仅当数据键不存在 且 从未预置过（标记键不存在）时执行。
-// 成功后写入标记键，保证"清空数据"后种子不会复活。
-// localStorage 不可用（隐私模式等）时退化为内存态种子数据，不报错。
-function trySeedPlaces() {
-  var marked = false;
-  try { marked = localStorage.getItem(SEED_KEY) !== null; } catch (e) { marked = false; }
-  if (marked) return false;
-  state.places = SEED_PLACES.map(seedPlace).filter(function (p) {
-    return p && isFinite(p.lat) && isFinite(p.lng);
-  });
-  try {
-    lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); // 落盘基线（供配额回滚）
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: STORAGE_VERSION, places: state.places }));
-    localStorage.setItem(SEED_KEY, 'true');
-    localStorage.setItem(SEED_CATEGORIES_KEY, 'true');
-  } catch (e) {
-    // localStorage 不可用：保持内存态种子数据，静默降级
-  }
-  return true;
 }
 
 function upgradeLegacySeedIdentities() {
@@ -1035,6 +1021,22 @@ function upgradeLegacySeedIdentities() {
   return changed;
 }
 
+function isUntouchedPreset(raw) {
+  if (!raw || typeof raw !== 'object') return false;
+  var seed = KNOWN_SEED_IDENTITIES.find(function (candidate) {
+    return raw.id === 'tencent-' + candidate.poiId;
+  });
+  if (!seed) return false;
+  var expected = seedPlace(seed);
+  // 只认完整已发布指纹。旧随机 ID、档案字段和任何未知差异都保留。
+  return Object.keys(raw).length === Object.keys(expected).length && Object.keys(expected).every(function (key) {
+    if (key !== 'facilities') return raw[key] === expected[key];
+    return raw.facilities && typeof raw.facilities === 'object' &&
+      Object.keys(raw.facilities).length === Object.keys(expected.facilities).length &&
+      Object.keys(expected.facilities).every(function (id) { return raw.facilities[id] === expected.facilities[id]; });
+  });
+}
+
 function loadState() {
   var raw = null;
   try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
@@ -1049,7 +1051,7 @@ function loadState() {
         throw new Error('unsupported local data');
       }
       var arr = parsed.places;
-      var needsCategoryMigration = parsedVersion < STORAGE_VERSION;
+      var needsCategoryMigration = parsedVersion < 2;
       if (needsCategoryMigration) arr = arr.map(migrateLegacyCategory);
       var sanitizedPlaces = arr.map(sanitizePlace);
       if (sanitizedPlaces.some(function (p) { return !p || !isFinite(p.lat) || !isFinite(p.lng); })) {
@@ -1057,19 +1059,20 @@ function loadState() {
       }
       state.places = sanitizedPlaces;
       try { lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); } catch (e) { lastSavedPlaces = null; }
+      if (parsedVersion < 3) {
+        state.places = sanitizedPlaces.filter(function (place, index) { return !isUntouchedPreset(parsed.places[index]); });
+      }
       var seedIdentityChanged = upgradeLegacySeedIdentities();
-      if (needsCategoryMigration || seedIdentityChanged) saveState();
+      if (parsedVersion < STORAGE_VERSION || seedIdentityChanged) saveState();
       return;
     } catch (e) {
       state.protectionMode = true;
-      state.places = SEED_PLACES.map(seedPlace).filter(function (p) {
-        return p && isFinite(p.lat) && isFinite(p.lng);
-      });
+      state.places = [];
       return;
     }
   }
-  // 数据键不存在：尝试首次预置（内部会检查标记键，防止清空数据后复活）
-  trySeedPlaces();
+  // 公共内容不写入个人集合；新浏览器从空的个人地图开始。
+  saveState();
 }
 
 // 最近一次成功落盘的 places 深拷贝（配额溢出时把内存回滚到该状态，保证内存与磁盘一致）
@@ -1077,7 +1080,7 @@ var lastSavedPlaces = null;
 
 // 保存状态；捕获 QuotaExceededError 等 setItem 异常：
 // - 配额溢出 → 磁盘仍是旧数据，内存回滚到「上一次成功落盘基线」
-// - localStorage 整体不可用（隐私模式等）→ 保留内存态降级使用，不回滚
+// - localStorage 整体不可用 → 同样回滚内存，避免迁移或删除在未落盘时生效
 function saveState() {
   if (state.protectionMode) {
     showToast('⚠️ 原数据正在保护中，请先从“数据与隐私”明确清空');
@@ -1098,12 +1101,12 @@ function saveState() {
         storageAlive = true;
       } catch (e2) { storageAlive = false; }
     }
+    try {
+      state.places = lastSavedPlaces ? JSON.parse(JSON.stringify(lastSavedPlaces)) : [];
+    } catch (e3) {
+      state.places = [];
+    }
     if (isQuota || storageAlive) {
-      try {
-        state.places = lastSavedPlaces ? JSON.parse(JSON.stringify(lastSavedPlaces)) : [];
-      } catch (e3) {
-        state.places = [];
-      }
       showToast('⚠️ 存储空间不足，本次更改未保存。请删除不需要的地点后重试');
     } else {
       showToast('⚠️ 保存失败，本地存储不可用');
@@ -1116,11 +1119,66 @@ function saveState() {
   return true;
 }
 
+var publicPlaces = [];
+var publicAvatar = '';
+
+function samePoi(a, b) {
+  return isTencentPlace(a) && isTencentPlace(b) && a.poiId === b.poiId;
+}
+
+function publicVisitFor(place) {
+  return publicPlaces.find(function (visit) { return samePoi(visit, place); });
+}
+
+function personalPlacesFor(place) {
+  return state.places.filter(function (personal) {
+    return samePoi(personal, place) || (!isTencentPlace(place) && 'personal:' + personal.id === place.id);
+  });
+}
+
+function mapPlaces() {
+  // 展示 ID 分开命名，旧个人 ID 即使含 public: 也不会认领公共地点。
+  var places = publicPlaces.slice();
+  state.places.forEach(function (personal) {
+    if (!places.some(function (p) { return samePoi(p, personal); })) {
+      places.push(Object.assign({}, personal, { id: 'personal:' + personal.id }));
+    }
+  });
+  return places;
+}
+
 function findPlace(id) {
-  for (var i = 0; i < state.places.length; i++) {
-    if (state.places[i].id === id) return state.places[i];
-  }
-  return null;
+  return mapPlaces().find(function (place) { return place.id === id; }) || null;
+}
+
+async function loadPublicPlaces() {
+  try {
+    var response = await fetch('public-places.json', { signal: AbortSignal.timeout(4000) });
+    if (!response.ok) return;
+    var data = await response.json();
+    if (!data || !Array.isArray(data.places)) return;
+    data.places.forEach(function (raw) {
+      var place = sanitizePlace(raw);
+      if (!isTencentPlace(place) || Math.abs(place.lat) > 90 || Math.abs(place.lng) > 180 ||
+          publicPlaces.some(function (p) { return samePoi(p, place); })) return;
+      place.id = 'public:' + place.poiId;
+      place.visit = raw;
+      publicPlaces.push(place);
+    });
+    if (typeof data.avatar === 'string' && data.avatar) {
+      var url = new URL(data.avatar, location.href);
+      if (url.origin !== location.origin || !/^https?:$/.test(url.protocol)) return;
+      var avatarResponse = await fetch(url.href, { signal: AbortSignal.timeout(4000) });
+      if (!avatarResponse.ok) return;
+      var bitmap = await createImageBitmap(await avatarResponse.blob());
+      var canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 64;
+      var size = Math.min(bitmap.width, bitmap.height);
+      canvas.getContext('2d').drawImage(bitmap, (bitmap.width - size) / 2, (bitmap.height - size) / 2, size, size, 0, 0, 64, 64);
+      bitmap.close();
+      publicAvatar = canvas.toDataURL('image/png');
+    }
+  } catch (e) { /* 公共资料不可用时仍可使用个人地点与搜索。 */ }
 }
 
 function isTencentPlace(place) {
@@ -1136,6 +1194,7 @@ function $(id) { return document.getElementById(id); }
 var focusLayers = [];
 var FOCUSABLE_SELECTOR = [
   'a[href]',
+  'summary',
   'button:not([disabled])',
   'input:not([disabled]):not([type="hidden"])',
   'select:not([disabled])',
@@ -1507,6 +1566,7 @@ function showMapFallback() {
   clearTimeout(mapLoadTimer);
   mapLoadTimer = null;
   $('mapFallback').hidden = false;
+  $('mapNotice').hidden = true;
   renderMapFallback();
 }
 
@@ -1529,17 +1589,20 @@ function retryMap() {
    5. 标记渲染（底色和 emoji 编码类别）
    ============================================================ */
 function renderMarkers() {
+  $('mapNotice').hidden = !publicPlaces.length && !!state.places.length;
+  $('mapNotice').textContent = publicPlaces.length ? '头像 / 11：11 去过 · 普通图钉：我的地点' :
+    '11 的到访地点尚未发布，可先搜索并添加自己的地点。';
   if (!markerLayer) {
     if (!$('mapFallback').hidden) renderMapFallback();
     return;
   }
   // all 显示全部，否则只渲染选中类别的图钉
-  var geometries = state.places.filter(function (p) {
+  var geometries = mapPlaces().filter(function (p) {
     return state.mapCatFilter === 'all' || p.category === state.mapCatFilter;
   }).map(function (p) {
     return {
       id: p.id,
-      styleId: categoryOf(p.category).value,
+      styleId: (publicVisitFor(p) ? 'public-' : '') + categoryOf(p.category).value,
       position: new TMap.LatLng(p.lat, p.lng),
       properties: { placeId: p.id }
     };
@@ -1548,12 +1611,12 @@ function renderMarkers() {
 }
 
 function renderMapFallback() {
-  var places = state.places.filter(function (place) {
+  var places = mapPlaces().filter(function (place) {
     return state.mapCatFilter === 'all' || place.category === state.mapCatFilter;
   });
   $('fallbackList').innerHTML = places.length ? places.map(function (place) {
     return '<button class="fallback-place" data-place-id="' + escapeHtml(place.id) + '">' +
-      escapeHtml(place.name) + '</button>';
+      escapeHtml(place.name) + (publicVisitFor(place) ? ' · 11 去过' : '') + '</button>';
   }).join('') : '<div class="sub">这个类别暂无地点</div>';
 }
 
@@ -1651,6 +1714,11 @@ function submitAdd() {
     lng: state.addForm.lng,
     facilities: {}
   };
+  if (state.places.some(function (personal) { return samePoi(personal, place); })) {
+    closeAllDrawers();
+    showToast('这个地点已在我的地图中');
+    return;
+  }
   state.places.push(place);
   if (!saveState()) {
     closeAllDrawers(); // 写入失败已回滚：关闭抽屉，配额提示已由 saveState 显示
@@ -1773,6 +1841,51 @@ function facilitiesHtml(place) {
   }).join('');
 }
 
+function contentText(value) {
+  return typeof value === 'string' ? escapeHtml(value.slice(0, 1000)) : '';
+}
+
+function visitHtml(place) {
+  var published = publicVisitFor(place);
+  if (!published) return '';
+  var visit = published.visit;
+  var html = '<section aria-label="11 的亲子体验"><div class="visit-heading">' +
+    (publicAvatar ? '<img class="visit-avatar" src="' + publicAvatar + '" alt="11 的头像">' :
+      '<span class="visit-avatar" aria-hidden="true">11</span>') +
+    '<strong>11 去过</strong>' + (contentText(visit.visitedOn) ? '<span>' + contentText(visit.visitedOn) + '</span>' : '') + '</div>';
+  if (contentText(visit.experience)) html += '<p class="visit-note">' + contentText(visit.experience) + '</p>';
+  [
+    { key: 'child', label: '儿童友好程度', levels: { high: '很友好', medium: '较友好', low: '有限' } },
+    { key: 'parent', label: '父母便利程度', levels: { high: '很便利', medium: '较便利', low: '较费心' } }
+  ].forEach(function (dimension) {
+    var assessment = visit[dimension.key] || {};
+    var level = ['high', 'medium', 'low'].indexOf(assessment.level) !== -1 && contentText(assessment.reason)
+      ? assessment.level : 'unknown';
+    html += '<div class="assessment"><div class="assessment-heading"><strong>' + dimension.label +
+      '</strong><span class="level level-' + level + '">' + (dimension.levels[level] || '暂无评估') + '</span></div>';
+    if (contentText(assessment.reason)) html += '<p>' + contentText(assessment.reason) + '</p>';
+    if (dimension.key === 'child' && contentText(assessment.ages)) html += '<p>年龄参考：' + contentText(assessment.ages) + '</p>';
+    html += '</div>';
+  });
+  html += '<p class="visit-note">以带 11 到访的实际体验为主，资料为辅；到访不代表适合所有家庭。</p>';
+  if (contentText(visit.notes)) html += '<p class="visit-note">补充说明：' + contentText(visit.notes) + '</p>';
+  var sources = Array.isArray(visit.sources) ? visit.sources : [];
+  if (sources.length) {
+    html += '<details class="visit-sources"><summary>资料来源与核实日期</summary>';
+    sources.forEach(function (source) {
+      if (!source || !contentText(source.title)) return;
+      var title = contentText(source.title);
+      try {
+        var url = new URL(source.url);
+        if (/^https?:$/.test(url.protocol)) title = '<a href="' + escapeHtml(url.href) + '" target="_blank" rel="noopener noreferrer">' + title + '</a>';
+      } catch (e) { /* 电话、现场资料等保留纯文本来源。 */ }
+      html += '<p>' + title + (contentText(source.checkedOn) ? ' · 核实于 ' + contentText(source.checkedOn) : '') + '</p>';
+    });
+    html += '</details>';
+  }
+  return html + '</section>';
+}
+
 function renderDetail() {
   var p = findPlace(state.currentDetailId);
   if (!p) { closeAllDrawers(); return; }
@@ -1793,21 +1906,25 @@ function renderDetail() {
     '</div>' +
     '<div class="detail-actions"><button class="btn-nav" id="btnNav">🧭 导航去这里</button>' +
       '<button class="btn-ghost" id="btnCopyDestination">复制目的地</button></div>' +
+    visitHtml(p) +
     '<div class="section-title">亲子便利设施</div>' +
     '<div class="facility-list">' + facilitiesHtml(p) + '</div>' +
-    '<button class="btn-danger detail-delete" id="btnDeletePlace">删除这个地点</button>';
+    (personalPlacesFor(p).length ? '<button class="btn-danger detail-delete" id="btnDeletePlace">删除这个地点</button>' :
+      '<button class="btn-ghost" id="btnSavePublic">＋ 添加到我的地图</button>');
 
   restoreFocus($('detailContent'), focusSnapshot);
   $('btnNav').addEventListener('click', function () { openNavigation(p); });
   $('btnCopyDestination').addEventListener('click', function () { copyDestinationWithToast(p); });
-  $('btnDeletePlace').addEventListener('click', async function () {
+  if ($('btnSavePublic')) $('btnSavePublic').addEventListener('click', function () { openAddForm(p); });
+  if ($('btnDeletePlace')) $('btnDeletePlace').addEventListener('click', async function () {
     if (state.protectionMode) {
       showToast('⚠️ 原数据正在保护中，请先从“数据与隐私”明确清空');
       return;
     }
     var ok = await confirmDialog('确定删除「' + p.name + '」及其全部本地数据吗？删除后无法恢复。');
     if (!ok) return;
-    state.places = state.places.filter(function (place) { return place.id !== p.id; });
+    var removed = personalPlacesFor(p);
+    state.places = state.places.filter(function (place) { return removed.indexOf(place) === -1; });
     state.currentDetailId = null;
     if (!saveState()) {
       renderMarkers();
@@ -1880,7 +1997,7 @@ function clearSearchBox() {
 // 本地匹配：搜自己已标记的地点（无需网络/Key，即时响应）
 function searchLocalPlaces(kw) {
   if (!kw) return [];
-  return state.places.filter(function (p) {
+  return mapPlaces().filter(function (p) {
     return String(p.name).indexOf(kw) !== -1;
   }).slice(0, 4);
 }
@@ -1894,11 +2011,11 @@ function renderSearchResults(pois, localHits, tipText) {
   }
   var html = '';
   if (lastLocalHits.length) {
-    html += '<div class="sr-tip sr-section">📍 我的地图</div>';
+    html += '<div class="sr-tip sr-section">📍 地图上的地点</div>';
     lastLocalHits.forEach(function (p, i) {
       var c = categoryOf(p.category);
       html += '<div class="sr-item" data-lidx="' + i + '">' +
-        '<div class="sr-title">' + c.emoji + ' ' + escapeHtml(p.name) + '</div>' +
+        '<div class="sr-title">' + c.emoji + ' ' + escapeHtml(p.name) + (publicVisitFor(p) ? ' · 11 去过' : '') + '</div>' +
         '<div class="sr-addr">' + c.label + (p.address ? ' · ' + escapeHtml(p.address) : '') + '</div>' +
       '</div>';
     });
@@ -2204,35 +2321,34 @@ function bindEvents() {
   $('btnClosePrivacy').addEventListener('click', closeAllDrawers);
   $('btnClear').addEventListener('click', async function () {
     if (!state.places.length && !state.protectionMode) { showToast('当前没有数据可清空'); return; }
-    var ok = await confirmDialog('⚠️ 将清空全部本地数据，且无法恢复。确定吗？');
+    var ok = await confirmDialog('⚠️ 将清空你的地点及旧档案，且无法恢复。11 的公开地点保留。确定吗？');
     if (!ok) return;
-    var ok2 = await confirmDialog('再次确认：真的要清空所有数据吗？');
+    var ok2 = await confirmDialog('再次确认：真的要清空我的地点及旧档案吗？');
     if (!ok2) return;
-    state.places = [];
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: STORAGE_VERSION, places: [] }));
-      localStorage.setItem(SEED_KEY, 'true');
-      localStorage.setItem(SEED_CATEGORIES_KEY, 'true');
     } catch (e) {
       showToast('⚠️ 清空失败，本地存储不可用');
       return;
     }
+    state.places = [];
     state.protectionMode = false;
     lastSavedPlaces = [];
     $('dataAlert').hidden = true;
     renderMarkers();
     closeAllDrawers();
-    showToast('已清空全部数据');
+    showToast('已清空我的地点，11 的公开地点保留');
   });
 
 }
 
-function init() {
+async function init() {
   loadState();
   $('dataAlert').hidden = !state.protectionMode;
   bindEvents();
   bindSearchEvents();
   renderMapCatStrip();
+  await loadPublicPlaces();
   initMap();
   showFirstUsePrivacyNote();
 }
