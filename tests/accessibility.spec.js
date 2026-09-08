@@ -805,6 +805,7 @@ async function openMapPlace(page, name) {
 
 test('published public places load with the configured avatar', async ({ page }) => {
   const published = require('../public-places.json');
+  expect(require('node:fs').statSync(require('node:path').join(__dirname, '..', published.avatar)).size).toBeLessThan(32 * 1024);
   await page.unroute('**/public-places.json');
   await setPersonalPlaces(page, []);
   await page.reload();
