@@ -734,15 +734,15 @@ var DEFAULT_ZOOM = 12;
 
 // 类别定义（value 唯一，emoji 作为图标；颜色由 :root 设计令牌提供）
 var CATEGORIES = [
-  { value: 'park',       label: '公园',          emoji: '🌳', colorToken: '--cat-park' },
-  { value: 'playground', label: '游乐场',        emoji: '🎠', colorToken: '--cat-playground' },
-  { value: 'zoo',        label: '动物园',        emoji: '🐼', colorToken: '--cat-zoo' },
-  { value: 'aquarium',   label: '水族馆',        emoji: '🐠', colorToken: '--cat-aquarium' },
-  { value: 'museum',     label: '博物馆',        emoji: '🏛️', colorToken: '--cat-museum' },
-  { value: 'science',    label: '科技馆',        emoji: '🔬', colorToken: '--cat-science' },
-  { value: 'library',    label: '图书馆',        emoji: '📚', colorToken: '--cat-library' },
-  { value: 'mall',       label: '商场儿童区',    emoji: '🛍️', colorToken: '--cat-mall' },
-  { value: 'water',      label: '亲水玩沙',      emoji: '🏖️', colorToken: '--cat-water' },
+  { value: 'park',       label: '公园',          emoji: '🌳', colorToken: '--cat-park',       searchKeyword: '公园',         searchTerms: ['公园'] },
+  { value: 'playground', label: '游乐场',        emoji: '🎠', colorToken: '--cat-playground', searchKeyword: '游乐场',       searchTerms: ['游乐场', '游乐园', '儿童乐园', '亲子'] },
+  { value: 'zoo',        label: '动物园',        emoji: '🐼', colorToken: '--cat-zoo',        searchKeyword: '动物园',       searchTerms: ['动物园', '动物乐园', '动物岛', '鸟世界'] },
+  { value: 'aquarium',   label: '水族馆',        emoji: '🐠', colorToken: '--cat-aquarium',   searchKeyword: '水族馆',       searchTerms: ['水族馆', '海洋馆', '海洋世界'] },
+  { value: 'museum',     label: '博物馆',        emoji: '🏛️', colorToken: '--cat-museum',     searchKeyword: '博物馆',       searchTerms: ['博物馆'] },
+  { value: 'science',    label: '科技馆',        emoji: '🔬', colorToken: '--cat-science',    searchKeyword: '科技馆',       searchTerms: ['科技馆', '科学馆', '天文馆'] },
+  { value: 'library',    label: '图书馆',        emoji: '📚', colorToken: '--cat-library',    searchKeyword: '图书馆',       searchTerms: ['图书馆'] },
+  { value: 'mall',       label: '商场儿童区',    emoji: '🛍️', colorToken: '--cat-mall',       searchKeyword: '商场儿童乐园', searchTerms: ['儿童乐园', '儿童区', '亲子'] },
+  { value: 'water',      label: '亲水玩沙',      emoji: '🏖️', colorToken: '--cat-water',      searchKeyword: '沙滩',         searchTerms: ['沙滩', '海滩', '海滨浴场'] },
   { value: 'other',      label: '其他',          emoji: '📍', colorToken: '--cat-other' }
 ];
 
@@ -881,15 +881,30 @@ function makePinSvg(color, emoji) {
   return svg;
 }
 
+function makeExploreDotSvg(color) {
+  var white = cssToken('--white');
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">' +
+    '<circle cx="22" cy="22" r="12" fill="' + color + '" fill-opacity=".72" stroke="' + white + '" stroke-width="2.5"/>' +
+    '<circle cx="22" cy="22" r="3" fill="' + white + '" fill-opacity=".92"/>' +
+    '</svg>';
+}
+
 // 预生成 10 个类别图钉样式。
 function buildMarkerStyles() {
   var styles = {};
   CATEGORIES.forEach(function (c) {
+    var color = cssToken(c.colorToken);
     styles[c.value] = new TMap.MarkerStyle({
       width: 44,
       height: 52,
       anchor: { x: 22, y: 52 },
-      src: svgToDataUri(makePinSvg(cssToken(c.colorToken), c.emoji))
+      src: svgToDataUri(makePinSvg(color, c.emoji))
+    });
+    styles[c.value + '-explore'] = new TMap.MarkerStyle({
+      width: 44,
+      height: 44,
+      anchor: { x: 22, y: 22 },
+      src: svgToDataUri(makeExploreDotSvg(color))
     });
   });
   CATEGORIES.forEach(function (c) {
@@ -1429,6 +1444,9 @@ var userLocationLayer = null;
 var mapLoadTimer = null;
 var locationPending = false;
 var lastMarkerClickAt = 0; // 防止点击图钉时误触发地图空白点击
+var explorePois = [];      // 当前视野内的临时腾讯 POI，不写入本地数据
+var exploreSeq = 0;
+var exploreRefreshTimer = null;
 
 function ensureUserLocationLayer() {
   if (userLocationLayer || !map || typeof TMap === 'undefined') return userLocationLayer;
@@ -1528,12 +1546,33 @@ function initMap() {
     markerLayer.on('click', function (evt) {
       lastMarkerClickAt = Date.now();
       var geo = evt.geometry;
-      if (geo && geo.properties && geo.properties.placeId) openDetail(geo.properties.placeId);
+      var props = geo && geo.properties;
+      if (props && props.placeId) {
+        openDetail(props.placeId);
+        return;
+      }
+      if (!props || props.exploreIndex === undefined) return;
+      var poi = explorePois[props.exploreIndex];
+      if (!poi) return;
+      openPoiPreview({
+        name: poi.title,
+        category: state.mapCatFilter,
+        provider: 'tencent',
+        address: poi.address || '',
+        poiId: poi.id,
+        lat: poi.location.lat,
+        lng: poi.location.lng
+      });
     });
 
     map.on('click', function () {
       if (Date.now() - lastMarkerClickAt < 400) return;
       hideSearchResults();
+    });
+    map.on('idle', function () {
+      if (state.mapCatFilter === 'all') return;
+      clearTimeout(exploreRefreshTimer);
+      exploreRefreshTimer = setTimeout(refreshExploreMarkers, 250);
     });
     var currentMap = map;
     map.on('tilesloaded', function () {
@@ -1541,6 +1580,7 @@ function initMap() {
       clearTimeout(mapLoadTimer);
       mapLoadTimer = null;
       $('mapFallback').hidden = true;
+      if (state.mapCatFilter !== 'all') refreshExploreMarkers();
     });
     mapLoadTimer = setTimeout(function () {
       if (map !== currentMap) return;
@@ -1560,7 +1600,10 @@ function initMap() {
 
 function showMapFallback() {
   clearTimeout(mapLoadTimer);
+  clearTimeout(exploreRefreshTimer);
   mapLoadTimer = null;
+  exploreSeq += 1;
+  explorePois = [];
   $('mapFallback').hidden = false;
   renderMapFallback();
 }
@@ -1589,9 +1632,7 @@ function renderMarkers() {
     return;
   }
   // all 显示全部，否则只渲染选中类别的图钉
-  var geometries = mapPlaces().filter(function (p) {
-    return state.mapCatFilter === 'all' || p.category === state.mapCatFilter;
-  }).map(function (p) {
+  var geometries = placesForActiveCategory().map(function (p) {
     return {
       id: p.id,
       styleId: (publicVisitFor(p) ? 'public-' : '') + categoryOf(p.category).value,
@@ -1599,13 +1640,32 @@ function renderMarkers() {
       properties: { placeId: p.id }
     };
   });
+  var savedPoiIds = {};
+  mapPlaces().forEach(function (place) {
+    if (place.poiId) savedPoiIds[String(place.poiId)] = true;
+  });
+  if (state.mapCatFilter !== 'all') {
+    explorePois.forEach(function (poi, index) {
+      if (savedPoiIds[poi.id]) return;
+      geometries.push({
+        id: 'explore-' + poi.id,
+        styleId: state.mapCatFilter + '-explore',
+        position: new TMap.LatLng(poi.location.lat, poi.location.lng),
+        properties: { exploreIndex: index }
+      });
+    });
+  }
   markerLayer.setGeometries(geometries);
 }
 
-function renderMapFallback() {
-  var places = mapPlaces().filter(function (place) {
+function placesForActiveCategory() {
+  return mapPlaces().filter(function (place) {
     return state.mapCatFilter === 'all' || place.category === state.mapCatFilter;
   });
+}
+
+function renderMapFallback() {
+  var places = placesForActiveCategory();
   $('fallbackList').innerHTML = places.length ? places.map(function (place) {
     return '<button class="fallback-place" data-place-id="' + escapeHtml(place.id) + '">' +
       escapeHtml(place.name) + (publicVisitFor(place) ? ' · 11 去过' : '') + '</button>';
@@ -1669,7 +1729,7 @@ function openAddForm(poi) {
     poiId: String(poi.poiId || '').trim().slice(0, 100),
     lat: poi.lat,
     lng: poi.lng,
-    category: 'park',
+    category: poi.category || 'park',
     source: 'map-poi'
   };
   $('addName').value = state.addForm.name;
@@ -1786,13 +1846,14 @@ function showNavigationFallback(place, url) {
 
 function openPoiPreview(poi) {
   state.currentDetailId = null;
+  var cat = categoryOf(poi.category);
   $('detailContent').innerHTML =
     '<div class="grabber"></div>' +
     '<div class="detail-head">' +
-      '<div class="d-emoji cat-bg-other" aria-hidden="true">📍</div>' +
+      '<div class="d-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
       '<div class="detail-main">' +
         '<div class="d-name" id="detailTitle">' + escapeHtml(poi.name) + '</div>' +
-        '<div class="d-cat">搜索结果 · 📍 ' +
+        '<div class="d-cat">' + (poi.category ? cat.label : '搜索结果') + ' · 📍 ' +
           (userPos
             ? '距我 ' + distText(haversineKm(userPos.lat, userPos.lng, poi.lat, poi.lng))
             : poi.lat.toFixed(4) + ', ' + poi.lng.toFixed(4)) +
@@ -1943,6 +2004,8 @@ var JSONP_TIMEOUT_MS = 8000;     // JSONP 超时：8s 自动清理（弱网/代�
 var SEARCH_REGION = '上海';      // 在线搜索城市范围（V1 单城策略；无结果时 auto_extend=1 自动扩到全国）
 var SEARCH_PAGE_SIZE = 20;       // 接口每页条数（上限 20）
 var SEARCH_SHOW_COUNT = 12;      // 实际展示的在线结果条数
+var EXPLORE_LIMIT = 8;
+var EXPLORE_MIN_SPACING_PX = 72;
 
 function getPoiSearcher() {
   if (poiSearcher) return poiSearcher;
@@ -2014,7 +2077,8 @@ function renderSearchResults(pois, localHits, tipText) {
 
 /* ---------- 通道 B：官方 WebService + JSONP 直连 ---------- */
 // 通用 JSONP GET：动态 <script> + 全局唯一回调名；超时/出错自动清理，过期序号直接丢弃
-function jsonpGet(url, seq, onResult) {
+function jsonpGet(url, seq, onResult, isCurrent) {
+  isCurrent = isCurrent || function () { return seq === searchSeq; };
   var cbName = '__pmSearchCb_' + (++jsonpCbSeq) + '_' + Date.now();
   var script = document.createElement('script');
   var timer = null;
@@ -2027,17 +2091,17 @@ function jsonpGet(url, seq, onResult) {
 
   window[cbName] = function (res) {
     cleanup();
-    if (seq !== searchSeq) return; // 已有更新的请求，丢弃本次结果
+    if (!isCurrent()) return;
     onResult(res, null);
   };
   timer = setTimeout(function () {
     cleanup();
-    if (seq !== searchSeq) return;
+    if (!isCurrent()) return;
     onResult(null, 'timeout');
   }, JSONP_TIMEOUT_MS);
   script.onerror = function () {
     cleanup();
-    if (seq !== searchSeq) return;
+    if (!isCurrent()) return;
     onResult(null, 'error');
   };
   script.src = url + cbName;
@@ -2052,11 +2116,126 @@ function mapPoiData(res) {
       id: (d && d.id) ? String(d.id) : '',
       title: (d && d.title) ? d.title : '',
       address: (d && d.address) ? d.address : '',
+      providerCategory: (d && d.category) ? d.category : '',
       location: { lat: loc ? parseFloat(loc.lat) : NaN, lng: loc ? parseFloat(loc.lng) : NaN }
     };
   }).filter(function (p) {
     return isFinite(p.location.lat) && isFinite(p.location.lng);
   });
+}
+
+function explorePoint(poi, bounds, width, height) {
+  var sw = bounds.getSouthWest();
+  var ne = bounds.getNorthEast();
+  return {
+    x: (poi.location.lng - sw.getLng()) / (ne.getLng() - sw.getLng()) * width,
+    y: (ne.getLat() - poi.location.lat) / (ne.getLat() - sw.getLat()) * height
+  };
+}
+
+function explorePoiMatchesCategory(poi, category) {
+  var text = poi.title + ' ' + poi.providerCategory;
+  return (category.searchTerms || []).some(function (term) { return text.indexOf(term) !== -1; });
+}
+
+function selectExplorePois(pois, category, bounds) {
+  var rect = $('map').getBoundingClientRect();
+  var width = Math.max(rect.width, 1);
+  var height = Math.max(rect.height, 1);
+  var center = map.getCenter();
+  var centerPoint = explorePoint({ location: { lat: center.getLat(), lng: center.getLng() } }, bounds, width, height);
+  var maxDistance = Math.max(
+    Math.hypot(centerPoint.x, centerPoint.y),
+    Math.hypot(width - centerPoint.x, centerPoint.y),
+    Math.hypot(centerPoint.x, height - centerPoint.y),
+    Math.hypot(width - centerPoint.x, height - centerPoint.y),
+    1
+  );
+  var occupied = placesForActiveCategory().map(function (place) {
+    return explorePoint({ location: place }, bounds, width, height);
+  }).filter(function (point) {
+    return point.x >= 0 && point.x <= width && point.y >= 0 && point.y <= height;
+  });
+  var rankMax = Math.max(pois.length - 1, 1);
+  var eligible = pois.filter(function (poi) {
+    return explorePoiMatchesCategory(poi, category);
+  }).map(function (poi, index) {
+    var point = explorePoint(poi, bounds, width, height);
+    var distanceScore = 1 - Math.min(Math.hypot(point.x - centerPoint.x, point.y - centerPoint.y) / maxDistance, 1);
+    var relevanceScore = 1 - index / rankMax;
+    return { poi: poi, point: point, score: distanceScore * 0.8 + relevanceScore * 0.2, rank: index };
+  }).sort(function (a, b) {
+    return b.score - a.score || a.rank - b.rank;
+  });
+  var selected = [];
+  eligible.some(function (candidate) {
+    var hasRoom = occupied.every(function (point) {
+      return Math.hypot(candidate.point.x - point.x, candidate.point.y - point.y) >= EXPLORE_MIN_SPACING_PX;
+    });
+    if (!hasRoom) return false;
+    selected.push(candidate.poi);
+    occupied.push(candidate.point);
+    return selected.length === EXPLORE_LIMIT;
+  });
+  return selected;
+}
+
+// 按当前地图矩形视野分页获取腾讯 POI，再收敛为少量决策候选。
+function refreshExploreMarkers() {
+  clearTimeout(exploreRefreshTimer);
+  var seq = ++exploreSeq;
+  explorePois = [];
+  renderMarkers();
+  if (!map || state.mapCatFilter === 'all') return;
+  var category = categoryOf(state.mapCatFilter);
+  var key = getConfiguredTmapKey();
+  if (!category.searchKeyword || !key) return;
+  var bounds = map.getBounds();
+  var sw = bounds.getSouthWest();
+  var ne = bounds.getNorthEast();
+  var boundary = 'rectangle(' + sw.getLat() + ',' + sw.getLng() + ',' + ne.getLat() + ',' + ne.getLng() + ')';
+  var savedPoiIds = {};
+  var seenPoiIds = {};
+  var candidatePois = [];
+  mapPlaces().forEach(function (place) {
+    if (place.poiId) savedPoiIds[String(place.poiId)] = true;
+  });
+
+  function loadPage(pageIndex) {
+    var url = 'https://apis.map.qq.com/ws/place/v1/search' +
+      '?keyword=' + encodeURIComponent(category.searchKeyword) +
+      '&boundary=' + encodeURIComponent(boundary) +
+      '&page_size=' + SEARCH_PAGE_SIZE +
+      '&page_index=' + pageIndex +
+      '&key=' + encodeURIComponent(key) +
+      '&output=jsonp&callback=';
+    jsonpGet(url, seq, function (res, err) {
+      if (err || !res || res.status !== 0 || !Array.isArray(res.data)) {
+        if (candidatePois.length) {
+          explorePois = selectExplorePois(candidatePois, category, bounds);
+          renderMarkers();
+        }
+        showToast(pageIndex === 1 ? '在线探索点暂不可用，请稍后重试' : '部分探索点暂未加载完整');
+        return;
+      }
+      mapPoiData(res).forEach(function (poi) {
+        if (!poi.id || savedPoiIds[poi.id] || seenPoiIds[poi.id]) return;
+        seenPoiIds[poi.id] = true;
+        candidatePois.push(poi);
+      });
+      var count = Math.min(Math.max(parseInt(res.count, 10) || 0, candidatePois.length), 200);
+      var pageCount = Math.ceil(count / SEARCH_PAGE_SIZE);
+      if (pageIndex < pageCount) {
+        loadPage(pageIndex + 1);
+        return;
+      }
+      explorePois = selectExplorePois(candidatePois, category, bounds);
+      renderMarkers();
+      showToast('已显示 ' + explorePois.length + ' 个附近候选，移动地图查看更多');
+    }, function () { return seq === exploreSeq; });
+  }
+
+  loadPage(1);
 }
 
 // 双跳检索：① suggestion 模糊建议（地图 App 搜索框同款，容错强）
@@ -2283,7 +2462,7 @@ function bindEvents() {
     if (!chip) return;
     state.mapCatFilter = chip.getAttribute('data-cat');
     renderMapCatStrip();
-    renderMarkers();
+    refreshExploreMarkers();
   });
 
   $('fallbackList').addEventListener('click', function (evt) {
