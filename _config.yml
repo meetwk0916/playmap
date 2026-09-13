@@ -1,0 +1,3 @@
+# The questionnaire runs on localhost; do not publish it with GitHub Pages.
+exclude:
+  - maintainer.html

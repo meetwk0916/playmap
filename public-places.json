@@ -39,7 +39,11 @@
           "url": "https://www.expoculturepark.cn/baoliuchangguan",
           "checkedOn": "2026-09-06"
         }
-      ]
+      ],
+      "fun": {
+        "level": "high",
+        "reason": "很好玩。"
+      }
     }
   ]
 }

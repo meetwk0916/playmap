@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>维护 11 评分 · 11去哪玩</title>
+<style>
+:root { --bg: #F7F5EE; --card: #FFFEFA; --text: #24352B; --muted: #5C6B60; --primary: #23543D; --line: #E7E2D2; --gold: #A66D00; --white: #FFFFFF; --danger: #C8493B; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif; }
+main { max-width: 680px; margin: 40px auto; padding: 0 20px; }
+a { color: var(--primary); }
+h1 { margin: 10px 0; font-size: 28px; }
+h2 { font-size: 22px; margin: 0 0 12px; }
+p { margin: 8px 0 18px; }
+.muted, #progress { color: var(--muted); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; margin: 24px 0; }
+label { display: block; font-weight: 600; margin: 18px 0 8px; }
+input, select, textarea, button { font: inherit; }
+select, textarea { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--text); background: var(--white); }
+textarea { resize: vertical; min-height: 110px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+button { min-height: 44px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--text); cursor: pointer; }
+button.primary { background: var(--primary); color: var(--white); border-color: var(--primary); }
+button:disabled { opacity: .5; cursor: default; }
+:focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
+[hidden] { display: none !important; }
+.score-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+#recommendationPreview { font-weight: 700; color: var(--primary); }
+#score { color: var(--gold); font-size: 26px; font-weight: 700; }
+#summary p { padding-bottom: 12px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+#status { color: var(--muted); }
+#error { color: var(--danger); }
+#output { font: 13px/1.6 monospace; min-height: 220px; }
+@media (max-width: 420px) { main { margin: 20px auto; padding: 0 14px; } .card { padding: 18px; } }
+</style>
+</head>
+<body>
+<main>
+<a href="index.html">← 查看地图</a>
+<h1>维护 11 评分</h1>
+<p class="muted">回想一次真实出游，回答三个小问题。逐项保存到本地草稿，最后一起导出发布。</p>
+<p id="error" role="alert"></p>
+<section id="choose" class="card">
+<h2>这次评价哪个地点？</h2>
+<label for="place">待维护地点</label>
+<select id="place" disabled></select>
+<p class="muted">已有评价会自动带入。新增地点请从本地地图搜索，选择「11 去过，填写评分」。</p>
+<button id="start" class="primary" disabled>开始填写</button>
+</section>
+<form id="question" class="card" hidden>
+<p id="progress"></p>
+<h2 id="heading" tabindex="-1"></h2>
+<p id="prompt" class="muted"></p>
+<label for="level">整体感受</label>
+<select id="level" aria-describedby="prompt"></select>
+<label for="reason">用一句话说说原因</label>
+<textarea id="reason" maxlength="1000" aria-describedby="hint"></textarea>
+<p id="hint" class="muted"></p>
+<div id="recommendationQuestion" hidden>
+<label for="recommendation">是否推荐</label>
+<p class="muted">综合这次出游，你愿意推荐其他家庭来吗？此项不参与星级计算。</p>
+<select id="recommendation"><option value="">暂不填写</option><option value="strong">强烈推荐</option><option value="general">推荐</option><option value="no">不推荐</option></select>
+</div>
+<div class="actions"><button id="back" type="button">上一步</button><button id="next" class="primary">下一步</button></div>
+</form>
+<section id="review" class="card" hidden>
+<h2 id="reviewTitle" tabindex="-1"></h2>
+<div class="score-row"><p id="score"></p><span id="recommendationPreview" hidden></span></div>
+<div id="summary"></div>
+<p class="muted">三个维度等权平均，高 / 中 / 低对应 5 / 3 / 1 分。缺少任一项评价或原因时，页面显示「暂无评分」。</p>
+<div class="actions"><button id="edit">返回修改</button><button id="save" class="primary">保存到本地草稿</button></div>
+<details><summary>查看本次预览数据</summary><label for="output">本次完整数据</label><textarea id="output" readonly></textarea></details>
+<div class="actions"><button id="another">保存并维护其他地点</button></div>
+</section>
+<section id="batch" class="card" hidden>
+<h2>待发布列表</h2>
+<p id="pendingCount"></p>
+<ul id="pendingList"></ul>
+<p id="baseWarning" class="muted" hidden>公开数据已变化，以下草稿仍基于保存时的版本。请将导出文件交给 Codex 核对合并，不要直接覆盖最新数据。</p>
+<div class="actions"><button id="download">下载待发布 JSON</button><button id="copy">复制 JSON</button></div>
+<details><summary>查看已保存的批量数据</summary><label for="batchOutput">完整待发布数据</label><textarea id="batchOutput" readonly></textarea></details>
+</section>
+<p id="status" role="status"></p>
+<p class="muted">保存后的草稿只在当前浏览器和本地地址保留，与个人地图分开。全部维护完成后，下载待发布 JSON 交给 Codex 核对并发布。清除浏览器数据会删除草稿，建议导出留存。</p>
+</main>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const dimensions = [
+  { key: 'fun', label: '是否好玩', options: ['很好玩', '比较好玩', '有限'], prompt: '11 有没有投入地玩？哪些内容让孩子想继续玩？', hint: '可以说最喜欢的玩法、参与感，或者哪里比较无聊。' },
+  { key: 'child', label: '儿童友好', options: ['很友好', '较友好', '有限'], prompt: '这里的空间和活动适合 11 吗？孩子能自在参与，还是经常需要你帮忙？', hint: '可以说活动空间、适龄程度、环境舒适度或需要照看的地方。' },
+  { key: 'parent', label: '便利程度', options: ['很便利', '较便利', '较费心'], prompt: '带娃这一路省心吗？有哪些方便的地方，又有哪些麻烦？', hint: '可以说停车、步行距离、推车、吃饭、休息或排队，以这次感受为准。' }
+];
+const levels = ['high', 'medium', 'low'];
+const DRAFT_KEY = 'playmap_maintainer_draft_v1';
+let draft, base, savedDraft, savedRaw = null, storageBlocked = false;
+let selected = 0, step = 0, answers = [], dirty = false;
+function validData(data) {
+  return data && Array.isArray(data.places) && data.places.every(p => p && p.provider === 'tencent' &&
+    typeof p.poiId === 'string' && p.poiId && typeof p.name === 'string') &&
+    new Set(data.places.map(p => p.poiId)).size === data.places.length;
+}
+function renderBatch() {
+  const changes = savedDraft.places.filter(p => JSON.stringify(p) !== JSON.stringify(base.places.find(b => b.poiId === p.poiId)));
+  $('pendingCount').textContent = changes.length ? changes.length + ' 个地点已保存，等待发布' : '暂无待发布修改';
+  $('pendingList').replaceChildren(...changes.map(p => {
+    const li = document.createElement('li');
+    const button = document.createElement('button');
+    button.textContent = p.name + (base.places.some(b => b.poiId === p.poiId) ? ' · 修改' : ' · 新增');
+    button.addEventListener('click', () => {
+      if (dirty && !confirm('当前还有未保存修改，放弃这些修改并打开已保存草稿？')) return;
+      draft = structuredClone(savedDraft); dirty = false;
+      $('place').replaceChildren(...draft.places.map((p, i) => new Option(p.name, String(i))));
+      $('place').value = String(draft.places.findIndex(b => b.poiId === p.poiId));
+      $('start').click();
+    });
+    li.append(button); return li;
+  }));
+  $('batchOutput').value = JSON.stringify(savedDraft, null, 2) + '\n';
+  $('download').disabled = $('copy').disabled = !changes.length;
+}
+function saveDraft() {
+  if (storageBlocked) { $('error').textContent = '旧草稿暂不可读，为保护数据不能覆盖保存。请先保留浏览器中的原数据。'; return false; }
+  try {
+    if (localStorage.getItem(DRAFT_KEY) !== savedRaw) {
+      $('error').textContent = '另一个页面已更新草稿。请先复制本次预览数据留存，再刷新以载入最新草稿。'; return false;
+    }
+    const value = JSON.stringify({ version: 1, base, draft });
+    localStorage.setItem(DRAFT_KEY, value);
+    savedRaw = value; savedDraft = structuredClone(draft); dirty = false;
+    $('error').textContent = ''; renderBatch();
+    $('status').textContent = '已保存到本地草稿，关闭后可继续，尚未发布。';
+    return true;
+  } catch { $('error').textContent = '本地保存失败，旧草稿未被覆盖。当前填写仍在页面中，请复制本次预览数据留存后重试。'; return false; }
+}
+
+function show(id) {
+  ['choose', 'question', 'review'].forEach(name => { $(name).hidden = name !== id; });
+  $('status').textContent = '';
+  $('batch').hidden = id === 'question' || !savedDraft;
+}
+function question() {
+  const d = dimensions[step], a = answers[step];
+  show('question');
+  $('progress').textContent = draft.places[selected].name + ' · ' + (step + 1) + ' / 3';
+  $('heading').textContent = d.label;
+  $('prompt').textContent = d.prompt;
+  $('hint').textContent = d.hint;
+  $('level').replaceChildren(...d.options.map((label, i) => new Option(label, levels[i])), new Option('还不确定，暂不评价', ''));
+  $('level').value = a.level;
+  $('reason').value = a.reason;
+  updateRequired();
+  $('back').disabled = step === 0;
+  $('recommendationQuestion').hidden = step !== 2;
+  $('next').textContent = step === 2 ? '预览评分' : '下一步';
+  $('heading').focus();
+}
+function updateRequired() { $('reason').required = !!$('level').value; $('reason').setCustomValidity(''); }
+function capture() {
+  answers[step] = { level: $('level').value, reason: $('reason').value.trim() };
+}
+$('recommendation').addEventListener('change', () => { dirty = true; });
+$('level').addEventListener('change', () => { dirty = true; updateRequired(); });
+$('reason').addEventListener('input', () => { dirty = true; $('reason').setCustomValidity(''); });
+$('start').addEventListener('click', () => {
+  selected = Number($('place').value);
+  const recommendation = draft.places[selected].recommendation;
+  $('recommendation').value = ['strong', 'general', 'no'].includes(recommendation) ? recommendation : '';
+  answers = dimensions.map(d => {
+    const a = draft.places[selected][d.key] || {};
+    return { level: levels.includes(a.level) ? a.level : '', reason: typeof a.reason === 'string' ? a.reason : '' };
+  });
+  step = 0; question();
+});
+$('back').addEventListener('click', () => { capture(); if (step) { step--; question(); } else { show('choose'); $('start').focus(); } });
+$('question').addEventListener('submit', event => {
+  event.preventDefault();
+  if ($('level').value && !$('reason').value.trim()) { $('reason').setCustomValidity('请补一句真实原因。'); $('reason').reportValidity(); return; }
+  capture();
+  if (step < 2) { step++; question(); return; }
+  const place = draft.places[selected];
+  if ($('recommendation').value) place.recommendation = $('recommendation').value;
+  else delete place.recommendation;
+  $('recommendationPreview').textContent = { strong: '强烈推荐', general: '推荐', no: '不推荐' }[place.recommendation] || '';
+  $('recommendationPreview').hidden = !place.recommendation;
+  dimensions.forEach((d, i) => {
+    // Preserve optional fields (such as ages) and all unrelated place data.
+    if (answers[i].level) place[d.key] = { ...place[d.key], ...answers[i] };
+    else place[d.key] = { ...place[d.key], level: '', reason: answers[i].reason };
+  });
+  const complete = answers.every(a => a.level && a.reason);
+  $('score').textContent = complete ? (answers.reduce((sum, a) => sum + ({ high: 5, medium: 3, low: 1 }[a.level]), 0) / 3).toFixed(1) + ' / 5 星' : '暂无评分';
+  $('reviewTitle').textContent = place.name + ' · 11 评分';
+  $('summary').replaceChildren(...dimensions.map((d, i) => {
+    const p = document.createElement('p'), title = document.createElement('strong');
+    title.textContent = d.label + ' · ' + (answers[i].level ? d.options[levels.indexOf(answers[i].level)] : '暂无评估');
+    p.append(title, document.createElement('br'), document.createTextNode(answers[i].reason)); return p;
+  }));
+  $('output').value = JSON.stringify(draft, null, 2) + '\n';
+  dirty = true;
+  show('review'); $('reviewTitle').focus();
+});
+$('edit').addEventListener('click', () => { step = 0; question(); });
+$('save').addEventListener('click', saveDraft);
+$('another').addEventListener('click', () => { if (!saveDraft()) return; show('choose'); $('place').focus(); $('status').textContent = '已保存，可继续维护其他地点。'; });
+$('download').addEventListener('click', () => {
+  const url = URL.createObjectURL(new Blob([$('batchOutput').value], { type: 'application/json' }));
+  const a = document.createElement('a'); a.href = url; a.download = 'public-places.draft.json'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  $('status').textContent = '已导出所有已保存草稿，尚未发布；未保存的预览修改不在文件中。';
+});
+$('copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('batchOutput').value); $('status').textContent = '已复制待发布数据，尚未发布。'; }
+  catch { $('batchOutput').closest('details').open = true; $('batchOutput').focus(); $('batchOutput').select(); $('status').textContent = '自动复制不可用，请手动复制已选中的 JSON。'; }
+});
+window.addEventListener('beforeunload', event => { if (dirty) { event.preventDefault(); event.returnValue = ''; } });
+(async () => {
+  if (!['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) {
+    $('choose').hidden = true;
+    $('error').textContent = '评分维护仅限本机使用，请在本地打开地图。';
+    return;
+  }
+  try {
+    const response = await fetch('public-places.json', { cache: 'no-store', signal: AbortSignal.timeout(8000) });
+    if (!response.ok) throw new Error();
+    const data = await response.json();
+    if (!validData(data)) throw new Error();
+    base = structuredClone(data); draft = structuredClone(data); savedDraft = structuredClone(data);
+    try {
+      savedRaw = localStorage.getItem(DRAFT_KEY);
+      if (savedRaw) {
+        const stored = JSON.parse(savedRaw);
+        if (stored.version !== 1 || !validData(stored.base) || !validData(stored.draft)) throw new Error();
+        draft = structuredClone(stored.draft); savedDraft = structuredClone(stored.draft);
+        if (JSON.stringify(data) !== JSON.stringify(stored.draft)) {
+          base = stored.base;
+          $('baseWarning').hidden = JSON.stringify(data) === JSON.stringify(base);
+        }
+      }
+    } catch {
+      storageBlocked = true;
+      $('error').textContent = '本地草稿无法读取或版本不兼容，原数据已保留；暂时不能覆盖保存。';
+    }
+    renderBatch(); $('batch').hidden = false;
+    const pending = sessionStorage.getItem('playmap_rating_poi');
+    if (pending) {
+      const poi = JSON.parse(pending);
+      const categories = ['park', 'playground', 'zoo', 'aquarium', 'museum', 'science', 'library', 'mall', 'water', 'other'];
+      if (!poi || poi.provider !== 'tencent' || typeof poi.poiId !== 'string' || !poi.poiId.trim() || poi.poiId.length > 100 ||
+          typeof poi.name !== 'string' || !poi.name.trim() || poi.name.length > 30 || typeof poi.address !== 'string' || poi.address.length > 120 ||
+          !categories.includes(poi.category) || !Number.isFinite(poi.lat) || Math.abs(poi.lat) > 90 || !Number.isFinite(poi.lng) || Math.abs(poi.lng) > 180) {
+        sessionStorage.removeItem('playmap_rating_poi');
+        throw new Error();
+      }
+      selected = draft.places.findIndex(p => p.provider === poi.provider && p.poiId === poi.poiId);
+      if (selected === -1) {
+        selected = draft.places.length;
+        draft.places.push({ provider: poi.provider, poiId: poi.poiId, name: poi.name, address: poi.address, category: poi.category, lat: poi.lat, lng: poi.lng });
+      }
+      sessionStorage.removeItem('playmap_rating_poi');
+    }
+    if (!draft.places.length) { $('error').textContent = '暂无地点，请从本地地图添加地点后填写。'; return; }
+    $('place').replaceChildren(...draft.places.map((p, i) => new Option(p.name, String(i))));
+    $('place').disabled = $('start').disabled = false;
+    if (pending) { $('place').value = String(selected); $('start').click(); dirty = true; }
+  } catch { $('error').textContent = '未能读取可维护的公开地点。请确认 public-places.json 有有效地点后刷新重试。'; }
+})();
+</script>
+</body>
+</html>

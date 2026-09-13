@@ -706,11 +706,8 @@ test('detail prioritizes navigation and hides archive controls', async ({ page }
 
   await expect(dialog.getByRole('button', { name: '导航去这里' })).toBeVisible();
   await expect(dialog.getByRole('button', { name: '复制目的地' })).toBeVisible();
-  await expect(dialog.locator('.facility-row')).toHaveCount(5);
-  for (const label of ['场馆停车', '童车通行', '亲子卫生间', '母婴室', '场馆内餐饮']) {
-    await expect(dialog.getByText(label, { exact: true })).toBeVisible();
-  }
-  await expect(dialog.getByText('暂无信息', { exact: true })).toHaveCount(5);
+  await expect(dialog.locator('.facility-row')).toHaveCount(0);
+  await expect(dialog).not.toContainText('亲子便利设施');
   await expect(dialog.locator('#ratingRow, #btnToggleStatus, #notesArea, #btnAddVisit, .visit-card')).toHaveCount(0);
   await dialog.getByRole('button', { name: '导航去这里' }).click();
   await expect.poll(() => page.evaluate(() => window.__navigationUrl)).toContain('/marker?');
@@ -784,6 +781,7 @@ const publicVisit = {
   experience: '测试内容：孩子玩得尽兴，停车较远。',
   child: { level: 'high', reason: '测试内容：有互动游乐', ages: '约 3–8 岁' },
   parent: { level: 'low', reason: '测试内容：停车较远' },
+  fun: { level: 'high', reason: '测试内容：很好玩' },
   sources: [{ title: '场馆资料（测试）', url: 'https://example.com/venue', checkedOn: '2026-09-05' }]
 };
 
@@ -821,7 +819,7 @@ test('published public places load with the configured avatar', async ({ page })
   expect(publicMarkerIds).toContain('public:' + published.places[0].poiId);
   expect(publicMarkerIds).not.toContain('explore-' + published.places[0].poiId);
   await openMapPlace(page, published.places[0].name);
-  await expect(page.locator('#drawerDetail')).toContainText('11 去过');
+  await expect(page.locator('#drawerDetail')).toContainText('11 评分');
   await expect(page.locator('#drawerDetail .visit-avatar')).toHaveJSProperty('naturalWidth', 64);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places)).toEqual([]);
 });
@@ -833,7 +831,7 @@ test('public visits appear without seeding personal storage and coexist with per
   await expect.poll(() => page.evaluate(() => window.__markerLayers?.[0]?.geometries.length)).toBe(2);
   await openMapPlace(page, publicVisit.name);
   const detail = page.locator('#drawerDetail');
-  await expect(detail).toContainText('11 去过');
+  await expect(detail).toContainText('11 评分');
   await expect(detail.getByRole('button', { name: '删除这个地点' })).toHaveCount(0);
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places);
   expect(stored.map(p => p.id)).toEqual(['place-1']);
@@ -848,6 +846,11 @@ test('public visit details show independent experience levels and an avatar mark
   await page.reload();
   await openMapPlace(page, publicVisit.name);
   const detail = page.locator('#drawerDetail');
+  await expect(detail.getByRole('img', { name: '11 评分：3.7 / 5 星' })).toBeVisible();
+  await expect(detail).toContainText('很好玩');
+  for (const label of ['是否好玩', '儿童友好', '便利程度']) {
+    await expect(detail.getByText(label, { exact: true })).toBeVisible();
+  }
   await expect(detail).toContainText('很友好');
   await expect(detail).toContainText('较费心');
   await expect(detail).toContainText('约 3–8 岁');
@@ -868,6 +871,7 @@ test('public visit details show independent experience levels and an avatar mark
   await page.reload();
   await openMapPlace(page, publicVisit.name);
   await expect(detail.getByText('暂无评估', { exact: true })).toHaveCount(2);
+  await expect(detail.getByText('暂无评分', { exact: true })).toBeVisible();
   const fallback = await page.evaluate(() => {
     const layer = window.__markerLayers[0];
     return layer.options.styles[layer.geometries[0].styleId].src;
@@ -907,7 +911,7 @@ test('saving removing and clearing personal places never changes public visits',
   await page.getByRole('button', { name: '删除这个地点', exact: true }).click();
   await page.getByRole('button', { name: '确定', exact: true }).click();
   await openMapPlace(page, publicVisit.name);
-  await expect(page.locator('#drawerDetail')).toContainText('11 去过');
+  await expect(page.locator('#drawerDetail')).toContainText('11 评分');
   await expect(page.getByRole('button', { name: '删除这个地点', exact: true })).toHaveCount(0);
   await page.keyboard.press('Escape');
   await page.getByRole('button', { name: '数据与隐私' }).click();
@@ -930,7 +934,7 @@ test('public withdrawal preserves personal copies without the public experience 
   await page.reload();
   await openMapPlace(page, publicVisit.name);
   const detail = page.locator('#drawerDetail');
-  await expect(detail).not.toContainText('11 去过');
+  await expect(detail).not.toContainText('11 评分');
   await expect(detail).not.toContainText('很友好');
   await expect(detail.getByRole('button', { name: '删除这个地点' })).toBeVisible();
   const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places);
@@ -948,7 +952,7 @@ test('protected data stays intact while public visits remain browsable without a
   await page.reload();
   await expect(page.locator('#mapFallback')).toBeVisible();
   await page.locator('#fallbackList').getByRole('button', { name: /公开体验测试公园/ }).click();
-  await expect(page.locator('#drawerDetail')).toContainText('11 去过');
+  await expect(page.locator('#drawerDetail')).toContainText('11 评分');
   await page.getByRole('button', { name: '＋ 添加到我的地图', exact: true }).click();
   expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe('{broken-data');
   await expect(page.locator('#dataAlert')).toBeVisible();
@@ -987,9 +991,55 @@ test('public marker IDs never claim an unrelated personal place with the same le
   await page.keyboard.press('Escape');
   await openMapPlace(page, collision.name);
   await expect(page.locator('#detailTitle')).toHaveText(collision.name);
-  await expect(page.locator('#drawerDetail')).not.toContainText('11 去过');
+  await expect(page.locator('#drawerDetail')).not.toContainText('11 评分');
   const ids = await page.evaluate(() => window.__markerLayers[0].geometries.map(g => g.id));
   expect(new Set(ids).size).toBe(2);
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places);
   expect(saved[0].visits).toEqual(collision.visits);
+});
+
+test('local POI addition opens a rating draft without adding personal data', async ({ page }) => {
+  const original = await page.evaluate(() => {
+    sessionStorage.setItem('playmap_test_keep_storage', '1');
+    return localStorage.getItem('baby_playmap_v1');
+  });
+  await page.locator('#searchInput').fill('搜索公园');
+  await page.getByText('搜索公园', { exact: true }).click();
+  await page.getByRole('dialog', { name: '搜索公园' }).getByRole('button', { name: '添加到我的地图' }).click();
+  await page.getByRole('button', { name: '11 去过，填写评分' }).click();
+  await expect(page).toHaveURL(/maintainer\.html$/);
+  await expect(page.getByRole('heading', { name: '是否好玩' })).toBeVisible();
+  await expect(page.locator('#progress')).toContainText('搜索公园');
+  for (let i = 0; i < 3; i++) {
+    await page.locator('#level').selectOption('high');
+    await page.locator('#reason').fill('真实体验测试');
+    await page.locator('#next').click();
+  }
+  const draft = JSON.parse(await page.locator('#output').inputValue());
+  expect(draft.places).toHaveLength(1);
+  expect(draft.places[0]).toMatchObject({ provider: 'tencent', poiId: 'tencent-poi-1', name: '搜索公园', lat: 31.24, lng: 121.48 });
+  expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe(original);
+});
+
+test('public origin keeps the rating entry hidden', async ({ page }) => {
+  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '../index.html'), 'utf8');
+  await page.route('https://playmap.example/index.html', route => route.fulfill({ contentType: 'text/html', body: html }));
+  await page.goto('https://playmap.example/index.html');
+  await page.locator('#searchInput').fill('搜索公园');
+  await page.getByText('搜索公园', { exact: true }).click();
+  await page.getByRole('dialog', { name: '搜索公园' }).getByRole('button', { name: '添加到我的地图' }).click();
+  await expect(page.locator('#btnRateLocal')).toBeHidden();
+  await expect(page.locator('#btnSubmitAdd')).toBeVisible();
+});
+
+test('recommendation is independent of the star score and absent when unset', async ({ page }) => {
+  for (const [recommendation, label] of [['strong', '强烈推荐'], ['general', '推荐'], ['no', '不推荐'], ['', '']]) {
+    await servePublicPlaces(page, [{ ...publicVisit, recommendation }]);
+    await page.reload();
+    await openMapPlace(page, publicVisit.name);
+    const detail = page.locator('#drawerDetail');
+    await expect(detail.getByRole('img', { name: '11 评分：3.7 / 5 星' })).toBeVisible();
+    if (label) await expect(detail.locator('.visit-score-row .recommendation')).toHaveText(label);
+    else await expect(detail.locator('.recommendation')).toHaveCount(0);
+  }
 });
