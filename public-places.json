@@ -9,6 +9,7 @@
       "category": "park",
       "lat": 31.17913,
       "lng": 121.476834,
+      "recommendation": "general",
       "child": {
         "level": "high",
         "reason": "草坪很大，有帐篷区，很适合遛娃。"
@@ -42,7 +43,29 @@
       ],
       "fun": {
         "level": "high",
-        "reason": "很好玩。"
+        "reason": "草坪够大，还有专门的蘑菇乐园，够小孩子放电的"
+      }
+    },
+    {
+      "provider": "tencent",
+      "poiId": "8830902090426183064",
+      "name": "上海迪士尼乐园",
+      "address": "上海市浦东新区申迪西路753号上海迪士尼度假区",
+      "category": "playground",
+      "lat": 31.144039,
+      "lng": 121.660317,
+      "recommendation": "strong",
+      "fun": {
+        "level": "high",
+        "reason": "大人孩子永远的快乐老家"
+      },
+      "child": {
+        "level": "high",
+        "reason": "从刚靠近乐园门口听到音乐开始，就一直跟妈妈说“开心”，这就叫快乐感染力"
+      },
+      "parent": {
+        "level": "medium",
+        "reason": "还是挺费腿的，另外停车、打车、地铁距离乐园入口都有些距离，排队也是无法避免的，适当取舍"
       }
     }
   ]

@@ -109,7 +109,10 @@ test('saved drafts resume and accumulate multiple places while unsaved edits sta
   await page.reload();
   await expect(page.locator('#pendingCount')).toContainText('2 个地点');
   const batch = JSON.parse(await page.locator('#batchOutput').inputValue());
-  expect(batch.places.map(p => p.fun.reason)).toEqual(['第一处真实体验', '第二处真实体验']);
+  const expectedReasons = data.places.map(p => p.fun.reason);
+  expectedReasons[0] = '第一处真实体验';
+  expectedReasons[1] = '第二处真实体验';
+  expect(batch.places.map(p => p.fun.reason)).toEqual(expectedReasons);
   await page.locator('#pendingList button').first().click();
   await expect(page.locator('#reason')).toHaveValue('第一处真实体验');
 });
