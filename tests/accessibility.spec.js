@@ -343,7 +343,8 @@ test('production placeholders do not configure an invalid map proxy', async ({ p
 
   expect(mapConfig.securityConfig).toBeUndefined();
   expect(mapConfig.anchors).toHaveLength(30);
-  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 52)).toHaveLength(20);
+  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 52)).toHaveLength(10);
+  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 54)).toHaveLength(10);
   expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 22)).toHaveLength(10);
 });
 
@@ -861,10 +862,17 @@ test('public visit details show independent experience levels and an avatar mark
   const marker = await page.evaluate(() => {
     const layer = window.__markerLayers[0];
     const styleId = layer.geometries[0].styleId;
-    return { styleId, src: layer.options.styles[styleId].src };
+    return { styleId, ...layer.options.styles[styleId] };
   });
   expect(marker.styleId).toBe('public-park');
+  expect(marker).toMatchObject({ width: 44, height: 54, anchor: { x: 22, y: 54 } });
+  const layout = await page.evaluate(src => {
+    const svg = new DOMParser().parseFromString(decodeURIComponent(src.split(',')[1]), 'image/svg+xml');
+    return { avatarTop: svg.querySelector('image').getAttribute('y'), iconBaseline: svg.querySelector('g text').getAttribute('y') };
+  }, marker.src);
+  expect(layout).toEqual({ avatarTop: '13', iconBaseline: '13' });
   expect(decodeURIComponent(marker.src)).toContain('data:image/png;base64,');
+  expect(decodeURIComponent(marker.src)).toContain('>🌳</text>');
   await page.keyboard.press('Escape');
   await servePublicPlaces(page, [{ ...publicVisit, child: null, parent: { level: 'invalid' } }], '/missing-avatar.png');
   await page.route('**/missing-avatar.png', route => route.fulfill({ status: 404, body: '' }));
@@ -877,6 +885,7 @@ test('public visit details show independent experience levels and an avatar mark
     return layer.options.styles[layer.geometries[0].styleId].src;
   });
   expect(decodeURIComponent(fallback)).toContain('>11</text>');
+  expect(decodeURIComponent(fallback)).toContain('>🌳</text>');
 });
 
 test('migration retires only exact unused presets and preserves used modified and uncertain records', async ({ page }) => {

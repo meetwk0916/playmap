@@ -78,12 +78,12 @@ button:disabled { opacity: .5; cursor: default; }
 <h2>待发布列表</h2>
 <p id="pendingCount"></p>
 <ul id="pendingList"></ul>
-<p id="baseWarning" class="muted" hidden>公开数据已变化，以下草稿仍基于保存时的版本。请将导出文件交给 Codex 核对合并，不要直接覆盖最新数据。</p>
+<p id="baseWarning" class="muted" hidden>公开数据已变化，以下草稿仍基于保存时的版本。请将导出文件交给 WorkBuddy 或 Codex 核对合并，不要直接覆盖最新数据。</p>
 <div class="actions"><button id="download">下载待发布 JSON</button><button id="copy">复制 JSON</button></div>
 <details><summary>查看已保存的批量数据</summary><label for="batchOutput">完整待发布数据</label><textarea id="batchOutput" readonly></textarea></details>
 </section>
 <p id="status" role="status"></p>
-<p class="muted">保存后的草稿只在当前浏览器和本地地址保留，与个人地图分开。全部维护完成后，下载待发布 JSON 交给 Codex 核对并发布。清除浏览器数据会删除草稿，建议导出留存。</p>
+<p class="muted">保存后的草稿只在当前浏览器和本地地址保留，与个人地图分开。发布只需三步：下载待发布 JSON → 将文件和发布指令交给 WorkBuddy → 核对结果并确认发布。<a href="docs/public-places.md#三步发布workbuddy-接管" target="_blank" rel="noopener">查看发布指令</a>。清除浏览器数据会删除草稿，建议导出留存。</p>
 </main>
 <script>
 'use strict';

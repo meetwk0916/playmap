@@ -39,6 +39,7 @@ Playwright 需要 Chromium 及其系统动态库。缺少系统依赖时，不�
 
 ## Agent 配置
 
+- 发布公开内容或 WorkBuddy 接管：执行 `docs/public-places.md` 的“三步发布”；先展示准确本地结果，确认后连续完成推送与生产核验。
 - GitHub Issues：`docs/agents/issue-tracker.md`
 - 标签映射：`docs/agents/triage-labels.md`
 - 领域文档约定：`docs/agents/domain.md`
