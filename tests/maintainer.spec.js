@@ -35,6 +35,9 @@ test('direct score and one photo export without changing unrelated data', async 
 });
 
 test('rating is optional, bounded, and does not infer from old dimensions', async ({ page }) => {
+  const data = structuredClone(publicData);
+  delete data.places[0].score;
+  await page.route('**/public-places.json', route => route.fulfill({ json: data }));
   await page.goto('/maintainer.html');
   await page.locator('#start').click();
   await expect(page.locator('#rating')).toHaveValue('');
@@ -59,6 +62,7 @@ test('existing POI handoff preserves identity and local-only boundary', async ({
   await page.addInitScript(p => sessionStorage.setItem('playmap_rating_poi', JSON.stringify(p)), p);
   await page.goto('/maintainer.html');
   await expect(page.locator('#heading')).toContainText(p.name);
+  await expect(page.locator('#rating')).toHaveValue(String(p.score));
   await page.locator('#rating').fill('3.5');
   await page.locator('#next').click();
   const draft = JSON.parse(await page.locator('#output').inputValue());
@@ -72,7 +76,7 @@ test('existing POI handoff preserves identity and local-only boundary', async ({
 
 test('drafts resume, accumulate, and resist failed or concurrent writes', async ({ page }) => {
   const data = structuredClone(publicData);
-  data.places.push({ ...structuredClone(data.places[0]), poiId: 'second', name: '第二个地点' });
+  data.places = [data.places[0], { ...structuredClone(data.places[0]), poiId: 'second', name: '第二个地点' }];
   await page.route('**/public-places.json', route => route.fulfill({ json: data }));
   await page.goto('/maintainer.html');
   await preview(page);
