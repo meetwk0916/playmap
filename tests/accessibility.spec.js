@@ -342,10 +342,10 @@ test('production placeholders do not configure an invalid map proxy', async ({ p
   }));
 
   expect(mapConfig.securityConfig).toBeUndefined();
-  expect(mapConfig.anchors).toHaveLength(30);
-  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 52)).toHaveLength(10);
-  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 54)).toHaveLength(10);
-  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 22)).toHaveLength(10);
+  expect(mapConfig.anchors).toHaveLength(33);
+  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 52)).toHaveLength(11);
+  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 54)).toHaveLength(11);
+  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 22)).toHaveLength(11);
 });
 
 test('base map failure keeps a filterable local place list and details', async ({ page }) => {
@@ -780,6 +780,8 @@ const publicVisit = {
   address: '测试路 11 号', category: 'park', lat: 31.23, lng: 121.47,
   facilities: { parking: 'yes' }, visitedOn: '2026-09-01',
   experience: '测试内容：孩子玩得尽兴，停车较远。',
+  score: 4.6,
+  photo: 'data:image/jpeg;base64,' + require('node:fs').readFileSync(require('node:path').join(__dirname, '../assets/11-avatar.jpg')).toString('base64'),
   child: { level: 'high', reason: '测试内容：有互动游乐', ages: '约 3–8 岁' },
   parent: { level: 'low', reason: '测试内容：停车较远' },
   fun: { level: 'high', reason: '测试内容：很好玩' },
@@ -801,6 +803,29 @@ async function openMapPlace(page, name) {
   await page.locator('#searchInput').fill(name);
   await page.locator('.sr-item').filter({ hasText: name }).first().click();
 }
+
+test('hotel visits keep their own category and marker', async ({ page }) => {
+  const hotel = { ...publicVisit, poiId: 'hotel-test-poi', name: '11 到访测试酒店', category: 'hotel' };
+  await servePublicPlaces(page, [hotel]);
+  await page.reload();
+  await expect(page.locator('#mapCatStrip').getByRole('button', { name: '🏨 酒店住宿' })).toBeVisible();
+  await openMapPlace(page, hotel.name);
+  await expect(page.locator('#drawerDetail')).toContainText('酒店住宿');
+  expect(await page.evaluate(() => window.__markerLayers[0].geometries[0].styleId)).toBe('public-hotel');
+});
+
+test('single visit photos load from repository assets and reject unrelated URLs', async ({ page }) => {
+  await servePublicPlaces(page, [{ ...publicVisit, photo: 'assets/visits/bfc-20260919.jpg' }]);
+  await page.reload();
+  await openMapPlace(page, publicVisit.name);
+  await expect(page.locator('#drawerDetail .visit-photo')).toHaveJSProperty('naturalWidth', 720);
+  for (const photo of ['https://example.com/private.jpg', 'assets/visits/../../private.jpg', 'javascript:alert(1)']) {
+    await servePublicPlaces(page, [{ ...publicVisit, photo }]);
+    await page.reload();
+    await openMapPlace(page, publicVisit.name);
+    await expect(page.locator('#drawerDetail .visit-photo')).toHaveCount(0);
+  }
+});
 
 test('published public places load with the configured avatar', async ({ page }) => {
   const published = require('../public-places.json');
@@ -838,7 +863,7 @@ test('public visits appear without seeding personal storage and coexist with per
   expect(stored.map(p => p.id)).toEqual(['place-1']);
 });
 
-test('public visit details show independent experience levels and an avatar marker', async ({ page }) => {
+test('public visit details show the direct score, one photo, and an avatar marker', async ({ page }) => {
   await servePublicPlaces(page, [publicVisit], '/test-avatar.png');
   await page.route('**/test-avatar.png', route => route.fulfill({
     contentType: 'image/gif', body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64')
@@ -847,16 +872,12 @@ test('public visit details show independent experience levels and an avatar mark
   await page.reload();
   await openMapPlace(page, publicVisit.name);
   const detail = page.locator('#drawerDetail');
-  await expect(detail.getByRole('img', { name: '11 评分：3.7 / 5 星' })).toBeVisible();
-  await expect(detail).toContainText('很好玩');
-  for (const label of ['是否好玩', '儿童友好', '便利程度']) {
-    await expect(detail.getByText(label, { exact: true })).toBeVisible();
+  await expect(detail.getByRole('img', { name: '11 评分：4.6 / 5 星' })).toBeVisible();
+  await expect(detail.getByRole('img', { name: /到访打卡照/ })).toHaveCount(1);
+  for (const hiddenText of ['是否好玩', '儿童友好', '便利程度', '2026-09-01', publicVisit.experience]) {
+    await expect(detail).not.toContainText(hiddenText);
   }
-  await expect(detail).toContainText('很友好');
-  await expect(detail).toContainText('较费心');
-  await expect(detail).toContainText('约 3–8 岁');
-  await expect(detail).toContainText('2026-09-01');
-  await expect(detail).toContainText(publicVisit.experience);
+  await expect(detail.getByRole('button', { name: '导航去这里' })).toBeVisible();
   await expect(detail.getByText('资料来源与核实日期', { exact: true })).toHaveCount(0);
   await expect(detail.getByRole('link', { name: '场馆资料（测试）' })).toHaveCount(0);
   const marker = await page.evaluate(() => {
@@ -874,12 +895,12 @@ test('public visit details show independent experience levels and an avatar mark
   expect(decodeURIComponent(marker.src)).toContain('data:image/png;base64,');
   expect(decodeURIComponent(marker.src)).toContain('>🌳</text>');
   await page.keyboard.press('Escape');
-  await servePublicPlaces(page, [{ ...publicVisit, child: null, parent: { level: 'invalid' } }], '/missing-avatar.png');
+  await servePublicPlaces(page, [{ ...publicVisit, score: undefined, photo: undefined }], '/missing-avatar.png');
   await page.route('**/missing-avatar.png', route => route.fulfill({ status: 404, body: '' }));
   await page.reload();
   await openMapPlace(page, publicVisit.name);
-  await expect(detail.getByText('暂无评估', { exact: true })).toHaveCount(2);
   await expect(detail.getByText('暂无评分', { exact: true })).toBeVisible();
+  await expect(detail.locator('.visit-photo')).toHaveCount(0);
   const fallback = await page.evaluate(() => {
     const layer = window.__markerLayers[0];
     return layer.options.styles[layer.geometries[0].styleId].src;
@@ -1017,13 +1038,9 @@ test('local POI addition opens a rating draft without adding personal data', asy
   await page.getByRole('dialog', { name: '搜索公园' }).getByRole('button', { name: '添加到我的地图' }).click();
   await page.getByRole('button', { name: '11 去过，填写评分' }).click();
   await expect(page).toHaveURL(/maintainer\.html$/);
-  await expect(page.getByRole('heading', { name: '是否好玩' })).toBeVisible();
-  await expect(page.locator('#progress')).toContainText('搜索公园');
-  for (let i = 0; i < 3; i++) {
-    await page.locator('#level').selectOption('high');
-    await page.locator('#reason').fill('真实体验测试');
-    await page.locator('#next').click();
-  }
+  await expect(page.getByRole('heading', { name: '搜索公园 · 11 到访记录' })).toBeVisible();
+  await page.locator('#rating').fill('4.7');
+  await page.locator('#next').click();
   const draft = JSON.parse(await page.locator('#output').inputValue());
   expect(draft.places).toHaveLength(1);
   expect(draft.places[0]).toMatchObject({ provider: 'tencent', poiId: 'tencent-poi-1', name: '搜索公园', lat: 31.24, lng: 121.48 });
@@ -1041,14 +1058,13 @@ test('public origin keeps the rating entry hidden', async ({ page }) => {
   await expect(page.locator('#btnSubmitAdd')).toBeVisible();
 });
 
-test('recommendation is independent of the star score and absent when unset', async ({ page }) => {
-  for (const [recommendation, label] of [['strong', '强烈推荐'], ['general', '推荐'], ['no', '不推荐'], ['', '']]) {
+test('legacy recommendations stay hidden beside the direct score', async ({ page }) => {
+  for (const recommendation of ['strong', 'general', 'no', '']) {
     await servePublicPlaces(page, [{ ...publicVisit, recommendation }]);
     await page.reload();
     await openMapPlace(page, publicVisit.name);
     const detail = page.locator('#drawerDetail');
-    await expect(detail.getByRole('img', { name: '11 评分：3.7 / 5 星' })).toBeVisible();
-    if (label) await expect(detail.locator('.visit-score-row .recommendation')).toHaveText(label);
-    else await expect(detail.locator('.recommendation')).toHaveCount(0);
+    await expect(detail.getByRole('img', { name: '11 评分：4.6 / 5 星' })).toBeVisible();
+    await expect(detail.locator('.recommendation')).toHaveCount(0);
   }
 });

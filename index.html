@@ -43,6 +43,7 @@
   --cat-library: #2FA8A0;
   --cat-mall: #E06A8B;
   --cat-water: #2FA3C7;
+  --cat-hotel: #8462A8;
   --cat-other: #8A8378;
   --cat-zoo-soft: #F1E8F9;
   --cat-aquarium-soft: #E2F1F8;
@@ -51,6 +52,7 @@
   --cat-library-soft: #E0F2F2;
   --cat-mall-soft: #FAE6ED;
   --cat-water-soft: #E0F2F7;
+  --cat-hotel-soft: #EEE7F5;
   --cat-other-soft: #EFEDE6;
   --overlay-toast: rgba(36, 53, 43, 0.92);
   --overlay-mask: rgba(36, 53, 43, 0.45);
@@ -436,6 +438,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .cat-btn.active.cat-library { border-color: var(--cat-library); background: var(--cat-library-soft); }
 .cat-btn.active.cat-mall { border-color: var(--cat-mall); background: var(--cat-mall-soft); }
 .cat-btn.active.cat-water { border-color: var(--cat-water); background: var(--cat-water-soft); }
+.cat-btn.active.cat-hotel { border-color: var(--cat-hotel); background: var(--cat-hotel-soft); }
 .cat-btn.active.cat-other { border-color: var(--cat-other); background: var(--cat-other-soft); }
 .cat-bg-park { background: var(--spruce-soft) !important; }
 .cat-bg-playground { background: var(--sun-soft) !important; }
@@ -446,6 +449,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .cat-bg-library { background: var(--cat-library-soft) !important; }
 .cat-bg-mall { background: var(--cat-mall-soft) !important; }
 .cat-bg-water { background: var(--cat-water-soft) !important; }
+.cat-bg-hotel { background: var(--cat-hotel-soft) !important; }
 .cat-bg-other { background: var(--cat-other-soft) !important; }
 
 /* 主按钮 */
@@ -577,6 +581,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .rating-stars .filled { fill: var(--rating-gold); }
 .visit-score strong { font-size: 20px; }
 .visit-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--spruce-soft); display: grid; place-items: center; font-weight: 700; }
+.visit-photo { display: block; width: 100%; max-height: 360px; margin-top: 16px; border-radius: var(--radius); object-fit: contain; background: var(--surface-muted); }
 .assessment { padding: 12px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 .assessment-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .assessment p, .visit-note { margin: 8px 0; line-height: 1.6; font-size: 14px; overflow-wrap: anywhere; }
@@ -697,7 +702,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 <div class="drawer" id="drawerPrivacy" role="dialog" aria-modal="true" aria-labelledby="drawerPrivacyTitle" aria-hidden="true" inert>
   <div class="grabber" aria-hidden="true"></div>
   <h2 id="drawerPrivacyTitle">数据与隐私</h2>
-  <p class="sub sub-left">你保存的地点和旧家庭游玩档案只保存在当前浏览器；清除浏览器数据或更换设备会丢失。11 的到访地点、头像和体验由维护者公开发布，不属于你的个人数据。</p>
+  <p class="sub sub-left">你保存的地点和旧家庭游玩档案只保存在当前浏览器；清除浏览器数据或更换设备会丢失。11 的到访地点、评分和打卡照由维护者公开发布，不属于你的个人数据。</p>
   <p class="sub sub-left">只有点击定位按钮后才会请求位置，位置仅在当前页面用于距离判断，不会保存。</p>
   <p class="sub sub-left">腾讯地图会接收加载地图、在线搜索和打开导航所必需的网络信息。本站不设置账号，不上传业务数据，也不使用统计、广告追踪或用户画像。</p>
   <div class="settings-block">
@@ -744,6 +749,7 @@ var CATEGORIES = [
   { value: 'library',    label: '图书馆',        emoji: '📚', colorToken: '--cat-library',    searchKeyword: '图书馆',       searchTerms: ['图书馆'] },
   { value: 'mall',       label: '商场儿童区',    emoji: '🛍️', colorToken: '--cat-mall',       searchKeyword: '商场儿童乐园', searchTerms: ['儿童乐园', '儿童区', '亲子'] },
   { value: 'water',      label: '亲水玩沙',      emoji: '🏖️', colorToken: '--cat-water',      searchKeyword: '沙滩',         searchTerms: ['沙滩', '海滩', '海滨浴场'] },
+  { value: 'hotel',      label: '酒店住宿',      emoji: '🏨', colorToken: '--cat-hotel',      searchKeyword: '酒店',         searchTerms: ['酒店', '宾馆', '民宿', '度假村'] },
   { value: 'other',      label: '其他',          emoji: '📍', colorToken: '--cat-other' }
 ];
 
@@ -1905,17 +1911,8 @@ function visitHtml(place) {
   var published = publicVisitFor(place);
   if (!published) return '';
   var visit = published.visit;
-  var dimensions = [
-    { key: 'fun', label: '是否好玩', levels: { high: '很好玩', medium: '比较好玩', low: '有限' } },
-    { key: 'child', label: '儿童友好', levels: { high: '很友好', medium: '较友好', low: '有限' } },
-    { key: 'parent', label: '便利程度', levels: { high: '很便利', medium: '较便利', low: '较费心' } }
-  ];
-  var scores = dimensions.map(function (dimension) {
-    var assessment = visit[dimension.key] || {};
-    return contentText(assessment.reason) && { high: 5, medium: 3, low: 1 }[assessment.level];
-  });
-  var score = scores.every(function (value) { return typeof value === 'number'; })
-    ? (scores.reduce(function (sum, value) { return sum + value; }, 0) / 3).toFixed(1) : '';
+  var score = typeof visit.score === 'number' && Number.isFinite(visit.score) && visit.score >= 1 && visit.score <= 5 &&
+    Math.round(visit.score * 10) === visit.score * 10 ? visit.score.toFixed(1) : '';
   var stars = [0, 20, 40, 60, 80].map(function (x) {
     return '<path transform="translate(' + x + ')" d="M10 1L12.8 6.8L19 7.7L14.5 12.1L15.6 18.3L10 15.4L4.4 18.3L5.5 12.1L1 7.7L7.2 6.8Z"/>';
   }).join('');
@@ -1923,31 +1920,19 @@ function visitHtml(place) {
     '<svg class="rating-stars" viewBox="0 0 100 20" aria-hidden="true"><defs><clipPath id="rating-fill"><rect width="' +
     (Number(score) * 20) + '" height="20"/></clipPath></defs>' + stars + '<g class="filled" clip-path="url(#rating-fill)">' + stars + '</g></svg>' +
     '<strong aria-hidden="true">' + score + ' / 5</strong></span>' : '<span class="visit-score">暂无评分</span>';
-  var recommendation = { strong: '强烈推荐', general: '推荐', no: '不推荐' };
-  var recommendationHtml = ['strong', 'general', 'no'].indexOf(visit.recommendation) !== -1
-    ? '<span class="recommendation recommendation-' + visit.recommendation + '">' + recommendation[visit.recommendation] + '</span>' : '';
-  var html = '<section aria-label="11 的亲子体验"><div class="visit-heading">' +
+  var photo = typeof visit.photo === 'string' && (/^assets\/visits\/[a-z0-9-]+\.jpg$/.test(visit.photo) ||
+    /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(visit.photo) && visit.photo.length <= 450000)
+    ? '<img class="visit-photo" src="' + visit.photo + '" alt="11 在' + escapeHtml(place.name) + '的到访打卡照">' : '';
+  return '<section aria-label="11 的到访记录"><div class="visit-heading">' +
     (publicAvatar ? '<img class="visit-avatar" src="' + publicAvatar + '" alt="11 的头像">' :
       '<span class="visit-avatar" aria-hidden="true">11</span>') +
-    '<div class="visit-rating"><strong>11 评分</strong><div class="visit-score-row">' + rating + recommendationHtml + '</div></div>' + (contentText(visit.visitedOn) ? '<span>' + contentText(visit.visitedOn) + '</span>' : '') + '</div>';
-  if (contentText(visit.experience)) html += '<p class="visit-note">' + contentText(visit.experience) + '</p>';
-  dimensions.forEach(function (dimension) {
-    var assessment = visit[dimension.key] || {};
-    var level = ['high', 'medium', 'low'].indexOf(assessment.level) !== -1 && contentText(assessment.reason)
-      ? assessment.level : 'unknown';
-    html += '<div class="assessment"><div class="assessment-heading"><strong>' + dimension.label +
-      '</strong><span class="level level-' + level + '">' + (dimension.levels[level] || '暂无评估') + '</span></div>';
-    if (contentText(assessment.reason)) html += '<p>' + contentText(assessment.reason) + '</p>';
-    if (dimension.key === 'child' && contentText(assessment.ages)) html += '<p>年龄参考：' + contentText(assessment.ages) + '</p>';
-    html += '</div>';
-  });
-  if (contentText(visit.notes)) html += '<p class="visit-note">补充说明：' + contentText(visit.notes) + '</p>';
-  return html + '</section>';
+    '<div class="visit-rating"><strong>11 评分</strong><div class="visit-score-row">' + rating + '</div></div></div>' + photo + '</section>';
 }
 
 function renderDetail() {
   var p = findPlace(state.currentDetailId);
   if (!p) { closeAllDrawers(); return; }
+  var isPublic = !!publicVisitFor(p);
   var focusSnapshot = captureFocus($('detailContent'));
   var cat = categoryOf(p.category);
   var locationText = userPos
@@ -1960,7 +1945,7 @@ function renderDetail() {
       '<div class="d-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
       '<div class="detail-main">' +
         '<div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' +
-        '<div class="d-cat">' + cat.label + ' · 📍 ' + escapeHtml(locationText) + '</div>' +
+        '<div class="d-cat">' + cat.label + (isPublic ? '' : ' · 📍 ' + escapeHtml(locationText)) + '</div>' +
       '</div>' +
     '</div>' +
     '<div class="detail-actions"><button class="btn-nav" id="btnNav">🧭 导航去这里</button>' +
@@ -1970,8 +1955,8 @@ function renderDetail() {
       '<button class="btn-ghost" id="btnSavePublic">＋ 添加到我的地图</button>');
 
   restoreFocus($('detailContent'), focusSnapshot);
-  $('btnNav').addEventListener('click', function () { openNavigation(p); });
-  $('btnCopyDestination').addEventListener('click', function () { copyDestinationWithToast(p); });
+  if ($('btnNav')) $('btnNav').addEventListener('click', function () { openNavigation(p); });
+  if ($('btnCopyDestination')) $('btnCopyDestination').addEventListener('click', function () { copyDestinationWithToast(p); });
   if ($('btnSavePublic')) $('btnSavePublic').addEventListener('click', function () { openAddForm(p); });
   if ($('btnDeletePlace')) $('btnDeletePlace').addEventListener('click', async function () {
     if (state.protectionMode) {

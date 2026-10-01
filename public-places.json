@@ -98,7 +98,8 @@
       "category": "mall",
       "lat": 31.225811,
       "lng": 121.49827,
-      "visitedOn": "2026-09-19"
+      "visitedOn": "2026-09-19",
+      "photo": "assets/visits/bfc-20260919.jpg"
     },
     {
       "provider": "tencent",
@@ -115,7 +116,7 @@
       "poiId": "6829943840935638200",
       "name": "泉州滨江皇冠假日酒店",
       "address": "福建省泉州市鲤城区浮桥街道江滨南路2233号(近动车站、西街)",
-      "category": "other",
+      "category": "hotel",
       "lat": 24.931276,
       "lng": 118.559322,
       "visitedOn": "2026-09-01"

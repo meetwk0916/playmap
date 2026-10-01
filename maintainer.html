@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>维护 11 评分 · 11去哪玩</title>
+<title>维护 11 到访记录 · 11去哪玩</title>
 <style>
 :root { --bg: #F7F5EE; --card: #FFFEFA; --text: #24352B; --muted: #5C6B60; --primary: #23543D; --line: #E7E2D2; --gold: #A66D00; --white: #FFFFFF; --danger: #C8493B; }
 * { box-sizing: border-box; }
@@ -18,7 +18,7 @@ p { margin: 8px 0 18px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; margin: 24px 0; }
 label { display: block; font-weight: 600; margin: 18px 0 8px; }
 input, select, textarea, button { font: inherit; }
-select, textarea { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--text); background: var(--white); }
+select, textarea, input[type="number"], input[type="file"] { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--text); background: var(--white); }
 textarea { resize: vertical; min-height: 110px; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
 button { min-height: 44px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--text); cursor: pointer; }
@@ -33,43 +33,39 @@ button:disabled { opacity: .5; cursor: default; }
 #status { color: var(--muted); }
 #error { color: var(--danger); }
 #output { font: 13px/1.6 monospace; min-height: 220px; }
+#photoPreview { display: block; max-width: 100%; max-height: 300px; margin-top: 12px; border-radius: 12px; }
+#reviewPhoto { display: block; max-width: 100%; max-height: 300px; border-radius: 12px; }
 @media (max-width: 420px) { main { margin: 20px auto; padding: 0 14px; } .card { padding: 18px; } }
 </style>
 </head>
 <body>
 <main>
 <a href="index.html">← 查看地图</a>
-<h1>维护 11 评分</h1>
-<p class="muted">回想一次真实出游，回答三个小问题。逐项保存到本地草稿，最后一起导出发布。</p>
+<h1>维护 11 到访记录</h1>
+<p class="muted">为到访地点直接打分，选一张打卡照，保存草稿后导出发布。</p>
 <p id="error" role="alert"></p>
 <section id="choose" class="card">
-<h2>这次评价哪个地点？</h2>
+<h2>这次记录哪个地点？</h2>
 <label for="place">待维护地点</label>
 <select id="place" disabled></select>
-<p class="muted">已有评价会自动带入。新增地点请从本地地图搜索，选择「11 去过，填写评分」。</p>
+<p class="muted">已有评分和照片会自动带入。新增地点请从本地地图搜索，选择「11 去过，填写评分」。</p>
 <button id="start" class="primary" disabled>开始填写</button>
 </section>
 <form id="question" class="card" hidden>
-<p id="progress"></p>
 <h2 id="heading" tabindex="-1"></h2>
-<p id="prompt" class="muted"></p>
-<label for="level">整体感受</label>
-<select id="level" aria-describedby="prompt"></select>
-<label for="reason">用一句话说说原因</label>
-<textarea id="reason" maxlength="1000" aria-describedby="hint"></textarea>
-<p id="hint" class="muted"></p>
-<div id="recommendationQuestion" hidden>
-<label for="recommendation">是否推荐</label>
-<p class="muted">综合这次出游，你愿意推荐其他家庭来吗？此项不参与星级计算。</p>
-<select id="recommendation"><option value="">暂不填写</option><option value="strong">强烈推荐</option><option value="general">推荐</option><option value="no">不推荐</option></select>
-</div>
-<div class="actions"><button id="back" type="button">上一步</button><button id="next" class="primary">下一步</button></div>
+<label for="rating">11 评分（1–5 星，可填一位小数）</label>
+<input id="rating" type="number" min="1" max="5" step="0.1" inputmode="decimal" placeholder="暂不评分">
+<label for="photoInput">11 到访打卡照（最多一张）</label>
+<input id="photoInput" type="file" accept="image/*">
+<img id="photoPreview" alt="当前打卡照预览" hidden>
+<label id="removePhotoLabel" hidden><input id="removePhoto" type="checkbox"> 移除当前照片</label>
+<p class="muted">照片会缩小并去除原图元数据；保存草稿后随 JSON 一起导出。请只选可公开的照片。</p>
+<div class="actions"><button id="back" type="button">返回地点列表</button><button id="next" class="primary">预览记录</button></div>
 </form>
 <section id="review" class="card" hidden>
 <h2 id="reviewTitle" tabindex="-1"></h2>
-<div class="score-row"><p id="score"></p><span id="recommendationPreview" hidden></span></div>
-<div id="summary"></div>
-<p class="muted">三个维度等权平均，高 / 中 / 低对应 5 / 3 / 1 分。缺少任一项评价或原因时，页面显示「暂无评分」。</p>
+<div class="score-row"><p id="score"></p></div>
+<img id="reviewPhoto" alt="11 到访打卡照预览" hidden>
 <div class="actions"><button id="edit">返回修改</button><button id="save" class="primary">保存到本地草稿</button></div>
 <details><summary>查看本次预览数据</summary><label for="output">本次完整数据</label><textarea id="output" readonly></textarea></details>
 <div class="actions"><button id="another">保存并维护其他地点</button></div>
@@ -88,15 +84,9 @@ button:disabled { opacity: .5; cursor: default; }
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
-const dimensions = [
-  { key: 'fun', label: '是否好玩', options: ['很好玩', '比较好玩', '有限'], prompt: '11 有没有投入地玩？哪些内容让孩子想继续玩？', hint: '可以说最喜欢的玩法、参与感，或者哪里比较无聊。' },
-  { key: 'child', label: '儿童友好', options: ['很友好', '较友好', '有限'], prompt: '这里的空间和活动适合 11 吗？孩子能自在参与，还是经常需要你帮忙？', hint: '可以说活动空间、适龄程度、环境舒适度或需要照看的地方。' },
-  { key: 'parent', label: '便利程度', options: ['很便利', '较便利', '较费心'], prompt: '带娃这一路省心吗？有哪些方便的地方，又有哪些麻烦？', hint: '可以说停车、步行距离、推车、吃饭、休息或排队，以这次感受为准。' }
-];
-const levels = ['high', 'medium', 'low'];
 const DRAFT_KEY = 'playmap_maintainer_draft_v1';
 let draft, base, savedDraft, savedRaw = null, storageBlocked = false;
-let selected = 0, step = 0, answers = [], dirty = false;
+let selected = 0, photo = '', dirty = false;
 function validData(data) {
   return data && Array.isArray(data.places) && data.places.every(p => p && p.provider === 'tencent' &&
     typeof p.poiId === 'string' && p.poiId && typeof p.name === 'string') &&
@@ -142,67 +132,63 @@ function show(id) {
   $('batch').hidden = id === 'question' || !savedDraft;
 }
 function question() {
-  const d = dimensions[step], a = answers[step];
+  const place = draft.places[selected];
   show('question');
-  $('progress').textContent = draft.places[selected].name + ' · ' + (step + 1) + ' / 3';
-  $('heading').textContent = d.label;
-  $('prompt').textContent = d.prompt;
-  $('hint').textContent = d.hint;
-  $('level').replaceChildren(...d.options.map((label, i) => new Option(label, levels[i])), new Option('还不确定，暂不评价', ''));
-  $('level').value = a.level;
-  $('reason').value = a.reason;
-  updateRequired();
-  $('back').disabled = step === 0;
-  $('recommendationQuestion').hidden = step !== 2;
-  $('next').textContent = step === 2 ? '预览评分' : '下一步';
+  $('heading').textContent = place.name + ' · 11 到访记录';
+  $('rating').value = typeof place.score === 'number' ? String(place.score) : '';
+  photo = typeof place.photo === 'string' ? place.photo : '';
+  $('photoInput').value = '';
+  $('removePhoto').checked = false;
+  updatePhotoPreview();
   $('heading').focus();
 }
-function updateRequired() { $('reason').required = !!$('level').value; $('reason').setCustomValidity(''); }
-function capture() {
-  answers[step] = { level: $('level').value, reason: $('reason').value.trim() };
+function updatePhotoPreview() {
+  $('photoPreview').hidden = !photo || $('removePhoto').checked;
+  if (photo) $('photoPreview').src = photo;
+  $('removePhotoLabel').hidden = !photo;
 }
-$('recommendation').addEventListener('change', () => { dirty = true; });
-$('level').addEventListener('change', () => { dirty = true; updateRequired(); });
-$('reason').addEventListener('input', () => { dirty = true; $('reason').setCustomValidity(''); });
+$('rating').addEventListener('input', () => { dirty = true; });
+$('removePhoto').addEventListener('change', () => { dirty = true; updatePhotoPreview(); });
+$('photoInput').addEventListener('change', async () => {
+  const file = $('photoInput').files[0];
+  if (!file) return;
+  try {
+    if (!file.type.startsWith('image/') || file.size > 20 * 1024 * 1024) throw new Error();
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 960 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const next = canvas.toDataURL('image/jpeg', 0.72);
+    if (next.length > 450000) throw new Error();
+    photo = next; $('removePhoto').checked = false; dirty = true;
+    $('error').textContent = ''; updatePhotoPreview();
+  } catch { $('error').textContent = '照片无法处理或超过大小限制，请选一张较小的图片。'; $('photoInput').value = ''; }
+});
 $('start').addEventListener('click', () => {
   selected = Number($('place').value);
-  const recommendation = draft.places[selected].recommendation;
-  $('recommendation').value = ['strong', 'general', 'no'].includes(recommendation) ? recommendation : '';
-  answers = dimensions.map(d => {
-    const a = draft.places[selected][d.key] || {};
-    return { level: levels.includes(a.level) ? a.level : '', reason: typeof a.reason === 'string' ? a.reason : '' };
-  });
-  step = 0; question();
+  question();
 });
-$('back').addEventListener('click', () => { capture(); if (step) { step--; question(); } else { show('choose'); $('start').focus(); } });
+$('back').addEventListener('click', () => { show('choose'); $('start').focus(); });
 $('question').addEventListener('submit', event => {
   event.preventDefault();
-  if ($('level').value && !$('reason').value.trim()) { $('reason').setCustomValidity('请补一句真实原因。'); $('reason').reportValidity(); return; }
-  capture();
-  if (step < 2) { step++; question(); return; }
   const place = draft.places[selected];
-  if ($('recommendation').value) place.recommendation = $('recommendation').value;
-  else delete place.recommendation;
-  $('recommendationPreview').textContent = { strong: '强烈推荐', general: '推荐', no: '不推荐' }[place.recommendation] || '';
-  $('recommendationPreview').hidden = !place.recommendation;
-  dimensions.forEach((d, i) => {
-    // Preserve optional fields (such as ages) and all unrelated place data.
-    if (answers[i].level) place[d.key] = { ...place[d.key], ...answers[i] };
-    else place[d.key] = { ...place[d.key], level: '', reason: answers[i].reason };
-  });
-  const complete = answers.every(a => a.level && a.reason);
-  $('score').textContent = complete ? (answers.reduce((sum, a) => sum + ({ high: 5, medium: 3, low: 1 }[a.level]), 0) / 3).toFixed(1) + ' / 5 星' : '暂无评分';
+  const value = $('rating').value;
+  if (value) place.score = Number(value);
+  else delete place.score;
+  if ($('removePhoto').checked) delete place.photo;
+  else if (photo) place.photo = photo;
+  $('score').textContent = value ? Number(value).toFixed(1) + ' / 5 星' : '暂无评分';
   $('reviewTitle').textContent = place.name + ' · 11 评分';
-  $('summary').replaceChildren(...dimensions.map((d, i) => {
-    const p = document.createElement('p'), title = document.createElement('strong');
-    title.textContent = d.label + ' · ' + (answers[i].level ? d.options[levels.indexOf(answers[i].level)] : '暂无评估');
-    p.append(title, document.createElement('br'), document.createTextNode(answers[i].reason)); return p;
-  }));
+  $('reviewPhoto').hidden = !place.photo;
+  if (place.photo) $('reviewPhoto').src = place.photo;
   $('output').value = JSON.stringify(draft, null, 2) + '\n';
   dirty = true;
   show('review'); $('reviewTitle').focus();
 });
-$('edit').addEventListener('click', () => { step = 0; question(); });
+$('edit').addEventListener('click', question);
 $('save').addEventListener('click', saveDraft);
 $('another').addEventListener('click', () => { if (!saveDraft()) return; show('choose'); $('place').focus(); $('status').textContent = '已保存，可继续维护其他地点。'; });
 $('download').addEventListener('click', () => {
@@ -247,7 +233,7 @@ window.addEventListener('beforeunload', event => { if (dirty) { event.preventDef
     const pending = sessionStorage.getItem('playmap_rating_poi');
     if (pending) {
       const poi = JSON.parse(pending);
-      const categories = ['park', 'playground', 'zoo', 'aquarium', 'museum', 'science', 'library', 'mall', 'water', 'other'];
+      const categories = ['park', 'playground', 'zoo', 'aquarium', 'museum', 'science', 'library', 'mall', 'water', 'hotel', 'other'];
       if (!poi || poi.provider !== 'tencent' || typeof poi.poiId !== 'string' || !poi.poiId.trim() || poi.poiId.length > 100 ||
           typeof poi.name !== 'string' || !poi.name.trim() || poi.name.length > 30 || typeof poi.address !== 'string' || poi.address.length > 120 ||
           !categories.includes(poi.category) || !Number.isFinite(poi.lat) || Math.abs(poi.lat) > 90 || !Number.isFinite(poi.lng) || Math.abs(poi.lng) > 180) {
