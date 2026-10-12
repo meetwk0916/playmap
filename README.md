@@ -27,6 +27,10 @@ npm test
 
 `npm test` 使用 Playwright，并自动启动 4173 端口的静态服务器；首次运行前需安装项目依赖及 Playwright Chromium 运行环境。
 
+首轮本地诊断可用 `npm test -- --max-failures=1`，让运行器在首次失败后停止，避免重复启动故障。根据失败日志判断原因：`browserType.launch` 中的 Chromium 缺失、系统动态库缺失或 macOS `MachPortRendezvousServer ... Permission denied` 表示浏览器启动环境受限；浏览器已启动后的页面断言失败仍需按产品问题排查，不能把首次失败一概归为环境问题。
+
+缺少浏览器时运行 `npx playwright install chromium`；缺少系统依赖时按 Playwright 的系统依赖提示修复；启动权限受限时说明具体限制，使用获准的执行方式或请求必要权限。未启动或未执行的测试不得标为通过。环境修复后，在最终内容上完整运行 `npm run check:design`、`npm test` 和 `git diff --check`，报告实际结果及未通过项；首次失败停止的诊断轮不能替代完整检查，也不代表部署或真人验收。
+
 [检查工作流](.github/workflows/checks.yml) 在推送到 `main` 或向 `main` 提交 PR 时运行上述两项检查，并自动安装 Chromium 及系统依赖。
 
 ## 产品范围
