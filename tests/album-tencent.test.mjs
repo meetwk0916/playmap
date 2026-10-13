@@ -117,6 +117,9 @@ test('browser interruption retains completed results and remaining source identi
     assert.equal(saved.items[0].status, 'success');
     assert.equal(saved.items[1].url, second.url);
     assert.equal(saved.items[1].status, 'pending-retry');
+    const reduced = await queryTencentCandidates({ ...options, checklist: { items: [] }, authorization });
+    assert.equal(reduced.queryHistory.find(record => record.url === second.url).status, 'pending-retry');
+    assert.equal(reduced.queryHistory.find(record => record.url === second.url).attempts, 0);
     const resumedPage = await options.page.context().newPage();
     await resumedPage.route('http://127.0.0.1:4173/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html>local query' }));
     let resumedRequests = 0;
@@ -144,7 +147,7 @@ test('success survives empty or smaller scope and temporary authorization or exc
     assert.equal(requests.length, 2);
     // An existing version-one checkpoint need not already contain a separate cache.
     const legacy = JSON.parse(await readFile(options.outputPath, 'utf8'));
-    delete legacy.successfulQueries;
+    delete legacy.queryHistory;
     await writeFile(options.outputPath, JSON.stringify(legacy));
     for (const change of [
       { checklist: { items: [] } },
@@ -162,15 +165,52 @@ test('success survives empty or smaller scope and temporary authorization or exc
   });
 });
 
-test('malformed or duplicate successful cache entries preserve the checkpoint and send nothing', async () => {
+test('malformed or duplicate query archives preserve the checkpoint and send nothing', async () => {
   await fixture(async (options, requests) => {
     const result = await queryTencentCandidates(options);
-    for (const successfulQueries of [{}, [{}], [{ ...result.items[0], status: 'blocked' }], [result.items[0], result.items[0]]]) {
-      const corrupt = JSON.stringify({ ...result, successfulQueries });
-      await writeFile(options.outputPath, corrupt);
-      await assert.rejects(queryTencentCandidates(options), /checkpoint/i);
-      assert.equal(await readFile(options.outputPath, 'utf8'), corrupt);
-      assert.equal(requests.length, 1);
+    for (const field of ['successfulQueries', 'queryHistory']) {
+      for (const archive of [{}, [{}], [{ ...result.items[0], status: 'excluded' }], [result.items[0], result.items[0]]]) {
+        const corrupt = JSON.stringify({ ...result, [field]: archive });
+        await writeFile(options.outputPath, corrupt);
+        await assert.rejects(queryTencentCandidates(options), /checkpoint/i);
+        assert.equal(await readFile(options.outputPath, 'utf8'), corrupt);
+        assert.equal(requests.length, 1);
+      }
     }
   });
+});
+
+test('unfinished and blocked query responses survive omitted or forbidden scope before explicit retry', async () => {
+  for (const failed of [{ status: 120, message: 'rate limit' }, { status: 110, message: 'domain denied' }]) {
+    await fixture(async (options, requests) => {
+      const second = { ...item, url: 'https://photos.google.com/album/synthetic/photo/two' };
+      const authorization = { ...approval, approved: [...approval.approved, { url: second.url, ...second.location }] };
+      const full = { ...options, checklist: { items: [item, second] }, authorization, retryDelaysMs: [] };
+      const initial = await queryTencentCandidates(full);
+      const failedRecord = initial.items[0];
+      assert.equal(requests.length, 2);
+      // Existing checkpoints may only have current items and a success cache.
+      const legacy = JSON.parse(await readFile(options.outputPath, 'utf8'));
+      legacy.successfulQueries = legacy.queryHistory.filter(record => record.status === 'success');
+      delete legacy.queryHistory;
+      await writeFile(options.outputPath, JSON.stringify(legacy));
+      for (const change of [
+        { checklist: { items: [] } },
+        { checklist: { items: [second] } },
+        { authorization: null },
+        { checklist: { items: [{ ...item, excluded: true }, second] } },
+      ]) {
+        const gated = await queryTencentCandidates({ ...full, ...change });
+        assert.deepEqual(gated.queryHistory.find(record => record.url === url), failedRecord);
+        assert.equal(requests.length, 2);
+        for (const record of gated.items.filter(record => record.status !== 'success')) assert.deepEqual(record.candidates, []);
+      }
+      await assert.rejects(queryTencentCandidates({ ...full, browserKey: null }), /browser key/i);
+      assert.deepEqual(JSON.parse(await readFile(options.outputPath, 'utf8')).queryHistory.find(record => record.url === url), failedRecord);
+      const restored = await queryTencentCandidates(full);
+      assert.equal(requests.length, 3);
+      assert.equal(restored.items[1].reused, true);
+      assert.deepEqual(restored.items[0].responses.map(response => response.status), [failed.status, 0]);
+    }, [failed, success]);
+  }
 });
