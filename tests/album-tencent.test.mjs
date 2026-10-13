@@ -15,7 +15,8 @@ async function fixture(run, responses = [success]) {
   const dir = await mkdtemp(join(tmpdir(), 'album-tencent-'));
   const browser = await chromium.launch();
   try {
-    const page = await browser.newPage();
+    const context = await browser.newContext();
+    const page = await context.newPage();
     await page.route('http://127.0.0.1:4173/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html>local query' }));
     await page.goto('http://127.0.0.1:4173/');
     const requests = [];
@@ -114,5 +115,19 @@ test('browser interruption retains completed results and remaining source identi
     assert.equal(saved.items[0].status, 'success');
     assert.equal(saved.items[1].url, second.url);
     assert.equal(saved.items[1].status, 'pending-retry');
+    const resumedPage = await options.page.context().newPage();
+    await resumedPage.route('http://127.0.0.1:4173/**', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html>local query' }));
+    let resumedRequests = 0;
+    await resumedPage.route('https://apis.map.qq.com/**', route => {
+      resumedRequests++;
+      const callback = new URL(route.request().url()).searchParams.get('callback');
+      return route.fulfill({ contentType: 'application/javascript; charset=utf-8', body: `${callback}(${JSON.stringify(success)})` });
+    });
+    await resumedPage.goto('http://127.0.0.1:4173/');
+    const resumed = await queryTencentCandidates({ ...options, page: resumedPage, checklist: { items: [item, second] }, authorization });
+    assert.equal(resumed.items[0].reused, true);
+    assert.equal(resumed.items[1].status, 'success');
+    assert.equal(resumedRequests, 1);
+
   }, [success, 'close-page']);
 });
