@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtemp, readFile, rm, mkdir, symlink } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, mkdir, symlink, writeFile, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium } from '@playwright/test';
@@ -131,4 +131,107 @@ test('hidden close controls and hidden details cannot prevent reading sequential
   const html = fixture().replace('<button aria-label="打开信息">info</button>', '<div style="display:none"><button aria-label="关闭信息">close old info</button><c-wiz data-p=&quot;old&quot;><dl><dt aria-label="文件名：old.jpg">old.jpg</dt></dl></c-wiz></div><button aria-label="打开信息">info</button>');
   const result = await runFixture(html.replaceAll("document.querySelector('button')", "document.querySelector('button[aria-label=\"打开信息\"]')"), [first, second]);
   assert.deepEqual(result.items.map(item => item.readStatus), ['read', 'read']);
+});
+
+
+test('interrupted photo reading resumes without rereading completed sources or losing pending scope', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'album-resume-'));
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.route('https://photos.google.com/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: fixture() }));
+    const outputPath = join(dir, 'checklist.json');
+    const options = { page, albumUrl, itemUrls: [first, second, first], from: '2026-09-01', to: '2026-09-30', outputPath, repoRoot: resolve('.'), detailTimeoutMs: 300 };
+    const navigate = page.goto.bind(page);
+    page.goto = async (url, config) => { if (url === second) throw new Error('Browser disconnected'); return navigate(url, config); };
+    await assert.rejects(collectAlbumChecklist(options), /Browser disconnected/);
+    const saved = JSON.parse(await readFile(outputPath, 'utf8'));
+    assert.deepEqual(saved.items.map(item => item.readStatus), ['read', 'pending-retry']);
+    assert.equal(saved.indexedReadComplete, false);
+    saved.review = { pending: [first], confirmedBatches: [] };
+    await writeFile(outputPath, JSON.stringify(saved));
+    const visited = [];
+    page.goto = async (url, config) => { visited.push(url); return navigate(url, config); };
+    const result = await collectAlbumChecklist(options);
+    assert.deepEqual(visited, [second]);
+    assert.equal(result.items.length, 2);
+    assert.equal(result.indexedReadComplete, true);
+    assert.equal(result.readComplete, false);
+    assert.deepEqual(result.review, { pending: [first], confirmedBatches: [] });
+    assert.deepEqual(result.sourceIndex, [first, second]);
+    await assert.rejects(collectAlbumChecklist({ ...options, itemUrls: [first] }), /scope/);
+    assert.equal((JSON.parse(await readFile(outputPath, 'utf8'))).items.length, 2);
+  } finally { await browser.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test('private output rejects another Git checkout and preserves unreadable progress', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'album-progress-'));
+  const options = { page: {}, albumUrl, itemUrls: [], from: '2026-09-01', to: '2026-09-30', repoRoot: resolve('.') };
+  try {
+    const outputPath = join(dir, 'broken.json');
+    await writeFile(outputPath, '{unfinished');
+    await assert.rejects(collectAlbumChecklist({ ...options, outputPath }), /Cannot read existing/);
+    assert.equal(await readFile(outputPath, 'utf8'), '{unfinished');
+    const otherCheckout = join(dir, 'other-checkout');
+    await mkdir(otherCheckout);
+    await writeFile(join(otherCheckout, '.git'), 'gitdir: /synthetic/git/worktrees/other');
+    await assert.rejects(collectAlbumChecklist({ ...options, outputPath: join(otherCheckout, 'private.json') }), /Git checkout/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+
+test('a failed progress save retains the last usable file and completed photo', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'album-save-'));
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    await page.route('https://photos.google.com/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: fixture() }));
+    const outputPath = join(dir, 'checklist.json');
+    const navigate = page.goto.bind(page);
+    let lastSaved;
+    page.goto = async (url, config) => {
+      if (url === second) { lastSaved = await readFile(outputPath, 'utf8'); await chmod(dir, 0o500); }
+      return navigate(url, config);
+    };
+    await assert.rejects(collectAlbumChecklist({ page, albumUrl, itemUrls: [first, second], from: '2026-09-01', to: '2026-09-30', outputPath, repoRoot: resolve('.'), detailTimeoutMs: 300 }), /EACCES/);
+    assert.equal(await readFile(outputPath, 'utf8'), lastSaved);
+    assert.deepEqual(JSON.parse(lastSaved).items.map(item => item.readStatus), ['read', 'pending-retry']);
+  } finally { await chmod(dir, 0o700); await browser.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test('pending details retry while out-of-window photos stay visible and do not imply full coverage', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'album-retry-'));
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    let html = fixture({ stale: true });
+    await page.route('https://photos.google.com/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: html }));
+    const options = { page, albumUrl, itemUrls: [first, second], from: '2026-09-01', to: '2026-09-30', outputPath: join(dir, 'checklist.json'), repoRoot: resolve('.'), detailTimeoutMs: 300 };
+    const pending = await collectAlbumChecklist(options);
+    assert.deepEqual(pending.items.map(item => item.readStatus), ['read', 'pending-retry']);
+    html = fixture().replace('2026年9月13日', '2026年8月31日');
+    const resumed = await collectAlbumChecklist(options);
+    assert.deepEqual(resumed.items.map(item => item.readStatus), ['read', 'out-of-window']);
+    assert.equal(resumed.items[1].date, '2026-08-31');
+    assert.equal(resumed.indexedReadComplete, true);
+    assert.equal(resumed.readComplete, false);
+    assert.equal(resumed.review.status, 'not-started');
+  } finally { await browser.close(); await rm(dir, { recursive: true, force: true }); }
+});
+
+test('malformed completed progress is preserved rather than treated as a finished photo', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'album-invalid-'));
+  try {
+    const outputPath = join(dir, 'checklist.json');
+    const corrupt = JSON.stringify({ albumUrl, from: '2026-09-01', to: '2026-09-30', sourceIndex: [first], items: [{ url: first, date: null, location: null, mediaType: 'photo', readStatus: 'read' }] });
+    await writeFile(outputPath, corrupt);
+    await assert.rejects(collectAlbumChecklist({ page: {}, albumUrl, itemUrls: [first], from: '2026-09-01', to: '2026-09-30', outputPath, repoRoot: resolve('.') }), /incompatible/);
+    assert.equal(await readFile(outputPath, 'utf8'), corrupt);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
+test('an invalid date in photo details stays pending and can safely resume', async () => {
+  const result = await runFixture(fixture().replace('2026年9月13日', '2026年2月30日'));
+  assert.equal(result.items[0].readStatus, 'pending-retry');
+  assert.equal(result.items[0].date, null);
 });
