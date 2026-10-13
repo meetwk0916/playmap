@@ -14,8 +14,10 @@ export async function queryTencentCandidates({ page, checklist, authorization, b
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0 || timeoutMs > 60000) throw new Error('Expected a bounded request timeout');
   const target = await validatePrivateOutput(outputPath, repoRoot);
   const saved = await readPrivateJson(target);
-  if (saved && (saved.version !== 1 || saved.recipient !== 'tencent' || saved.purpose !== 'candidate-poi-matching' || !Array.isArray(saved.items) || new Set(saved.items.map(record => record?.url)).size !== saved.items.length || saved.items.some(record => !record || !validSource(record.url) || !validCoordinate(record.location) || !Array.isArray(record.candidates) || !Array.isArray(record.responses) || record.candidates.some(poi => !validCandidate(poi)) || !Number.isInteger(record.attempts) || record.attempts < 0 || record.attempts !== record.responses.length || (record.status === 'success' && record.responses.at(-1)?.status !== 0) || !['success', 'blocked', 'pending-retry', 'unauthorized', 'excluded', 'skipped'].includes(record.status)))) throw new Error('Invalid private query checkpoint; preserved without overwrite');
-  const result = { version: 1, recipient: 'tencent', purpose: 'candidate-poi-matching', maxAttempts: retryDelaysMs.length + 1, items: [] };
+  const validRecord = record => record && validSource(record.url) && validCoordinate(record.location) && Array.isArray(record.candidates) && Array.isArray(record.responses) && record.candidates.every(validCandidate) && Number.isInteger(record.attempts) && record.attempts >= 0 && record.attempts === record.responses.length && (record.status !== 'success' || record.responses.at(-1)?.status === 0) && ['success', 'blocked', 'pending-retry', 'unauthorized', 'excluded', 'skipped'].includes(record.status);
+  if (saved && (saved.version !== 1 || saved.recipient !== 'tencent' || saved.purpose !== 'candidate-poi-matching' || !Array.isArray(saved.items) || new Set(saved.items.map(record => record?.url)).size !== saved.items.length || !saved.items.every(validRecord) || (saved.successfulQueries !== undefined && (!Array.isArray(saved.successfulQueries) || !saved.successfulQueries.every(record => validRecord(record) && record.status === 'success') || new Set(saved.successfulQueries.map(identity)).size !== saved.successfulQueries.length)))) throw new Error('Invalid private query checkpoint; preserved without overwrite');
+  const successes = new Map([...(saved?.successfulQueries || []), ...(saved?.items || []).filter(record => record.status === 'success')].map(record => [identity(record), record]));
+  const result = { version: 1, recipient: 'tencent', purpose: 'candidate-poi-matching', maxAttempts: retryDelaysMs.length + 1, items: [], successfulQueries: [...successes.values()] };
   const approved = authorization?.recipient === 'tencent' && authorization?.purpose === result.purpose && Array.isArray(authorization.approved) ? authorization.approved : [];
   const seen = new Set();
   for (const item of checklist.items) {
@@ -30,7 +32,7 @@ export async function queryTencentCandidates({ page, checklist, authorization, b
     else if (!approved.some(scope => scope.url === item.url && scope.latitude === item.location.latitude && scope.longitude === item.location.longitude)) {
       record.status = 'unauthorized'; record.reason = 'Explicit Tencent coordinate approval required';
     } else {
-      const cached = saved?.items.find(previous => identity(previous) === identity(item) && previous.status === 'success');
+      const cached = successes.get(identity(item));
       if (cached && cached.responses.at(-1)?.status === 0) {
         record = { ...cached, reused: true }; result.items[result.items.length - 1] = record;
       }
@@ -65,6 +67,8 @@ export async function queryTencentCandidates({ page, checklist, authorization, b
           if (!pois.has(poi.id)) pois.set(poi.id, { provider: 'tencent', poiId: poi.id, name: poi.title, address: typeof poi.address === 'string' ? poi.address : '', lat: poi.location.lat, lng: poi.location.lng });
         }
         record.candidates = [...pois.values()]; record.status = 'success'; delete record.reason;
+        successes.set(identity(record), record);
+        result.successfulQueries = [...successes.values()];
       } else if (response?.status === 120) { record.status = 'pending-retry'; record.reason = 'Tencent rate limit; bounded attempts exhausted'; }
       else { record.status = 'blocked'; record.reason = `Tencent query blocked: ${response?.status ?? 'network/invalid-response'} ${response?.message || ''}`; }
       await writePrivateJson(target, result);

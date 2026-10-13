@@ -93,6 +93,8 @@ test('changed coordinate must be separately approved and cannot reuse the previo
     assert.equal(requests.length, 2);
     assert.equal(requests[1].searchParams.get('location'), '31.3,121.5');
     assert.equal(result.items[0].reused, undefined);
+    assert.equal((await queryTencentCandidates(options)).items[0].reused, true);
+    assert.equal(requests.length, 2);
   });
 });
 
@@ -130,4 +132,45 @@ test('browser interruption retains completed results and remaining source identi
     assert.equal(resumedRequests, 1);
 
   }, [success, 'close-page']);
+});
+
+test('success survives empty or smaller scope and temporary authorization or exclusion changes', async () => {
+  await fixture(async (options, requests) => {
+    const second = { ...item, url: 'https://photos.google.com/album/synthetic/photo/two' };
+    const checklist = { items: [item, second] };
+    const authorization = { ...approval, approved: [...approval.approved, { url: second.url, ...second.location }] };
+    const full = { ...options, checklist, authorization };
+    await queryTencentCandidates(full);
+    assert.equal(requests.length, 2);
+    // An existing version-one checkpoint need not already contain a separate cache.
+    const legacy = JSON.parse(await readFile(options.outputPath, 'utf8'));
+    delete legacy.successfulQueries;
+    await writeFile(options.outputPath, JSON.stringify(legacy));
+    for (const change of [
+      { checklist: { items: [] } },
+      { checklist: { items: [second] } },
+      { authorization: null },
+      { checklist: { items: [{ ...item, excluded: true }, { ...second, reviewStatus: 'excluded' }] } },
+    ]) {
+      const gated = await queryTencentCandidates({ ...full, ...change });
+      for (const record of gated.items.filter(record => record.status !== 'success')) assert.deepEqual(record.candidates, []);
+      assert.equal(requests.length, 2);
+      const restored = await queryTencentCandidates(full);
+      assert.deepEqual(restored.items.map(record => record.reused), [true, true]);
+      assert.equal(requests.length, 2);
+    }
+  });
+});
+
+test('malformed or duplicate successful cache entries preserve the checkpoint and send nothing', async () => {
+  await fixture(async (options, requests) => {
+    const result = await queryTencentCandidates(options);
+    for (const successfulQueries of [{}, [{}], [{ ...result.items[0], status: 'blocked' }], [result.items[0], result.items[0]]]) {
+      const corrupt = JSON.stringify({ ...result, successfulQueries });
+      await writeFile(options.outputPath, corrupt);
+      await assert.rejects(queryTencentCandidates(options), /checkpoint/i);
+      assert.equal(await readFile(options.outputPath, 'utf8'), corrupt);
+      assert.equal(requests.length, 1);
+    }
+  });
 });

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium } from '@playwright/test';
 import { collectAlbumChecklist } from '../scripts/album-checklist.mjs';
+import { queryTencentCandidates } from '../scripts/album-tencent.mjs';
 
 const albumUrl = 'https://photos.google.com/album/synthetic';
 const first = `${albumUrl}/photo/one`;
@@ -234,4 +235,31 @@ test('an invalid date in photo details stays pending and can safely resume', asy
   const result = await runFixture(fixture().replace('2026年9月13日', '2026年2月30日'));
   assert.equal(result.items[0].readStatus, 'pending-retry');
   assert.equal(result.items[0].date, null);
+});
+
+test('rereading pending photos retains exclusions and prevents formerly approved Tencent requests', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'album-excluded-'));
+  const browser = await chromium.launch();
+  try {
+    const page = await browser.newPage();
+    let html = fixture({ stale: true });
+    await page.route('https://photos.google.com/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: html }));
+    for (const exclusion of [{ excluded: true }, { reviewStatus: 'excluded' }]) {
+      html = fixture({ stale: true });
+      const outputPath = join(dir, `${Object.keys(exclusion)[0]}.json`);
+      const options = { page, albumUrl, itemUrls: [second], from: '2026-09-01', to: '2026-09-30', outputPath, repoRoot: resolve('.'), detailTimeoutMs: 300 };
+      const pending = await collectAlbumChecklist(options);
+      Object.assign(pending.items[0], exclusion, { note: 'Maintain exclusion after retry' });
+      await writeFile(outputPath, JSON.stringify(pending));
+      html = fixture();
+      const checklist = await collectAlbumChecklist(options);
+      assert.equal(checklist.items[0].readStatus, 'read');
+      assert.equal(checklist.items[0].note, 'Maintain exclusion after retry');
+      const result = await queryTencentCandidates({ page: { evaluate() { throw new Error('Unexpected external request'); } }, checklist,
+        authorization: { recipient: 'tencent', purpose: 'candidate-poi-matching', approved: [{ url: second, latitude: 31.2, longitude: 121.5 }] },
+        outputPath: join(dir, `${Object.keys(exclusion)[0]}-queries.json`), repoRoot: resolve('.') });
+      assert.equal(result.items[0].status, 'excluded');
+      assert.deepEqual(result.items[0].candidates, []);
+    }
+  } finally { await browser.close(); await rm(dir, { recursive: true, force: true }); }
 });

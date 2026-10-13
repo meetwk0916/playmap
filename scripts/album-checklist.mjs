@@ -38,7 +38,8 @@ export async function collectAlbumChecklist({ page, albumUrl, itemUrls, from, to
   for (const url of result.sourceIndex) {
     const index = result.items.findIndex(item => item.url === url);
     if (result.items[index].readStatus !== 'pending-retry') continue;
-    let record = emptyRecord(url);
+    let record = { ...result.items[index], ...emptyRecord(url) };
+    delete record.error;
     try {
       // A fresh document prevents a previous photo's asynchronous detail panel surviving navigation.
       const sentinel = `album-read-${Date.now()}-${Math.random()}`;
