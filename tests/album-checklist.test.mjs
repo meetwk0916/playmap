@@ -120,3 +120,9 @@ test('same-minute stale details with the wrong media key remain pending', async 
   assert.equal(result.items[0].location, null);
   assert.equal(result.items[0].readStatus, 'pending-retry');
 });
+
+test('faded toolbar info button still opens despite a duplicate tooltip label', async () => {
+  const html = fixture().replace('<button aria-label="打开信息">info</button>', '<div aria-label="打开信息">tooltip</div><div style="opacity:0"><button aria-label="打开信息">info</button></div>');
+  const result = await runFixture(html);
+  assert.equal(result.items[0].readStatus, 'read');
+});
