@@ -32,7 +32,7 @@ function fixture({ delay = 0, stale = false, noLocation = false } = {}) {
   <c-wiz><img alt="one.jpg"></c-wiz><script>
   const id = location.pathname.split('/').pop();
   document.querySelector('img').alt = id + '.jpg';
-  document.querySelector('c-wiz').setAttribute('data-media-key', id);
+  document.querySelector('img').closest('c-wiz').setAttribute('data-media-key', id);
   document.querySelector('button').onclick = () => setTimeout(() => {
     const details = document.createElement('aside');
     details.setAttribute('aria-label', '信息');
@@ -125,4 +125,10 @@ test('faded toolbar info button still opens despite a duplicate tooltip label', 
   const html = fixture().replace('<button aria-label="打开信息">info</button>', '<div aria-label="打开信息">tooltip</div><div style="opacity:0"><button aria-label="打开信息">info</button></div>');
   const result = await runFixture(html);
   assert.equal(result.items[0].readStatus, 'read');
+});
+
+test('hidden close controls and hidden details cannot prevent reading sequential photos', async () => {
+  const html = fixture().replace('<button aria-label="打开信息">info</button>', '<div style="display:none"><button aria-label="关闭信息">close old info</button><c-wiz data-p=&quot;old&quot;><dl><dt aria-label="文件名：old.jpg">old.jpg</dt></dl></c-wiz></div><button aria-label="打开信息">info</button>');
+  const result = await runFixture(html.replaceAll("document.querySelector('button')", "document.querySelector('button[aria-label=\"打开信息\"]')"), [first, second]);
+  assert.deepEqual(result.items.map(item => item.readStatus), ['read', 'read']);
 });

@@ -45,11 +45,11 @@ export async function collectAlbumChecklist({ page, albumUrl, itemUrls, from, to
         const mediaId = media?.closest('c-wiz')?.getAttribute('data-media-key');
         const mediaType = media?.tagName === 'VIDEO' || /视频|Video/i.test(label) ? 'video' : media ? 'photo' : 'unknown';
         if (mediaId === expectedId && mediaType === 'video') return { url: location.href, skippedVideo: true };
-        const open = document.querySelector('button[aria-label="打开信息"], button[aria-label="Open info"]');
+        const open = [...document.querySelectorAll('button[aria-label="打开信息"], button[aria-label="Open info"]')].find(node => node.checkVisibility({ checkVisibilityCSS: true }));
         const files = [...document.querySelectorAll('[aria-label^="文件名："], [aria-label^="File name:"]')].filter(visible);
         const file = files.length === 1 ? files[0] : null;
         const panel = file?.closest('dl') || [...document.querySelectorAll('aside[aria-label="信息"], aside[aria-label="Info"]')].find(visible);
-        const close = document.querySelector('button[aria-label="关闭信息"], button[aria-label="Close info"]');
+        const close = [...document.querySelectorAll('button[aria-label="关闭信息"], button[aria-label="Close info"]')].find(visible);
         const didOpen = Boolean(canOpen && mediaId === expectedId && open && !close && !panel);
         if (didOpen) open.click();
         const text = panel?.innerText || '';
