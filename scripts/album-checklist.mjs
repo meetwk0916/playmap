@@ -37,16 +37,19 @@ export async function collectAlbumChecklist({ page, albumUrl, itemUrls, from, to
     while (Date.now() < deadline) {
       const state = await page.evaluate(({ expectedId }) => {
         const visible = node => node.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true }) && !node.closest('[aria-hidden="true"]');
+        // A playing video hides its poster; the active slide still supplies its date and type.
+        const labelled = [...document.querySelectorAll('img[jsname="uLHQEd"], video[aria-label]')].filter(node => visible(node.closest('c-wiz') || node));
+        const media = labelled.length === 1 ? labelled[0] : labelled.length === 0 ? [...document.querySelectorAll('img[alt]')].find(node => /\.(jpg|jpeg|png|heic|mp4|mov)$/i.test(node.alt)) : null;
+        const label = media?.getAttribute('aria-label') || '';
+        const mediaId = media?.closest('c-wiz')?.getAttribute('data-media-key');
+        const mediaType = media?.tagName === 'VIDEO' || /视频|Video/i.test(label) ? 'video' : media ? 'photo' : 'unknown';
+        if (mediaId === expectedId && mediaType === 'video') return { url: location.href, skippedVideo: true };
         const open = [...document.querySelectorAll('[aria-label="打开信息"], [aria-label="Open info"]')].find(visible);
         const files = [...document.querySelectorAll('[aria-label^="文件名："], [aria-label^="File name:"]')].filter(visible);
         const file = files.length === 1 ? files[0] : null;
         const panel = file?.closest('dl') || [...document.querySelectorAll('aside[aria-label="信息"], aside[aria-label="Info"]')].find(visible);
         const close = [...document.querySelectorAll('[aria-label="关闭信息"], [aria-label="Close info"]')].find(visible);
         if (open && !close && !panel) open.click();
-        // A playing video hides its poster; the active slide still supplies its date and type.
-        const labelled = [...document.querySelectorAll('img[jsname="uLHQEd"], video[aria-label]')].filter(node => visible(node.closest('c-wiz') || node));
-        const media = labelled.length === 1 ? labelled[0] : labelled.length === 0 ? [...document.querySelectorAll('img[alt]')].find(node => /\.(jpg|jpeg|png|heic|mp4|mov)$/i.test(node.alt)) : null;
-        const label = media?.getAttribute('aria-label') || '';
         const text = panel?.innerText || '';
         const mediaDate = label.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
         const detailDateText = panel?.querySelector('[aria-label^="拍摄日期："], [aria-label="Date taken:"]')?.textContent || text;
@@ -54,7 +57,6 @@ export async function collectAlbumChecklist({ page, albumUrl, itemUrls, from, to
         const shortDate = detailDateText.match(/(\d{1,2})月(\d{1,2})日/);
         const dateParts = fullDate || (mediaDate && shortDate ? [null, mediaDate[1], shortDate[1], shortDate[2]] : null);
         const date = dateParts ? `${dateParts[1]}-${dateParts[2].padStart(2, '0')}-${dateParts[3].padStart(2, '0')}` : null;
-        const mediaId = media?.closest('c-wiz')?.getAttribute('data-media-key');
         const panelData = panel?.closest('c-wiz')?.getAttribute('data-p') || '';
         const identityMatches = Boolean(mediaId === expectedId && panelData.split('"').includes(expectedId));
         const map = panel?.querySelector('a[href*="maps?q=loc:"]');
@@ -62,8 +64,12 @@ export async function collectAlbumChecklist({ page, albumUrl, itemUrls, from, to
         const noLocation = Boolean(panel?.querySelector('[aria-label="添加位置"], [aria-label="添加位置信息"], [aria-label="Add a location"]'));
         const candidate = coordinate ? { latitude: Number(coordinate[1]), longitude: Number(coordinate[2]) } : null;
         const validLocation = candidate && Number.isFinite(candidate.latitude) && Math.abs(candidate.latitude) <= 90 && Number.isFinite(candidate.longitude) && Math.abs(candidate.longitude) <= 180;
-        return { url: location.href, identityMatches, date, mediaType: media?.tagName === 'VIDEO' || /视频|Video/i.test(label) ? 'video' : media ? 'photo' : 'unknown', location: validLocation ? candidate : null, locationReady: Boolean(validLocation || noLocation) };
+        return { url: location.href, identityMatches, date, mediaType, location: validLocation ? candidate : null, locationReady: Boolean(validLocation || noLocation) };
       }, { expectedId: new URL(url).pathname.split('/').at(-1) });
+      if (state.url === url && state.skippedVideo) {
+        record = { ...record, mediaType: 'video', readStatus: 'skipped-video' };
+        break;
+      }
       if (state.url === url && state.identityMatches && state.date) {
         record = { ...record, date: state.date, mediaType: state.mediaType };
         if (state.locationReady) {

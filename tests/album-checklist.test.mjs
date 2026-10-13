@@ -16,6 +16,7 @@ async function runFixture(html, urls = [first], options = {}) {
   try {
     browser = await chromium.launch();
     const page = await browser.newPage();
+    if (options.observedRequests) page.on('request', request => options.observedRequests.push(request.url()));
     await page.route('https://photos.google.com/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: html }));
     const outputPath = join(dir, 'checklist.json');
     await collectAlbumChecklist({ page, albumUrl, itemUrls: urls, from: '2026-09-01', to: '2026-09-30', outputPath, repoRoot: resolve('.'), detailTimeoutMs: 300, ...options });
@@ -93,7 +94,7 @@ test('a symlinked output cannot write private sources into a repository', async 
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 
-test('playing video uses active slide identity rather than hidden neighboring media and details', async () => {
+test('video is explicitly skipped without requesting or reading its details', async () => {
   const html = `<!doctype html><button aria-label="打开信息">info</button>
     <c-wiz data-media-key="old" data-p='["old"]' style="visibility:hidden"><img jsname="uLHQEd" aria-label="视频 - 2026年9月12日 09:00:00"><dl><dt aria-label="文件名：old.mp4">old.mp4</dt><dt aria-label="拍摄日期：9月12日">9月12日</dt><dt aria-label="拍摄时间：09:00">09:00</dt><a href="https://www.google.com/maps?q=loc:10,20">old</a></dl></c-wiz>
     <c-wiz data-media-key="one"><div style="display:none"><img jsname="uLHQEd" aria-label="视频 - 2026年9月13日 10:59:19"></div><iframe title="视频播放器"></iframe></c-wiz>
@@ -101,8 +102,10 @@ test('playing video uses active slide identity rather than hidden neighboring me
       document.querySelector('button').remove();
       document.body.insertAdjacentHTML('beforeend', '<c-wiz data-p=&quot;one&quot;><dl><dt aria-label="文件名：current.mp4">current.mp4</dt><dt aria-label="拍摄日期：9月13日">9月13日</dt><dt aria-label="拍摄时间：10:59">10:59</dt><a href="https://www.google.com/maps?q=loc:31.2,121.5">位置</a></dl></c-wiz>');
     };</script>`;
-  const result = await runFixture(html);
-  assert.deepEqual(result.items[0], { url: first, date: '2026-09-13', mediaType: 'video', location: { latitude: 31.2, longitude: 121.5 }, locationProvenance: 'unknown', readStatus: 'read' });
+  const observedRequests = [];
+  const result = await runFixture(html.replace("document.querySelector('button').remove();", "fetch('/info-open'); document.querySelector('button').remove();"), [first], { observedRequests });
+  assert.deepEqual(result.items[0], { url: first, date: null, mediaType: 'video', location: null, locationProvenance: 'unknown', readStatus: 'skipped-video' });
+  assert.equal(observedRequests.some(url => url.endsWith('/info-open')), false);
 });
 
 test('an ignored initial info click is retried until the actual panel opens', async () => {
