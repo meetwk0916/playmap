@@ -22,4 +22,5 @@ jobs:
       - run: npm ci
       - run: npm run check:design
       - run: npx playwright install --with-deps chromium
+      - run: npm run test:album
       - run: npm test -- --workers=1

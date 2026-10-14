@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "check:design": "node scripts/check-design-discipline.mjs",
-    "test": "playwright test"
+    "test": "playwright test",
+    "test:album": "node --test tests/album-*.test.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0"
