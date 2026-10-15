@@ -122,3 +122,32 @@ test('incompatible drafts are preserved and changed baseline is flagged', async 
   await expect(page.locator('#baseWarning')).toBeVisible();
   expect(JSON.parse(await page.locator('#batchOutput').inputValue())).toEqual(draft);
 });
+
+test('visit date can be maintained, previewed, exported and resumed without dropping incomplete records', async ({ page }) => {
+  await page.goto('/maintainer.html');
+  await page.locator('#start').click();
+  await page.getByLabel('到访日期').fill('2026-09-10');
+  await page.locator('#next').click();
+  await expect(page.locator('#reviewDate')).toContainText('2026.09.10 · 2岁2个月');
+  await page.locator('#save').click();
+  const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), draftKey);
+  expect(stored.draft.places[0].visitedOn).toBe('2026-09-10');
+  expect(stored.draft.places).toHaveLength(publicData.places.length);
+  await page.reload();
+  await page.locator('#start').click();
+  await expect(page.getByLabel('到访日期')).toHaveValue('2026-09-10');
+  await page.getByLabel('到访日期').fill('');
+  await page.locator('#next').click();
+  expect(JSON.parse(await page.locator('#output').inputValue()).places[0].visitedOn).toBeUndefined();
+  await expect(page.locator('#reviewDate')).toContainText('暂不上图');
+});
+
+test('editing a score preserves an old partial date until the date itself is edited', async ({ page }) => {
+  const data = structuredClone(publicData);
+  data.places[0].visitedOn = '2026-09';
+  await page.route('**/public-places.json', route => route.fulfill({ json: data }));
+  await page.goto('/maintainer.html'); await preview(page);
+  const draft = JSON.parse(await page.locator('#output').inputValue());
+  expect(draft.places[0].visitedOn).toBe('2026-09');
+  await expect(page.locator('#reviewDate')).toContainText('暂不上图');
+});

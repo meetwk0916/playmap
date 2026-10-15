@@ -1,28 +1,6 @@
 const { test, expect } = require('@playwright/test');
-
-const place = {
-  id: 'place-1',
-  name: '测试公园',
-  category: 'park',
-  provider: 'tencent',
-  poiId: 'test-poi-1',
-  address: '测试路 1 号',
-  status: 'wish',
-  rating: 0,
-  lat: 31.23,
-  lng: 121.47,
-  tags: [],
-  practicalNotes: '',
-  visits: [{
-    id: 'visit-1',
-    date: '2026-08-21',
-    durationMinutes: 60,
-    note: '测试记录',
-    photos: ['data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==']
-  }],
-  createdAt: '2026-08-21T00:00:00.000Z'
-};
-
+const { readFileSync } = require('node:fs');
+const { join } = require('node:path');
 const tmapStub = `
   window.TMap = {
     LatLng: function (lat, lng) {
@@ -31,7 +9,8 @@ const tmapStub = `
       this.getLat = function () { return lat; };
       this.getLng = function () { return lng; };
     },
-    Map: function () {
+    Map: function (element, options) {
+      window.__mapOptions = options;
       this.getZoom = function () { return 12; };
       this.getCenter = function () { return new window.TMap.LatLng(31.23, 121.47); };
       this.getBounds = function () {
@@ -92,19 +71,58 @@ const tmapStub = `
   };
 `;
 
+
+const visit = { provider: 'tencent', poiId: 'visit-1', name: '测试到访公园', category: 'park',
+  address: '测试路11号', lat: 31.23, lng: 121.47, score: 4.3, visitedOn: '2026-09-12',
+  photo: 'assets/visits/disney-20260912.jpg' };
+async function serveVisits(page, places = [visit], avatar = 'assets/11-avatar.jpg') {
+  await page.route('**/public-places.json', route => route.fulfill({ json: { avatar, places } }));
+}
 test.beforeEach(async ({ page }) => {
-  await servePublicPlaces(page, []);
-  await page.route('**/map.qq.com/api/gljs**', route => {
-    route.fulfill({ status: 200, contentType: 'application/javascript', body: tmapStub });
-  });
-  await page.addInitScript(seed => {
-    if (sessionStorage.getItem('playmap_test_keep_storage') === '1') return;
-    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 1, places: [seed] }));
-    localStorage.setItem('baby_playmap_seeded_v1', '1');
-    localStorage.setItem('baby_playmap_onboarded', '1');
-  }, place);
-  await page.goto('/index.html');
+  await serveVisits(page);
+  await page.route('**/map.qq.com/api/gljs**', route => route.fulfill({ contentType: 'application/javascript', body: tmapStub }));
+  await page.goto('/');
   await expect.poll(() => page.evaluate(() => typeof window.__openTestPlace)).toBe('function');
+});
+async function openVisit(page, name = visit.name) {
+  await page.getByRole('button', { name: '地点列表', exact: true }).click();
+  await page.locator('#placeList').getByRole('button', { name: new RegExp(name) }).click();
+}
+test('only complete public visits appear in map and filtered list; personal data remains byte-for-byte intact', async ({ page }) => {
+  const raw = JSON.stringify({ version: 1, places: [{ ...visit, poiId: 'personal-only', name: '私人地点', visits: [{ note: '保留原始照片和评分' }] }] });
+  await page.addInitScript(raw => localStorage.setItem('baby_playmap_v1', raw), raw);
+  await serveVisits(page, [visit, { ...visit, poiId: 'no-photo', photo: undefined }, { ...visit, poiId: 'no-score', score: undefined }, { ...visit, poiId: 'no-date', visitedOn: undefined }]);
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: '地点列表', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '地点列表', exact: true }).click();
+  await expect(page.locator('#placeList button')).toHaveCount(1);
+  await expect(page.locator('#placeList')).toContainText(visit.name);
+  expect(await page.evaluate(() => window.__markerLayers[0].geometries.length)).toBe(1);
+  expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe(raw);
+});
+
+test('visit detail keeps one photo, date and age in the corner, with navigation last and no personal actions', async ({ page }) => {
+  await page.goto('/');
+  await openVisit(page);
+  const detail = page.getByRole('dialog', { name: visit.name, exact: true });
+  await expect(detail.getByRole('img', { name: '11 评分：4.3 / 5 星' })).toBeVisible();
+  await expect(detail.locator('time')).toHaveText('2026.09.12');
+  await expect(detail.locator('.stamp-age')).toHaveText('2岁3个月打卡');
+  await expect(detail.locator('.visit-photo')).toHaveCount(1);
+  await expect(detail.getByRole('button', { name: /复制|添加|删除/ })).toHaveCount(0);
+  const nav = detail.getByRole('button', { name: '🧭 导航去这里', exact: true });
+  await expect(nav).toBeVisible();
+  const layout = await detail.evaluate(el => {
+    const photo = el.querySelector('.visit-photo').getBoundingClientRect();
+    const stamp = el.querySelector('.visit-stamp').getBoundingClientRect();
+    const nav = el.querySelector('#btnNav').getBoundingClientRect();
+    return { stampBottom: stamp.bottom, photoTop: photo.top, navTop: nav.top, photoBottom: photo.bottom };
+  });
+  expect(layout.stampBottom).toBeLessThanOrEqual(layout.photoTop);
+  expect(layout.navTop).toBeGreaterThanOrEqual(layout.photoBottom);
+  await page.evaluate(() => { window.__opened = null; window.open = url => { window.__opened = url; return {}; }; });
+  await nav.click();
+  expect(await page.evaluate(() => window.__opened)).toContain('coord:31.23,121.47');
 });
 
 async function readLocationMapState(page) {
@@ -122,85 +140,6 @@ async function readLocationMapState(page) {
   });
 }
 
-test('map exposes only the essential decision controls', async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 812 });
-  await expect(page.getByRole('tablist', { name: '主导航' })).toBeHidden();
-  await expect(page.locator('#searchInput')).toBeVisible();
-  await expect(page.locator('#fab')).toHaveCount(0);
-  await expect(page.locator('#mapCatStrip')).toBeVisible();
-  const locate = page.getByRole('button', { name: '找到我的位置' });
-  await expect(locate).toBeVisible();
-  const locateBox = await locate.boundingBox();
-  expect(locateBox).toMatchObject({ width: 48, height: 48 });
-  expect(375 - locateBox.x - locateBox.width).toBeCloseTo(16, 0);
-  expect(812 - locateBox.y - locateBox.height).toBeCloseTo(18, 0);
-});
-
-test('active category keeps a weighted, spaced shortlist of online candidates', async ({ page }) => {
-  await page.setViewportSize({ width: 375, height: 812 });
-  const onlinePois = [
-    { id: 'far-first', title: '远处公园', category: '旅游景点:公园', location: { lat: 31.295, lng: 121.545 } },
-    { id: 'wrong-category', title: '附近商场', category: '购物:购物中心', location: { lat: 31.285, lng: 121.535 } },
-    { id: 'near-saved', title: '公园内部景点', category: '旅游景点:公园', location: { lat: 31.206, lng: 121.406 } },
-    { id: 'center-late', title: '中心公园', category: '旅游景点:公园', location: { lat: 31.23, lng: 121.47 } },
-    { id: 'candidate-1', title: '候选公园 1', category: '旅游景点:公园', location: { lat: 31.21, lng: 121.45 } },
-    { id: 'candidate-2', title: '候选公园 2', category: '旅游景点:公园', location: { lat: 31.21, lng: 121.50 } },
-    { id: 'candidate-3', title: '候选公园 3', category: '旅游景点:公园', location: { lat: 31.25, lng: 121.42 } },
-    { id: 'candidate-4', title: '候选公园 4', category: '旅游景点:公园', location: { lat: 31.25, lng: 121.52 } },
-    { id: 'candidate-5', title: '候选公园 5', category: '旅游景点:公园', location: { lat: 31.27, lng: 121.45 } },
-    { id: 'candidate-6', title: '候选公园 6', category: '旅游景点:公园', location: { lat: 31.27, lng: 121.50 } },
-    { id: 'candidate-7', title: '候选公园 7', category: '旅游景点:公园', location: { lat: 31.29, lng: 121.42 } }
-  ];
-  await page.route('**/ws/place/v1/search**', async route => {
-    const url = new URL(route.request().url());
-    const callback = url.searchParams.get('callback');
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/javascript',
-      body: `${callback}(${JSON.stringify({ status: 0, count: onlinePois.length, data: onlinePois })})`
-    });
-  });
-  await page.evaluate(seed => {
-    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 2, places: [seed] }));
-    localStorage.setItem('baby_playmap_seeded_categories_v1', 'true');
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-  }, { ...place, lat: 31.205, lng: 121.405 });
-  await page.reload();
-
-  await page.locator('#mapCatStrip').getByRole('button', { name: '🌳 公园' }).click();
-  await expect.poll(() => page.evaluate(() => window.__markerLayers[0].geometries.length)).toBe(9);
-  const markerIds = await page.evaluate(() => window.__markerLayers[0].geometries.map(marker => marker.id));
-  expect(markerIds[1]).toBe('explore-center-late');
-  expect(markerIds).not.toContain('explore-wrong-category');
-  expect(markerIds).not.toContain('explore-near-saved');
-  expect(await page.evaluate(() => window.__markerLayers[0].geometries[1].styleId)).toBe('park-explore');
-  await expect(page.locator('#toast')).toContainText('已显示 8 个附近候选，移动地图查看更多');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places)).toHaveLength(1);
-
-  await page.evaluate(() => window.__openMarkerById('explore-center-late'));
-  await expect(page.getByRole('dialog', { name: '中心公园' })).toBeVisible();
-  await expect(page.getByRole('button', { name: '添加到我的地图' })).toBeVisible();
-});
-
-test('first use opens the map directly with a permanent data and privacy entry', async ({ page }) => {
-  await page.evaluate(() => {
-    localStorage.removeItem('baby_playmap_onboarded');
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-  });
-  await page.reload();
-
-  await expect(page.locator('#welcome')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: '设置' })).toHaveCount(0);
-  await expect(page.getByRole('status')).toContainText('地点与旧档案只保存在当前浏览器');
-
-  await page.getByRole('button', { name: '数据与隐私' }).click();
-  const dialog = page.getByRole('dialog', { name: '数据与隐私' });
-  await expect(dialog).toContainText('只保存在当前浏览器');
-  await expect(dialog).toContainText('清除浏览器数据或更换设备会丢失');
-  await expect(dialog).toContainText('腾讯地图');
-  await expect(dialog).not.toContainText('V1.2');
-  await expect(dialog.getByText(/导入|导出|腾讯地图 Key/)).toHaveCount(0);
-});
 
 test('location is requested only after the user activates the map control', async ({ page }) => {
   await page.addInitScript(() => {
@@ -335,415 +274,6 @@ test('location recentering is immediate when reduced motion is requested', async
   await expect.poll(() => page.evaluate(() => window.__mapEaseToCalls.at(-1).duration)).toBe(0);
 });
 
-test('production placeholders do not configure an invalid map proxy', async ({ page }) => {
-  const mapConfig = await page.evaluate(() => ({
-    securityConfig: window._TMapSecurityConfig,
-    anchors: window.__markerStyleOptions.map(options => options.anchor)
-  }));
-
-  expect(mapConfig.securityConfig).toBeUndefined();
-  expect(mapConfig.anchors).toHaveLength(33);
-  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 52)).toHaveLength(11);
-  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 54)).toHaveLength(11);
-  expect(mapConfig.anchors.filter(anchor => anchor.x === 22 && anchor.y === 22)).toHaveLength(11);
-});
-
-test('base map failure keeps a filterable local place list and details', async ({ page }) => {
-  await page.unroute('**/map.qq.com/api/gljs**');
-  await page.route('**/map.qq.com/api/gljs**', route => {
-    route.fulfill({ status: 503, contentType: 'application/javascript', body: '' });
-  });
-  await page.reload();
-
-  const fallback = page.getByRole('region', { name: '地图暂不可用' });
-  await expect(fallback).toContainText('仍可浏览已有地点');
-  await expect(fallback.getByRole('button', { name: '测试公园' })).toBeVisible();
-  await fallback.getByRole('button', { name: '测试公园' }).click();
-  await expect(page.getByRole('dialog', { name: '测试公园' })).toBeVisible();
-  await expect(page.getByRole('button', { name: '导航去这里' })).toBeVisible();
-});
-
-test('base map fallback offers an explicit retry', async ({ page }) => {
-  await page.unroute('**/map.qq.com/api/gljs**');
-  let attempts = 0;
-  await page.route('**/map.qq.com/api/gljs**', route => {
-    attempts += 1;
-    route.fulfill(attempts === 1
-      ? { status: 503, contentType: 'application/javascript', body: '' }
-      : { status: 200, contentType: 'application/javascript', body: tmapStub });
-  });
-  await page.reload();
-
-  const fallback = page.getByRole('region', { name: '地图暂不可用' });
-  await expect(fallback.getByRole('button', { name: '重试地图' })).toBeVisible();
-  await fallback.getByRole('button', { name: '重试地图' }).click();
-  await expect(fallback).toBeHidden();
-  await expect.poll(() => page.evaluate(() => window.__markerLayers?.length || 0)).toBeGreaterThan(0);
-});
-
-test('base map tile timeout falls back to the local place list', async ({ page }) => {
-  await page.addInitScript(() => { window.__skipMapTilesLoaded = true; });
-  await page.reload();
-
-  const fallback = page.getByRole('region', { name: '地图暂不可用' });
-  await expect(fallback).toBeVisible({ timeout: 9000 });
-  await expect(fallback.getByRole('button', { name: '测试公园' })).toBeVisible();
-  expect(await page.evaluate(() => window.__mapDestroyed)).toBe(true);
-});
-
-test('configured browser key is included in the GL JS request', async ({ page }) => {
-  const sdkKey = await page.evaluate(() => {
-    const sdkUrl = new URL(document.getElementById('tmapSdk').src);
-    return sdkUrl.searchParams.get('key');
-  });
-
-  expect(sdkKey).toMatch(/^[A-Z0-9-]+$/);
-});
-
-test('existing maps stay unchanged when the startup sample list changes', async ({ page }) => {
-  const existingPlace = { ...place, createdAt: 1787270400000, facilities: {} };
-  await page.evaluate(value => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 2, places: [value] }));
-    localStorage.removeItem('baby_playmap_seeded_categories_v1');
-  }, existingPlace);
-  await page.reload();
-
-  const places = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places);
-  expect(places).toEqual([existingPlace]);
-});
-
-test('fresh maps do not seed personal places when public content is empty', async ({ page }) => {
-  await page.evaluate(() => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    localStorage.clear();
-  });
-  await page.reload();
-  await expect(page.locator('#mapNotice')).toHaveCount(0);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places)).toEqual([]);
-});
-
-test('combined venue categories are exposed as independent filters', async ({ page }) => {
-  for (const label of ['动物园', '水族馆', '博物馆', '科技馆']) {
-    await expect(page.locator('#mapCatStrip').getByRole('button').filter({ hasText: label })).toBeVisible();
-  }
-  await expect(page.locator('#mapCatStrip')).not.toContainText('动物园/水族馆');
-  await expect(page.locator('#mapCatStrip')).not.toContainText('博物馆/科技馆');
-});
-
-test('legacy combined categories split only when the place name is explicit', async ({ page }) => {
-  await page.evaluate(() => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    const base = { status: 'wish', rating: 0, lat: 31.23, lng: 121.47, tags: [] };
-    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 1, places: [
-      { ...base, id: 'aquarium', name: '旧海洋水族馆', category: 'zoo' },
-      { ...base, id: 'zoo', name: '旧动物乐园', category: 'zoo' },
-      { ...base, id: 'science', name: '旧天文馆', category: 'museum' },
-      { ...base, id: 'museum', name: '旧自然展馆', category: 'museum' }
-    ] }));
-    localStorage.setItem('baby_playmap_seeded_categories_v1', 'true');
-  });
-  await page.reload();
-
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')));
-  const categories = Object.fromEntries(stored.places.map(item => [item.id, item.category]));
-  expect(stored.version).toBe(3);
-  expect(categories).toEqual({
-    aquarium: 'aquarium',
-    zoo: 'zoo',
-    science: 'science',
-    museum: 'museum'
-  });
-});
-
-test('current category choices are preserved regardless of place name', async ({ page }) => {
-  await page.evaluate(() => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    const base = { status: 'wish', rating: 0, lat: 31.23, lng: 121.47, tags: [] };
-    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 2, places: [
-      { ...base, id: 'zoo', name: '海洋馆里的动物园', category: 'zoo' },
-      { ...base, id: 'museum', name: '天文馆里的博物馆', category: 'museum' }
-    ] }));
-    localStorage.setItem('baby_playmap_seeded_categories_v1', 'true');
-  });
-  await page.reload();
-
-  const categories = await page.evaluate(() => Object.fromEntries(
-    JSON.parse(localStorage.getItem('baby_playmap_v1')).places.map(item => [item.id, item.category])
-  ));
-  expect(categories).toEqual({ zoo: 'zoo', museum: 'museum' });
-});
-
-test('legacy unbound saved places remain browsable without inferred identity', async ({ page }) => {
-  const legacy = { ...place, name: '世纪公园', address: '用户保存地址', lat: 31.2, lng: 121.4 };
-  delete legacy.provider;
-  delete legacy.poiId;
-  await page.evaluate(value => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 2, places: [value] }));
-    localStorage.setItem('baby_playmap_seeded_categories_v1', 'true');
-  }, legacy);
-  await page.reload();
-
-  await page.locator('#searchInput').fill('世纪公园');
-  await expect(page.locator('#searchResults .sr-title')).toContainText('世纪公园');
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places[0]);
-  expect(stored).toMatchObject({ name: '世纪公园', address: '用户保存地址', lat: 31.2, lng: 121.4 });
-  expect(stored.provider || '').toBe('');
-  expect(stored.poiId || '').toBe('');
-});
-
-test('published legacy presets upgrade to Tencent identity by exact fingerprint', async ({ page }) => {
-  const legacyPreset = {
-    ...place, name: '奉贤碧海金沙', category: 'water', address: '', lat: 30.8248, lng: 121.5034
-  };
-  delete legacyPreset.provider;
-  delete legacyPreset.poiId;
-  await page.evaluate(value => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 2, places: [value] }));
-    localStorage.setItem('baby_playmap_seeded_categories_v1', 'true');
-  }, legacyPreset);
-  await page.reload();
-
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places[0]);
-  expect(stored).toMatchObject({
-    name: '奉贤碧海金沙', provider: 'tencent', poiId: '13490717915174695213',
-    address: '上海市奉贤区海涵路6号', lat: 30.823412, lng: 121.572192,
-    status: 'wish', rating: 0, practicalNotes: '', tags: [], createdAt: expect.any(Number)
-  });
-  expect(stored.visits).toEqual(legacyPreset.visits);
-});
-
-test('a deliberately empty map stays empty across refreshes', async ({ page }) => {
-  await page.evaluate(() => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 1, places: [] }));
-    localStorage.setItem('baby_playmap_seeded_v1', '1');
-    localStorage.removeItem('baby_playmap_seeded_categories_v1');
-  });
-  await page.reload();
-
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places)).toEqual([]);
-  await page.reload();
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places)).toEqual([]);
-});
-
-test('online search results are the only way to add a place', async ({ page }) => {
-  await page.locator('#searchInput').fill('搜索公园');
-  await expect(page.getByText('搜索公园', { exact: true })).toBeVisible();
-  await page.getByText('搜索公园', { exact: true }).click();
-
-  const dialog = page.getByRole('dialog', { name: '搜索公园' });
-  await expect(dialog.getByRole('button', { name: '导航去这里' })).toBeVisible();
-  await dialog.getByRole('button', { name: '添加到我的地图' }).click();
-
-  const addDialog = page.getByRole('dialog', { name: '添加地点' });
-  await expect(addDialog.locator('#addName')).toHaveValue('搜索公园');
-  await expect(addDialog.locator('#addName')).toHaveAttribute('readonly', '');
-  await addDialog.locator('#btnSubmitAdd').click();
-
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places
-    .find(item => item.name === '搜索公园'));
-  expect(saved).toEqual(expect.objectContaining({
-    name: '搜索公园',
-    provider: 'tencent',
-    poiId: 'tencent-poi-1',
-    address: '测试路 1 号',
-    lat: 31.24,
-    lng: 121.48
-  }));
-  for (const retired of ['status', 'rating', 'createdAt', 'visits', 'practicalNotes', 'tags']) {
-    expect(saved).not.toHaveProperty(retired);
-  }
-
-  const legacy = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places
-    .find(item => item.id === 'place-1'));
-  expect(legacy).toEqual(expect.objectContaining({ status: 'wish', rating: 0, practicalNotes: '' }));
-  expect(legacy.visits[0]).toEqual(expect.objectContaining({
-    id: 'visit-1',
-    note: '测试记录',
-    durationMinutes: 60
-  }));
-  expect(legacy.visits[0].photos).toHaveLength(1);
-});
-
-test('online search failure keeps local results without technical diagnostics', async ({ page }) => {
-  await page.evaluate(seed => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 2, places: [seed] }));
-    localStorage.setItem('baby_playmap_seeded_categories_v1', 'true');
-  }, place);
-  await page.reload();
-  await page.route('**/ws/place/v1/suggestion**', async route => {
-    const callback = new URL(route.request().url()).searchParams.get('callback');
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/javascript',
-      body: `${callback}({status:120,message:'quota denied'})`
-    });
-  });
-  await page.evaluate(() => {
-    window.TMap.service.Search = function () {
-      this.searchNearby = () => Promise.reject(new Error('offline'));
-    };
-  });
-
-  await page.locator('#searchInput').fill('测试公园');
-  await expect(page.locator('#searchResults .sr-title')).toContainText('测试公园');
-  await expect(page.locator('#searchResults')).toContainText('在线搜索暂不可用');
-  await expect(page.locator('#searchResults')).not.toContainText(/quota|status|代理|Clash|被拒绝/);
-});
-
-test('corrupt local data is protected until the user explicitly clears it', async ({ page }) => {
-  const corrupt = '{not-json';
-  await page.evaluate(value => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    localStorage.setItem('baby_playmap_v1', value);
-  }, corrupt);
-  await page.reload();
-
-  await expect(page.getByRole('alert')).toContainText('原数据不会被覆盖');
-  await expect(page.getByRole('button', { name: '数据与隐私' })).toBeVisible();
-  expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe(corrupt);
-
-  await page.getByRole('button', { name: '数据与隐私' }).click();
-  await page.getByRole('button', { name: '清空我的地点', exact: true }).click();
-  await page.getByRole('button', { name: '确定' }).click();
-  await page.getByRole('button', { name: '确定' }).click();
-
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')))).toEqual({
-    version: 3,
-    places: []
-  });
-  await page.reload();
-  await expect(page.getByRole('alert')).toHaveCount(0);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places)).toEqual([]);
-});
-
-test('future local data versions are protected without being rewritten', async ({ page }) => {
-  const future = JSON.stringify({ version: 99, places: [{ id: 'future-format' }] });
-  await page.evaluate(value => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    localStorage.setItem('baby_playmap_v1', value);
-  }, future);
-  await page.reload();
-
-  await expect(page.getByRole('alert')).toContainText('原数据不会被覆盖');
-  expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe(future);
-});
-
-test('invalid legacy places enter protection mode without rewriting storage', async ({ page }) => {
-  const invalid = JSON.stringify({ version: 1, places: [{ ...place, lat: 'not-a-coordinate' }] });
-  await page.evaluate(value => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    localStorage.setItem('baby_playmap_v1', value);
-  }, invalid);
-  await page.reload();
-
-  await expect(page.getByRole('alert')).toContainText('原数据不会被覆盖');
-  expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe(invalid);
-});
-
-test('migration does not add retired fields to current places', async ({ page }) => {
-  const current = {
-    id: 'current-place', name: '现役地点', category: 'park', provider: 'tencent',
-    poiId: 'current-poi', address: '现役地址', lat: 31.2, lng: 121.4, facilities: {}
-  };
-  await page.evaluate(value => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version: 1, places: [value] }));
-    localStorage.setItem('baby_playmap_seeded_categories_v1', 'true');
-  }, current);
-  await page.reload();
-
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places[0]);
-  for (const retired of ['status', 'rating', 'createdAt', 'visits', 'practicalNotes', 'tags']) {
-    expect(stored).not.toHaveProperty(retired);
-  }
-});
-
-test('detail drawer traps focus and closes with Escape', async ({ page }) => {
-  await page.evaluate(() => window.__openTestPlace());
-  const dialog = page.getByRole('dialog', { name: '测试公园' });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.locator(':focus')).toHaveCount(1);
-
-  await page.keyboard.press('Escape');
-  await expect(dialog).toBeHidden();
-});
-
-test('delete confirmation traps focus and Escape returns to the invoking control', async ({ page }) => {
-  await page.evaluate(() => window.__openTestPlace());
-  const remove = page.getByRole('button', { name: '删除这个地点' });
-  await remove.click();
-
-  const alert = page.getByRole('alertdialog');
-  await expect(alert).toBeVisible();
-  await expect(page.getByRole('button', { name: '取消' }).last()).toBeFocused();
-  await page.keyboard.press('Escape');
-  await expect(alert).toBeHidden();
-  await expect(remove).toBeFocused();
-});
-
-test('deleting a place removes its entire legacy archive from storage', async ({ page }) => {
-  await page.evaluate(() => window.__openTestPlace());
-  await page.getByRole('button', { name: '删除这个地点' }).click();
-  await page.getByRole('button', { name: '确定' }).click();
-
-  const ids = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places
-    .map(item => item.id));
-  expect(ids).not.toContain('place-1');
-});
-
-test('detail prioritizes navigation and hides archive controls', async ({ page }) => {
-  await page.evaluate(() => {
-    window.__navigationUrl = '';
-    window.open = url => { window.__navigationUrl = url; };
-    window.__openTestPlace();
-  });
-  const dialog = page.getByRole('dialog', { name: '测试公园' });
-  await expect(dialog).toBeVisible();
-
-  await expect(dialog.getByRole('button', { name: '导航去这里' })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: '复制目的地' })).toBeVisible();
-  await expect(dialog.locator('.facility-row')).toHaveCount(0);
-  await expect(dialog).not.toContainText('亲子便利设施');
-  await expect(dialog.locator('#ratingRow, #btnToggleStatus, #notesArea, #btnAddVisit, .visit-card')).toHaveCount(0);
-  await dialog.getByRole('button', { name: '导航去这里' }).click();
-  await expect.poll(() => page.evaluate(() => window.__navigationUrl)).toContain('/marker?');
-});
-
-test('blocked navigation keeps details with retry link and copy escape hatch', async ({ page }) => {
-  await page.evaluate(() => {
-    window.open = () => null;
-    navigator.clipboard.writeText = value => {
-      window.__copiedDestination = value;
-      return Promise.resolve();
-    };
-    window.__openTestPlace();
-  });
-  const dialog = page.getByRole('dialog', { name: '测试公园' });
-  await dialog.getByRole('button', { name: '导航去这里' }).click();
-
-  await expect(dialog.getByRole('status')).toContainText('导航没有打开');
-  await expect(dialog.getByRole('link', { name: '打开腾讯地图' })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: '重试' })).toBeVisible();
-  await dialog.getByRole('button', { name: '复制目的地' }).click();
-  await expect.poll(() => page.evaluate(() => window.__copiedDestination)).toContain('测试公园');
-});
-
-test('retired archive and settings interfaces are absent from the document', async ({ page }) => {
-  await expect(page.locator('#pageList, #tabList, #tabMap, #filterChips, #visitPhotoInput, #photoViewer')).toHaveCount(0);
-  await expect(page.getByRole('button', { name: /导入|导出|已去过|评分|添加照片/ })).toHaveCount(0);
-});
-
-test('legacy archive data remains intact when viewing a place', async ({ page }) => {
-  await page.evaluate(() => window.__openTestPlace());
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')));
-  expect(stored.places[0].visits).toHaveLength(1);
-  expect(stored.places[0].visits[0].photos).toHaveLength(1);
-});
 
 test('reduced motion uses short opacity-only transitions', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -759,312 +289,154 @@ test('reduced motion uses short opacity-only transitions', async ({ page }) => {
   expect(Math.max(...motion.durations)).toBeLessThanOrEqual(150);
 });
 
-for (const width of [320, 375, 768, 1440]) {
-  test(`layout has no horizontal overflow at ${width}px`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 812 });
-    const metrics = await page.evaluate(() => ({
-      scrollWidth: document.documentElement.scrollWidth,
-      clientWidth: document.documentElement.clientWidth,
-      drawer: document.querySelector('.drawer').getBoundingClientRect()
-    }));
 
-    expect(metrics.scrollWidth).toBeLessThanOrEqual(metrics.clientWidth);
-    if (width >= 768) {
-      expect(metrics.drawer.width).toBeLessThanOrEqual(420);
-    }
+test('public map has no search or add controls and categories never fetch online candidates', async ({ page }) => {
+  await expect(page.locator('#searchBox')).toBeHidden();
+  await expect(page.getByRole('button', { name: /添加地点|我的地图/ })).toHaveCount(0);
+  let requests = 0;
+  await page.route('**/apis.map.qq.com/**', route => { requests += 1; return route.abort(); });
+  await page.getByRole('button', { name: '🌳 公园', exact: true }).click();
+  await page.evaluate(() => window.__mapEvents.idle?.());
+  await page.getByRole('button', { name: '🐠 水族馆', exact: true }).click();
+  await page.getByRole('button', { name: '地点列表', exact: true }).click();
+  await expect(page.locator('#placeList')).toContainText('暂无完整');
+  expect(requests).toBe(0);
+  expect(await page.evaluate(() => window.__markerLayers[0].geometries)).toEqual([]);
+  expect(await page.evaluate(() => window.__mapOptions.baseMap.features)).toEqual(['base', 'label']);
+});
+
+test('invalid score, photo, date and POI identities stay out of markers and lists', async ({ page }) => {
+  const invalid = [
+    { score: 4.29 }, { score: '4.3' }, { score: 0 }, { score: 6 },
+    { photo: 'https://example.com/private.jpg' }, { photo: 'assets/visits/../other.jpg' },
+    { visitedOn: '2026-09' }, { visitedOn: '2026-02-30' }, { visitedOn: '2024-06-10' },
+    { visitedOn: '9999-01-01' }, { provider: 'other' }, { lat: 99 }
+  ].map((patch, i) => ({ ...visit, poiId: 'invalid-' + i, ...patch }));
+  await serveVisits(page, [...invalid, visit]);
+  await page.reload();
+  await page.getByRole('button', { name: '地点列表', exact: true }).click();
+  await expect(page.locator('#placeList button')).toHaveCount(1);
+  expect(await page.evaluate(() => window.__markerLayers[0].geometries.map(g => g.id))).toEqual(['public:visit-1']);
+});
+
+for (const [date, age] of [
+  ['2024-06-11', '0岁0个月'], ['2025-06-10', '0岁11个月'],
+  ['2025-06-11', '1岁0个月'], ['2026-09-10', '2岁2个月']
+]) {
+  test(`visit age uses completed months on ${date}`, async ({ page }) => {
+    await serveVisits(page, [{ ...visit, visitedOn: date }]);
+    await page.reload(); await openVisit(page);
+    await expect(page.locator('.stamp-age')).toHaveText(age + '打卡');
   });
 }
 
-const publicVisit = {
-  provider: 'tencent', poiId: 'public-test-poi', name: '公开体验测试公园',
-  address: '测试路 11 号', category: 'park', lat: 31.23, lng: 121.47,
-  facilities: { parking: 'yes' }, visitedOn: '2026-09-01',
-  experience: '测试内容：孩子玩得尽兴，停车较远。',
-  score: 4.6,
-  photo: 'data:image/jpeg;base64,' + require('node:fs').readFileSync(require('node:path').join(__dirname, '../assets/11-avatar.jpg')).toString('base64'),
-  child: { level: 'high', reason: '测试内容：有互动游乐', ages: '约 3–8 岁' },
-  parent: { level: 'low', reason: '测试内容：停车较远' },
-  fun: { level: 'high', reason: '测试内容：很好玩' },
-  sources: [{ title: '场馆资料（测试）', url: 'https://example.com/venue', checkedOn: '2026-09-05' }]
-};
-
-async function servePublicPlaces(page, places = [publicVisit], avatar = '') {
-  await page.route('**/public-places.json', route => route.fulfill({ json: { avatar, places } }));
+for (const raw of ['{broken json', JSON.stringify({ version: 999, places: [{ private: true }] }), JSON.stringify({ version: 1, places: [{ name: '归属不明', photos: ['private-photo'], rating: 5 }] })]) {
+  test(`old private storage is never normalized: ${raw.slice(0, 26)}`, async ({ page }) => {
+    await page.evaluate(raw => localStorage.setItem('baby_playmap_v1', raw), raw);
+    await page.reload(); await openVisit(page);
+    await page.keyboard.press('Escape');
+    expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe(raw);
+  });
 }
 
-async function setPersonalPlaces(page, places, version = 2) {
-  await page.evaluate(({ places, version }) => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    localStorage.setItem('baby_playmap_v1', JSON.stringify({ version, places }));
-  }, { places, version });
-}
-
-async function openMapPlace(page, name) {
-  await page.locator('#searchInput').fill(name);
-  await page.locator('.sr-item').filter({ hasText: name }).first().click();
-}
-
-test('hotel visits keep their own category and marker', async ({ page }) => {
-  const hotel = { ...publicVisit, poiId: 'hotel-test-poi', name: '11 到访测试酒店', category: 'hotel' };
-  await servePublicPlaces(page, [hotel]);
+test('only explicit double confirmation clears old private data while keeping public visits', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('baby_playmap_v1', '{private archive'));
   await page.reload();
-  await expect(page.locator('#mapCatStrip').getByRole('button', { name: '🏨 酒店住宿' })).toBeVisible();
-  await openMapPlace(page, hotel.name);
-  await expect(page.locator('#drawerDetail')).toContainText('酒店住宿');
-  expect(await page.evaluate(() => window.__markerLayers[0].geometries[0].styleId)).toBe('public-hotel');
-});
-
-test('single visit photos load from repository assets and reject unrelated URLs', async ({ page }) => {
-  await servePublicPlaces(page, [{ ...publicVisit, photo: 'assets/visits/bfc-20260919.jpg' }]);
-  await page.reload();
-  await openMapPlace(page, publicVisit.name);
-  await expect(page.locator('#drawerDetail .visit-photo')).toHaveJSProperty('naturalWidth', 720);
-  for (const photo of ['https://example.com/private.jpg', 'assets/visits/../../private.jpg', 'javascript:alert(1)']) {
-    await servePublicPlaces(page, [{ ...publicVisit, photo }]);
-    await page.reload();
-    await openMapPlace(page, publicVisit.name);
-    await expect(page.locator('#drawerDetail .visit-photo')).toHaveCount(0);
-  }
-});
-
-test('published public places load with the configured avatar', async ({ page }) => {
-  const published = require('../public-places.json');
-  expect(require('node:fs').statSync(require('node:path').join(__dirname, '..', published.avatar)).size).toBeLessThan(32 * 1024);
-  await page.unroute('**/public-places.json');
-  await setPersonalPlaces(page, []);
-  await page.reload();
-  await expect.poll(() => page.evaluate(() => window.__markerLayers?.[0]?.geometries.length)).toBe(published.places.length);
-  await page.route('**/ws/place/v1/search**', route => {
-    const callback = new URL(route.request().url()).searchParams.get('callback');
-    const p = published.places[0];
-    return route.fulfill({ contentType: 'application/javascript', body: `${callback}(${JSON.stringify({ status: 0, count: 1, data: [{ id: p.poiId, title: p.name, category: '旅游景点:公园', location: { lat: p.lat, lng: p.lng } }] })})` });
-  });
-  await page.locator('#mapCatStrip').getByRole('button', { name: '🌳 公园' }).click();
-  await expect(page.locator('#toast')).toContainText('已显示 0 个附近候选');
-  const publicMarkerIds = await page.evaluate(() => window.__markerLayers[0].geometries.map(marker => marker.id));
-  expect(publicMarkerIds).toContain('public:' + published.places[0].poiId);
-  expect(publicMarkerIds).not.toContain('explore-' + published.places[0].poiId);
-  await openMapPlace(page, published.places[0].name);
-  await expect(page.locator('#drawerDetail')).toContainText('11 评分');
-  await expect(page.locator('#drawerDetail .visit-avatar')).toHaveJSProperty('naturalWidth', 64);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places)).toEqual([]);
-});
-
-test('public visits appear without seeding personal storage and coexist with personal places', async ({ page }) => {
-  await servePublicPlaces(page);
-  await setPersonalPlaces(page, [place]);
-  await page.reload();
-  await expect.poll(() => page.evaluate(() => window.__markerLayers?.[0]?.geometries.length)).toBe(2);
-  await openMapPlace(page, publicVisit.name);
-  const detail = page.locator('#drawerDetail');
-  await expect(detail).toContainText('11 评分');
-  await expect(detail.getByRole('button', { name: '删除这个地点' })).toHaveCount(0);
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places);
-  expect(stored.map(p => p.id)).toEqual(['place-1']);
-});
-
-test('public visit details show the direct score, one photo, and an avatar marker', async ({ page }) => {
-  await servePublicPlaces(page, [publicVisit], '/test-avatar.png');
-  await page.route('**/test-avatar.png', route => route.fulfill({
-    contentType: 'image/gif', body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64')
-  }));
-  await setPersonalPlaces(page, []);
-  await page.reload();
-  await openMapPlace(page, publicVisit.name);
-  const detail = page.locator('#drawerDetail');
-  await expect(detail.getByRole('img', { name: '11 评分：4.6 / 5 星' })).toBeVisible();
-  await expect(detail.getByRole('img', { name: /到访打卡照/ })).toHaveCount(1);
-  for (const hiddenText of ['是否好玩', '儿童友好', '便利程度', '2026-09-01', publicVisit.experience]) {
-    await expect(detail).not.toContainText(hiddenText);
-  }
-  await expect(detail.getByRole('button', { name: '导航去这里' })).toBeVisible();
-  await expect(detail.getByText('资料来源与核实日期', { exact: true })).toHaveCount(0);
-  await expect(detail.getByRole('link', { name: '场馆资料（测试）' })).toHaveCount(0);
-  const marker = await page.evaluate(() => {
-    const layer = window.__markerLayers[0];
-    const styleId = layer.geometries[0].styleId;
-    return { styleId, ...layer.options.styles[styleId] };
-  });
-  expect(marker.styleId).toBe('public-park');
-  expect(marker).toMatchObject({ width: 44, height: 54, anchor: { x: 22, y: 54 } });
-  const layout = await page.evaluate(src => {
-    const svg = new DOMParser().parseFromString(decodeURIComponent(src.split(',')[1]), 'image/svg+xml');
-    return { avatarTop: svg.querySelector('image').getAttribute('y'), iconBaseline: svg.querySelector('g text').getAttribute('y') };
-  }, marker.src);
-  expect(layout).toEqual({ avatarTop: '13', iconBaseline: '13' });
-  expect(decodeURIComponent(marker.src)).toContain('data:image/png;base64,');
-  expect(decodeURIComponent(marker.src)).toContain('>🌳</text>');
-  await page.keyboard.press('Escape');
-  await servePublicPlaces(page, [{ ...publicVisit, score: undefined, photo: undefined }], '/missing-avatar.png');
-  await page.route('**/missing-avatar.png', route => route.fulfill({ status: 404, body: '' }));
-  await page.reload();
-  await openMapPlace(page, publicVisit.name);
-  await expect(detail.getByText('暂无评分', { exact: true })).toBeVisible();
-  await expect(detail.locator('.visit-photo')).toHaveCount(0);
-  const fallback = await page.evaluate(() => {
-    const layer = window.__markerLayers[0];
-    return layer.options.styles[layer.geometries[0].styleId].src;
-  });
-  expect(decodeURIComponent(fallback)).toContain('>11</text>');
-  expect(decodeURIComponent(fallback)).toContain('>🌳</text>');
-});
-
-test('migration retires only exact unused presets and preserves used modified and uncertain records', async ({ page }) => {
-  const unused = {
-    id: 'tencent-16497321956464059620', name: '复兴公园', category: 'park',
-    provider: 'tencent', poiId: '16497321956464059620', address: '上海市黄浦区复兴中路516号',
-    lat: 31.21694, lng: 121.46917, facilities: { stroller: 'yes' }
-  };
-  const retained = [
-    { ...unused, rating: 5, visits: place.visits },
-    { ...unused, name: '我改过的公园' },
-    { ...unused, id: 'personally-added' },
-    { ...unused, personalMemo: '旧版本未知字段也有个人内容' }
-  ];
-  await setPersonalPlaces(page, [unused, ...retained]);
-  await page.reload();
-  const read = () => page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')));
-  expect(await read()).toEqual({ version: 3, places: retained });
-  await page.reload();
-  expect(await read()).toEqual({ version: 3, places: retained });
-});
-
-test('saving removing and clearing personal places never changes public visits', async ({ page }) => {
-  await servePublicPlaces(page);
-  await setPersonalPlaces(page, [place]);
-  await page.reload();
-  await openMapPlace(page, publicVisit.name);
-  await page.getByRole('button', { name: '＋ 添加到我的地图', exact: true }).click();
-  await page.getByRole('button', { name: '✨ 添加地点', exact: true }).click();
-  await expect.poll(() => page.evaluate(() => window.__markerLayers?.[0]?.geometries.length)).toBe(2);
-  await openMapPlace(page, publicVisit.name);
-  await page.getByRole('button', { name: '删除这个地点', exact: true }).click();
-  await page.getByRole('button', { name: '确定', exact: true }).click();
-  await openMapPlace(page, publicVisit.name);
-  await expect(page.locator('#drawerDetail')).toContainText('11 评分');
-  await expect(page.getByRole('button', { name: '删除这个地点', exact: true })).toHaveCount(0);
-  await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: '数据与隐私' }).click();
+  await page.getByRole('button', { name: '数据与隐私', exact: true }).click();
   await page.getByRole('button', { name: '清空我的地点', exact: true }).click();
-  await page.getByRole('button', { name: '确定', exact: true }).click();
-  await page.getByRole('button', { name: '确定', exact: true }).click();
-  await page.reload();
-  await expect.poll(() => page.evaluate(() => window.__markerLayers?.[0]?.geometries.length)).toBe(1);
+  await page.keyboard.press('Escape');
+  expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe('{private archive');
+  await page.getByRole('button', { name: '清空我的地点', exact: true }).click();
+  await page.locator('#confirmYes').click(); await page.locator('#confirmYes').click();
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places)).toEqual([]);
+  await page.keyboard.press('Escape'); await openVisit(page);
+  await expect(page.locator('.visit-photo')).toBeVisible();
 });
 
-test('public withdrawal preserves personal copies without the public experience and same names do not merge', async ({ page }) => {
-  const personal = { ...place, poiId: publicVisit.poiId, name: publicVisit.name };
-  const sameName = { ...place, id: 'other', name: publicVisit.name, poiId: 'different-poi' };
-  await servePublicPlaces(page);
-  await setPersonalPlaces(page, [personal, sameName]);
-  await page.reload();
-  await expect.poll(() => page.evaluate(() => window.__markerLayers?.[0]?.geometries.length)).toBe(2);
-  await servePublicPlaces(page, []);
-  await page.reload();
-  await openMapPlace(page, publicVisit.name);
-  const detail = page.locator('#drawerDetail');
-  await expect(detail).not.toContainText('11 评分');
-  await expect(detail).not.toContainText('很友好');
-  await expect(detail.getByRole('button', { name: '删除这个地点' })).toBeVisible();
-  const stored = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places);
-  expect(stored.map(p => p.id)).toEqual(['place-1', 'other']);
-  expect(stored[0].visits).toEqual(personal.visits);
-});
-
-test('protected data stays intact while public visits remain browsable without a base map', async ({ page }) => {
-  await servePublicPlaces(page);
-  await page.route('**/map.qq.com/api/gljs**', route => route.fulfill({ body: '' }));
-  await page.evaluate(() => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    localStorage.setItem('baby_playmap_v1', '{broken-data');
-  });
+test('map failure keeps complete public visits filterable and allows explicit map retry', async ({ page }) => {
+  await page.route('**/map.qq.com/api/gljs**', route => route.abort());
   await page.reload();
   await expect(page.locator('#mapFallback')).toBeVisible();
-  await page.locator('#fallbackList').getByRole('button', { name: /公开体验测试公园/ }).click();
-  await expect(page.locator('#drawerDetail')).toContainText('11 评分');
-  await page.getByRole('button', { name: '＋ 添加到我的地图', exact: true }).click();
-  expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe('{broken-data');
-  await expect(page.locator('#dataAlert')).toBeVisible();
+  await page.locator('#fallbackList').getByRole('button', { name: visit.name + ' · 11 去过', exact: true }).click();
+  await expect(page.locator('#drawerDetail')).toContainText('2岁3个月');
+  await page.keyboard.press('Escape');
+  await page.route('**/map.qq.com/api/gljs**', route => route.fulfill({ contentType: 'application/javascript', body: tmapStub }));
+  await page.getByRole('button', { name: '重试地图', exact: true }).click();
+  await expect(page.locator('#mapFallback')).toBeHidden();
 });
 
-for (const failure of ['QuotaExceededError', 'SecurityError']) {
-  test(`failed migration keeps personal map and original storage on ${failure}`, async ({ page }) => {
-    const unused = {
-      id: 'tencent-16497321956464059620', name: '复兴公园', category: 'park',
-      provider: 'tencent', poiId: '16497321956464059620', address: '上海市黄浦区复兴中路516号',
-      lat: 31.21694, lng: 121.46917, facilities: { stroller: 'yes' }
-    };
-    await setPersonalPlaces(page, [unused]);
-    const original = await page.evaluate(() => localStorage.getItem('baby_playmap_v1'));
-    await page.addInitScript(failure => {
-      const set = Storage.prototype.setItem;
-      Storage.prototype.setItem = function (key, value) {
-        if (key === 'baby_playmap_v1' || key === '__pm_probe__') throw new DOMException('blocked', failure);
-        return set.call(this, key, value);
-      };
-    }, failure);
-    await page.reload();
-    expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe(original);
-    await openMapPlace(page, '复兴公园');
-    await expect(page.locator('#detailTitle')).toHaveText('复兴公园');
+test('tile loading timeout enters the public list fallback', async ({ page }) => {
+  await page.addInitScript(() => { window.__skipMapTilesLoaded = true; });
+  await page.reload();
+  await expect(page.locator('#mapFallback')).toBeVisible({ timeout: 10000 });
+  await expect(page.locator('#fallbackList')).toContainText(visit.name);
+});
+
+test('blocked navigation preserves the detail with retry and direct map link', async ({ page }) => {
+  await openVisit(page);
+  await page.evaluate(() => { window.open = () => null; });
+  await page.getByRole('button', { name: '🧭 导航去这里', exact: true }).click();
+  await expect(page.locator('#navigationFallback')).toContainText('导航没有打开');
+  await expect(page.getByRole('link', { name: '打开腾讯地图', exact: true })).toHaveAttribute('href', /coord:31.23,121.47/);
+  await expect(page.getByRole('button', { name: /复制目的地/ })).toHaveCount(0);
+  await expect(page.locator('.visit-photo')).toBeVisible();
+});
+
+test('detail focus is trapped and Escape restores the list opener', async ({ page }) => {
+  await openVisit(page);
+  const nav = page.getByRole('button', { name: '🧭 导航去这里', exact: true });
+  await expect(nav).toBeFocused();
+  await page.keyboard.press('Tab'); await expect(nav).toBeFocused();
+  await page.keyboard.press('Shift+Tab'); await expect(nav).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
+  await expect(page.getByRole('button', { name: '地点列表', exact: true })).toBeFocused();
+});
+
+for (const width of [320, 375, 768, 1440]) {
+  test(`detail and corner stamp fit at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 812 });
+    await serveVisits(page, [{ ...visit, name: '一个名称很长但仍然需要完整阅读的到访地点名称' }]);
+    await page.reload(); await openVisit(page, '一个名称很长');
+    const metrics = await page.locator('#drawerDetail').evaluate(el => {
+      const rect = el.getBoundingClientRect(), stamp = el.querySelector('.visit-stamp').getBoundingClientRect();
+      const name = el.querySelector('.d-name').getBoundingClientRect();
+      return { width: rect.width, scroll: el.scrollWidth, client: el.clientWidth, nameRight: name.right, stampLeft: stamp.left, stampRight: stamp.right, right: rect.right };
+    });
+    expect(metrics.scroll).toBeLessThanOrEqual(metrics.client);
+    expect(metrics.nameRight).toBeLessThanOrEqual(metrics.stampLeft + 4);
+    expect(metrics.stampRight).toBeLessThanOrEqual(metrics.right);
+    if (width >= 768) expect(metrics.width).toBeLessThanOrEqual(420);
   });
 }
 
-test('public marker IDs never claim an unrelated personal place with the same legacy ID', async ({ page }) => {
-  const collision = { ...place, id: 'public:public-test-poi', name: '无关的个人公园' };
-  await servePublicPlaces(page);
-  await setPersonalPlaces(page, [collision]);
-  await page.reload();
-  await openMapPlace(page, publicVisit.name);
-  await expect(page.getByRole('button', { name: '删除这个地点', exact: true })).toHaveCount(0);
-  await page.keyboard.press('Escape');
-  await openMapPlace(page, collision.name);
-  await expect(page.locator('#detailTitle')).toHaveText(collision.name);
-  await expect(page.locator('#drawerDetail')).not.toContainText('11 评分');
-  const ids = await page.evaluate(() => window.__markerLayers[0].geometries.map(g => g.id));
-  expect(new Set(ids).size).toBe(2);
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('baby_playmap_v1')).places);
-  expect(saved[0].visits).toEqual(collision.visits);
+test('local POI maintenance remains online and never writes personal map data', async ({ page }) => {
+  await page.goto('/?maintain=1');
+  await expect(page.locator('#searchBox')).toBeVisible();
+  await page.locator('#searchInput').fill('搜索公园');
+  await page.locator('.sr-item').filter({ hasText: '搜索公园' }).click();
+  await page.getByRole('button', { name: '选择类别并填写评分', exact: true }).click();
+  await page.getByRole('button', { name: '11 去过，填写评分', exact: true }).click();
+  await expect(page).toHaveURL(/maintainer.html$/);
+  await expect(page.locator('#heading')).toContainText('搜索公园');
+  expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBeNull();
 });
 
-test('local POI addition opens a rating draft without adding personal data', async ({ page }) => {
-  const original = await page.evaluate(() => {
-    sessionStorage.setItem('playmap_test_keep_storage', '1');
-    return localStorage.getItem('baby_playmap_v1');
+test('public origins cannot enable the local POI search mode', async ({ page }) => {
+  const html = readFileSync(join(__dirname, '../index.html'), 'utf8');
+  await page.route('https://playmap.example/**', route => {
+    if (route.request().url().includes('public-places.json')) return route.fulfill({ json: { places: [visit] } });
+    return route.fulfill({ contentType: 'text/html', body: html });
   });
-  await page.locator('#searchInput').fill('搜索公园');
-  await page.getByText('搜索公园', { exact: true }).click();
-  await page.getByRole('dialog', { name: '搜索公园' }).getByRole('button', { name: '添加到我的地图' }).click();
-  await page.getByRole('button', { name: '11 去过，填写评分' }).click();
-  await expect(page).toHaveURL(/maintainer\.html$/);
-  await expect(page.getByRole('heading', { name: '搜索公园 · 11 到访记录' })).toBeVisible();
-  await page.locator('#rating').fill('4.7');
-  await page.locator('#next').click();
-  const draft = JSON.parse(await page.locator('#output').inputValue());
-  expect(draft.places).toHaveLength(1);
-  expect(draft.places[0]).toMatchObject({ provider: 'tencent', poiId: 'tencent-poi-1', name: '搜索公园', lat: 31.24, lng: 121.48 });
-  expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe(original);
+  await page.goto('https://playmap.example/?maintain=1');
+  await expect(page.locator('#searchBox')).toBeHidden();
+  await expect(page.getByRole('button', { name: '地点列表', exact: true })).toBeVisible();
 });
 
-test('public origin keeps the rating entry hidden', async ({ page }) => {
-  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '../index.html'), 'utf8');
-  await page.route('https://playmap.example/index.html', route => route.fulfill({ contentType: 'text/html', body: html }));
-  await page.goto('https://playmap.example/index.html');
-  await page.locator('#searchInput').fill('搜索公园');
-  await page.getByText('搜索公园', { exact: true }).click();
-  await page.getByRole('dialog', { name: '搜索公园' }).getByRole('button', { name: '添加到我的地图' }).click();
-  await expect(page.locator('#btnRateLocal')).toBeHidden();
-  await expect(page.locator('#btnSubmitAdd')).toBeVisible();
-});
-
-test('legacy recommendations stay hidden beside the direct score', async ({ page }) => {
-  for (const recommendation of ['strong', 'general', 'no', '']) {
-    await servePublicPlaces(page, [{ ...publicVisit, recommendation }]);
-    await page.reload();
-    await openMapPlace(page, publicVisit.name);
-    const detail = page.locator('#drawerDetail');
-    await expect(detail.getByRole('img', { name: '11 评分：4.6 / 5 星' })).toBeVisible();
-    await expect(detail.locator('.recommendation')).toHaveCount(0);
-  }
+test('public record fetch failure is explained without touching old storage', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('baby_playmap_v1', 'unreadable private data'));
+  await page.route('**/public-places.json', route => route.fulfill({ status: 503, body: '' }));
+  await page.reload();
+  await expect(page.locator('#toast')).toContainText('公开到访记录暂时无法读取');
+  expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe('unreadable private data');
 });

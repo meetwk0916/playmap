@@ -613,6 +613,26 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
     transition-timing-function: linear;
   }
 }
+.visit-count { margin-left:auto; font-size:12px; color:var(--text-light); white-space:nowrap; }
+.place-list-button { border:0; border-left:1px solid var(--line); padding:0 0 0 12px; min-height:28px; color:var(--primary-deep); background:transparent; font-size:14px; font-weight:700; white-space:nowrap; }
+#visitHeader strong { font-size:15px; }
+#map { isolation:isolate; }
+/* A little warmth, while retaining the original drawer and star rating. */
+.detail-head .d-emoji { transform:rotate(-7deg); border-radius:18px 22px 16px 22px; }
+.visit-heading { position:relative; padding:14px; border-radius:var(--radius); background:var(--sun-soft); }
+.visit-heading::after { content:'✦'; position:absolute; top:8px; right:12px; color:var(--rating-ink); font-size:19px; transform:rotate(12deg); }
+.visit-avatar { border:2px solid var(--card); box-shadow:var(--shadow); }
+.visit-rating > strong { font-size:13px; color:var(--amber-ink); }
+.visit-photo-wrap { position:relative; margin-top:16px; }
+.visit-photo-wrap .visit-photo { margin-top:0; }
+#detailContent { position:relative; }
+.detail-head { padding-right:108px; }
+.visit-stamp { position:absolute; z-index:1; top:-3px; right:0; width:100px; height:110px; margin:0; padding:43px 6px 0; color:var(--danger); text-align:center; transform:rotate(4deg); }
+.stamp-berry { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; filter:saturate(.55); opacity:.82; pointer-events:none; }
+.visit-stamp .stamp-title { display:block; position:relative; font-size:9px; font-weight:700; transform:rotate(-3deg); }
+.visit-stamp time { display:block; position:relative; margin:3px 0 2px; font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; }
+.visit-stamp .stamp-age { display:block; position:relative; font-size:9px; font-weight:600; }
+#detailContent > .detail-actions { margin-top:18px; margin-bottom:0; }
 </style>
 
 <!-- 腾讯地图 GL JS 密钥代理配置（占位符由运行时代理替换） -->
@@ -633,13 +653,14 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 <div id="map" role="region" aria-label="地点地图"></div>
 <section class="map-fallback" id="mapFallback" role="region" aria-label="地图暂不可用" hidden>
   <h2>地图暂不可用</h2>
-  <div class="sub sub-left">仍可浏览已有地点、按类别筛选并查看详情；地图恢复后可重试。</div>
+  <div class="sub sub-left">仍可浏览 11 的到访地点、按类别筛选并查看详情；地图恢复后可重试。</div>
   <button class="btn-ghost fallback-retry" id="btnRetryMap" type="button">重试地图</button>
   <div class="fallback-list" id="fallbackList"></div>
 </section>
 
 <!-- 顶部地点搜索框 -->
-<div class="search-box" id="searchBox">
+<div class="search-box" id="visitHeader"><div class="search-input-wrap"><strong>11 去过的地方</strong><span id="visitCount" class="visit-count"></span><button type="button" id="btnPlaceList" class="place-list-button" disabled>地点列表</button></div></div>
+<div class="search-box" id="searchBox" hidden>
   <div class="search-input-wrap">
     <span class="s-icon" aria-hidden="true">🔍</span>
     <input type="search" id="searchInput" placeholder="搜地点，如：朝阳公园" autocomplete="off" enterkeyhint="search" />
@@ -666,7 +687,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 <!-- Toast -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <div class="data-alert" id="dataAlert" role="alert" hidden>
-  本地数据无法完整读取，原数据不会被覆盖。现在仍可浏览 11 的公开地点；请在“数据与隐私”中清空这份数据后再保存。
+  本地数据无法完整读取，原数据不会被覆盖。现在仍可浏览 11 的公开地点。
 </div>
 
 </main>
@@ -687,11 +708,14 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
     <label>选择类别</label>
     <div class="cat-grid" id="catGrid"></div>
   </div>
-  <button class="btn-primary" id="btnSubmitAdd">✨ 添加地点</button>
+
   <button class="btn-ghost" id="btnRateLocal" hidden>11 去过，填写评分</button>
   <button class="btn-ghost" id="btnCancelAdd">取消</button>
 </div>
 
+<div class="drawer" id="drawerPlaces" role="dialog" aria-modal="true" aria-labelledby="placeListTitle" aria-hidden="true" inert>
+  <div class="grabber" aria-hidden="true"></div><h2 id="placeListTitle">11 去过的地方</h2><div class="fallback-list" id="placeList"></div>
+</div>
 <!-- 抽屉：地点详情 -->
 <div class="drawer" id="drawerDetail" role="dialog" aria-modal="true" aria-labelledby="detailTitle" aria-hidden="true" inert>
   <div class="grabber" aria-hidden="true"></div>
@@ -702,9 +726,9 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 <div class="drawer" id="drawerPrivacy" role="dialog" aria-modal="true" aria-labelledby="drawerPrivacyTitle" aria-hidden="true" inert>
   <div class="grabber" aria-hidden="true"></div>
   <h2 id="drawerPrivacyTitle">数据与隐私</h2>
-  <p class="sub sub-left">你保存的地点和旧家庭游玩档案只保存在当前浏览器；清除浏览器数据或更换设备会丢失。11 的到访地点、评分和打卡照由维护者公开发布，不属于你的个人数据。</p>
+  <p class="sub sub-left">旧个人地点和家庭游玩档案仍保存在当前浏览器，本页不再展示或修改；清除浏览器数据或更换设备会丢失。11 的到访地点、评分和打卡照由维护者公开发布，不属于你的个人数据。</p>
   <p class="sub sub-left">只有点击定位按钮后才会请求位置，位置仅在当前页面用于距离判断，不会保存。</p>
-  <p class="sub sub-left">腾讯地图会接收加载地图、在线搜索和打开导航所必需的网络信息。本站不设置账号，不上传业务数据，也不使用统计、广告追踪或用户画像。</p>
+  <p class="sub sub-left">腾讯地图会接收加载地图和打开导航所必需的网络信息；在线 POI 搜索仅用于本地维护。本站不设置账号，不上传业务数据，也不使用统计、广告追踪或用户画像。</p>
   <div class="settings-block">
     <div class="s-row">
       <span>仅清空个人地点与旧档案，11 的公开地点保留</span>
@@ -737,6 +761,9 @@ var STORAGE_VERSION = 3;                    // 数据结构版本
 var ONBOARD_KEY = 'baby_playmap_onboarded'; // 首次隐私简述标记
 var DEFAULT_CENTER = { lat: 31.2304, lng: 121.4737 }; // 上海人民广场一带
 var DEFAULT_ZOOM = 12;
+var CHILD_BIRTH_DATE = '2024-06-11';
+var localMaintenance = isLocalMaintenance() && new URLSearchParams(location.search).get('maintain') === '1';
+var hasPersonalData = false;
 
 // 类别定义（value 唯一，emoji 作为图标；颜色由 :root 设计令牌提供）
 var CATEGORIES = [
@@ -760,160 +787,12 @@ function categoryOf(value) {
   return CATEGORIES[CATEGORIES.length - 1]; // 兜底：其他
 }
 
-// 仅用于无损保留旧版归档数据，不再驱动现役界面。
-var LEGACY_TAG_IDS = ['parking', 'stroller', 'toilet', 'nursing', 'indoor', 'free', 'ticket', 'food'];
-
-/* ------------------------------------------------------------
-   预置种子数据：腾讯地图在线 POI 绑定的上海亲子地点
-   ------------------------------------------------------------ */
-var KNOWN_SEED_IDENTITIES = [
-  { name: '世纪公园', category: 'park', poiId: '14300273488509357288', address: '上海市浦东新区锦绣路1001号', lat: 31.216317, lng: 121.552864, facilityYes: ['parking', 'stroller'] },
-  { name: '上海世博文化公园', category: 'park', poiId: '3033795029453281534', address: '上海市浦东新区济坤路100号', lat: 31.17913, lng: 121.476834, facilityYes: ['parking', 'stroller'] },
-  { name: '共青国家森林公园', category: 'park', poiId: '211564852148582250', address: '上海市杨浦区军工路2000号', lat: 31.318802, lng: 121.552193, facilityYes: ['parking', 'stroller'] },
-  { name: '滨江森林公园', category: 'park', poiId: '15434288168088430249', address: '上海市浦东新区高桥镇高沙滩3号(近)', lat: 31.383087, lng: 121.528515, facilityYes: ['parking', 'stroller'] },
-  { name: '上海辰山国家植物园', category: 'park', poiId: '13838316571513233172', address: '上海市松江区佘山镇辰花公路3888号', lat: 31.075, lng: 121.18304, facilityYes: ['parking', 'stroller'] },
-  { name: '上海植物园', category: 'park', poiId: '10021603059172410587', address: '上海市徐汇区龙吴路1111号', lat: 31.147095, lng: 121.444112, facilityYes: ['parking', 'stroller'] },
-  { name: '顾村公园', category: 'park', poiId: '9590133195728005282', address: '上海市宝山区顾村镇沪太路4788号', lat: 31.337061, lng: 121.36559, facilityYes: ['parking', 'stroller'] },
-  { name: '鲁迅公园', category: 'park', poiId: '9959195366201280641', address: '上海市虹口区四川北路2288号', lat: 31.271751, lng: 121.48353, facilityYes: ['stroller'] },
-  { name: '中山公园', category: 'park', poiId: '13054986462171584341', address: '上海市长宁区长宁路780号', lat: 31.221835, lng: 121.419896, facilityYes: ['stroller'] },
-  { name: '复兴公园', category: 'park', poiId: '16497321956464059620', address: '上海市黄浦区复兴中路516号', lat: 31.21694, lng: 121.46917, facilityYes: ['stroller'] },
-  { name: '长风公园', category: 'park', poiId: '8992265706079391500', address: '上海市普陀区长风新村街道', lat: 31.22507, lng: 121.39949, facilityYes: ['parking', 'stroller'] },
-  { name: '大宁公园', category: 'park', poiId: '11626357113079402475', address: '上海市静安区广中西路288号', lat: 31.275763, lng: 121.4431, facilityYes: ['parking', 'stroller'] },
-  { name: '和平公园', category: 'park', poiId: '12028795949091305261', address: '上海市虹口区天宝路891号', lat: 31.2708, lng: 121.50343, facilityYes: ['stroller'] },
-  { name: '徐家汇公园', category: 'park', poiId: '7042105854854247267', address: '上海市徐汇区肇嘉浜路889号', lat: 31.19766, lng: 121.44245, facilityYes: ['stroller'] },
-  { name: '闵行体育公园', category: 'park', poiId: '15047475203088686036', address: '上海市闵行区新镇路456号', lat: 31.14338, lng: 121.37075, facilityYes: ['parking', 'stroller'] },
-  { name: '上海迪士尼度假区', category: 'playground', poiId: '5449851162049095999', address: '上海市浦东新区川沙新镇黄赵路310号', lat: 31.141717, lng: 121.666245, facilityYes: ['parking', 'stroller', 'toilet', 'nursing', 'food'] },
-  { name: '上海海昌海洋公园', category: 'playground', poiId: '14102148180105522476', address: '上海市浦东新区银飞路166号', lat: 30.912888, lng: 121.904995, facilityYes: ['parking', 'stroller', 'toilet', 'nursing', 'food'] },
-  { name: '上海欢乐谷', category: 'playground', poiId: '18101983614208152', address: '上海市松江区林湖路888号', lat: 31.096585, lng: 121.215786, facilityYes: ['parking', 'stroller', 'toilet', 'nursing', 'food'] },
-  { name: '上海野生动物园', category: 'zoo', poiId: '737874599949405984', address: '上海市浦东新区宣桥镇南六公路178号', lat: 31.054467, lng: 121.721398, facilityYes: ['parking', 'stroller', 'toilet', 'nursing', 'food'] },
-  { name: '上海动物园', category: 'zoo', poiId: '6565845323852952734', address: '上海市长宁区虹桥路2381号', lat: 31.192621, lng: 121.363464, facilityYes: ['parking', 'stroller', 'toilet', 'nursing', 'food'] },
-  { name: '上海海洋水族馆', category: 'aquarium', poiId: '10080535945261972561', address: '上海市浦东新区陆家嘴环路1388号', lat: 31.240784, lng: 121.502087, facilityYes: ['stroller', 'toilet', 'nursing', 'food'] },
-  { name: '上海自然博物馆', category: 'museum', poiId: '8040070663151985535', address: '上海市静安区北京西路510号', lat: 31.234992, lng: 121.46265, facilityYes: ['stroller', 'toilet', 'nursing', 'food'] },
-  { name: '上海天文馆', category: 'science', poiId: '8925073397336929275', address: '上海市浦东新区临港大道380号', lat: 30.912496, lng: 121.927068, facilityYes: ['parking', 'stroller', 'toilet', 'nursing', 'food'] },
-  { name: '上海儿童博物馆', category: 'museum', poiId: '16801112687788278331', address: '上海市长宁区宋园路21号宋庆龄陵园', lat: 31.193784, lng: 121.412931, facilityYes: ['toilet', 'nursing'], facilityLimited: ['stroller'] },
-  { name: '上海少年儿童图书馆(长风馆)', category: 'library', poiId: '3819044333856289075', address: '上海市普陀区光复西路2500号', lat: 31.220887, lng: 121.39829, facilityYes: ['stroller', 'toilet', 'nursing'], facilityLimited: ['parking'] },
-  { name: '上海少年儿童图书馆(南西馆)', category: 'library', poiId: '6757796921152110989', address: '上海市静安区南京西路962号', lat: 31.22984, lng: 121.457978, facilityYes: ['stroller', 'toilet', 'nursing'] },
-  { name: '上海图书馆(东馆)', category: 'library', poiId: '5528072624503891635', address: '上海市浦东新区合欢路300号(迎春路300号)', lat: 31.219975, lng: 121.547154, facilityYes: ['stroller', 'toilet', 'nursing', 'food'], facilityLimited: ['parking'] },
-  { name: '虹桥南丰城', category: 'mall', poiId: '5472117967478212968', address: '上海市长宁区遵义路100号', lat: 31.207423, lng: 121.407688, facilityYes: ['parking', 'stroller', 'toilet', 'nursing', 'food'] },
-  { name: '上海南翔印象城MEGA', category: 'mall', poiId: '1422687408848305847', address: '上海市嘉定区陈翔公路2299号', lat: 31.304839, lng: 121.305885, facilityYes: ['parking', 'stroller', 'toilet', 'nursing', 'food'] },
-  { name: '上海万象城', category: 'mall', poiId: '16927748122195176004', address: '上海市闵行区吴中路1599号', lat: 31.170313, lng: 121.369201, facilityYes: ['parking', 'stroller', 'toilet', 'nursing', 'food'] },
-  { name: '金山城市沙滩景区', category: 'water', poiId: '10791761034827239106', address: '上海市金山区沪杭公路7555号', lat: 30.70914, lng: 121.35037, facilityYes: ['parking', 'stroller', 'toilet', 'food'] },
-  { name: '奉贤碧海金沙', category: 'water', poiId: '13490717915174695213', address: '上海市奉贤区海涵路6号', lat: 30.823412, lng: 121.572192, facilityYes: ['parking', 'stroller', 'toilet', 'food'] },
-  { name: '前滩休闲公园-粉色沙滩', category: 'water', poiId: '11200070049300313709', address: '上海市浦东新区三林镇前滩大道前滩休闲公园内', lat: 31.149004, lng: 121.463357, facilityYes: ['stroller'] }
-];
-
-var SEED_NAME_ALIASES = {
-  '世博文化公园': '上海世博文化公园',
-  '共青森林公园': '共青国家森林公园',
-  '辰山植物园': '上海辰山国家植物园',
-  '上海少年儿童图书馆（长风新馆）': '上海少年儿童图书馆(长风馆)',
-  '上海少年儿童图书馆（南京西路馆）': '上海少年儿童图书馆(南西馆)',
-  '上海图书馆东馆（少儿区）': '上海图书馆(东馆)',
-  '上海虹桥南丰城': '虹桥南丰城',
-  '上海万象城（吴中路店）': '上海万象城',
-  '金山城市沙滩': '金山城市沙滩景区',
-  '前滩休闲公园（红砂坑区）': '前滩休闲公园-粉色沙滩'
-};
-
-// 已发布旧版预制点的精确指纹；名称和坐标同时命中才升级，避免覆盖用户自建的同名地点。
-var LEGACY_SEED_COORDS = {
-  '世纪公园': [31.2178, 121.5490],
-  '世博文化公园': [31.1816, 121.4711],
-  '共青森林公园': [31.3218, 121.5458],
-  '滨江森林公园': [31.3860, 121.5240],
-  '辰山植物园': [31.0780, 121.1785],
-  '上海植物园': [31.1478, 121.4381],
-  '顾村公园': [31.3474, 121.3845],
-  '鲁迅公园': [31.2728, 121.4784],
-  '中山公园': [31.2205, 121.4138],
-  '复兴公园': [31.2163, 121.4695],
-  '长风公园': [31.2271, 121.3948],
-  '大宁公园': [31.2750, 121.4420],
-  '和平公园': [31.2737, 121.5005],
-  '徐家汇公园': [31.2004, 121.4384],
-  '闵行体育公园': [31.1450, 121.3626],
-  '上海迪士尼度假区': [31.1415, 121.6600],
-  '上海海昌海洋公园': [30.9255, 121.9070],
-  '上海欢乐谷': [31.0991, 121.2152],
-  '上海野生动物园': [31.0543, 121.7208],
-  '上海动物园': [31.1925, 121.3601],
-  '上海海洋水族馆': [31.2422, 121.4988],
-  '上海自然博物馆': [31.2359, 121.4608],
-  '上海天文馆': [30.9169, 121.9167],
-  '上海儿童博物馆': [31.1969, 121.4172],
-  '上海少年儿童图书馆（长风新馆）': [31.2268, 121.3855],
-  '上海少年儿童图书馆（南京西路馆）': [31.2298, 121.4580],
-  '上海图书馆东馆（少儿区）': [31.2201, 121.5518],
-  '上海虹桥南丰城': [31.2078, 121.4093],
-  '上海南翔印象城MEGA': [31.3129, 121.3149],
-  '上海万象城（吴中路店）': [31.1685, 121.3655],
-  '金山城市沙滩': [30.7077, 121.3440],
-  '奉贤碧海金沙': [30.8248, 121.5034],
-  '前滩休闲公园（红砂坑区）': [31.1555, 121.4720]
-};
-
-function seedPlace(seed) {
-  var facilities = {};
-  (seed.facilityYes || []).forEach(function (id) { facilities[id] = 'yes'; });
-  (seed.facilityLimited || []).forEach(function (id) { facilities[id] = 'limited'; });
-  return {
-    id: 'tencent-' + seed.poiId,
-    name: seed.name,
-    category: seed.category,
-    provider: 'tencent',
-    poiId: seed.poiId,
-    address: seed.address,
-    lat: seed.lat,
-    lng: seed.lng,
-    facilities: facilities
-  };
-}
-// 内联 SVG 图钉：底色编码类别，emoji 提供第二重识别。
-// color/emoji 均来自 CATEGORIES 常量，非用户输入，无注入风险。
 function cssToken(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-function makePinSvg(color, emoji) {
-  var white = cssToken('--white');
-  var svg =
-    '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="52" viewBox="0 0 44 52">' +
-      // 底部小三角尖（图钉尾部）
-      '<path d="M22 51 L14 37 L30 37 Z" fill="' + color + '" stroke="' + white + '" stroke-width="2.5" stroke-linejoin="round"/>' +
-      // 圆形主体：类别主色填充 + 白色描边
-      '<circle cx="22" cy="21" r="19" fill="' + color + '" stroke="' + white + '" stroke-width="2.5"/>' +
-      // 类别 emoji 居中（dy=.35em 做垂直光学居中，兼容性好于 dominant-baseline）
-      '<text x="22" y="21" dy=".35em" font-size="17" text-anchor="middle" fill="' + white + '">' + emoji + '</text>';
-  svg += '</svg>';
-  return svg;
-}
-
-function makeExploreDotSvg(color) {
-  var white = cssToken('--white');
-  return '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">' +
-    '<circle cx="22" cy="22" r="12" fill="' + color + '" fill-opacity=".72" stroke="' + white + '" stroke-width="2.5"/>' +
-    '<circle cx="22" cy="22" r="3" fill="' + white + '" fill-opacity=".92"/>' +
-    '</svg>';
-}
-
-// 预生成 10 个类别图钉样式。
 function buildMarkerStyles() {
   var styles = {};
-  CATEGORIES.forEach(function (c) {
-    var color = cssToken(c.colorToken);
-    styles[c.value] = new TMap.MarkerStyle({
-      width: 44,
-      height: 52,
-      anchor: { x: 22, y: 52 },
-      src: svgToDataUri(makePinSvg(color, c.emoji))
-    });
-    styles[c.value + '-explore'] = new TMap.MarkerStyle({
-      width: 44,
-      height: 44,
-      anchor: { x: 22, y: 22 },
-      src: svgToDataUri(makeExploreDotSvg(color))
-    });
-  });
   CATEGORIES.forEach(function (c) {
     var color = cssToken(c.colorToken);
     var white = cssToken('--white');
@@ -944,210 +823,32 @@ function svgToDataUri(svg) {
    2. 状态管理（localStorage 读写，含容错）
    ============================================================ */
 var state = {
-  places: [],          // 所有地点
   protectionMode: false,
   mapCatFilter: 'all', // all | 各类别 value
   currentDetailId: null,
   addForm: { name: '', address: '', poiId: '', lat: 0, lng: 0, category: 'park', source: null }
 };
 
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-// 旧版归档数据兼容层：不显示，但在合法数据读写时按原语义保留。
-function sanitizePhotos(raw) {
-  if (!Array.isArray(raw)) return [];
-  var photos = [];
-  for (var i = 0; i < raw.length && photos.length < 3; i++) {
-    if (typeof raw[i] === 'string' && raw[i].indexOf('data:image/') === 0) photos.push(raw[i]);
-  }
-  return photos;
-}
-
 function sanitizePlace(raw) {
-  if (!raw || typeof raw !== 'object') return null;
-  var visits = [];
-  if (Array.isArray(raw.visits)) {
-    for (var i = 0; i < raw.visits.length; i++) {
-      var v = raw.visits[i] || {};
-      visits.push({
-        id: typeof v.id === 'string' ? v.id : uid(),
-        date: typeof v.date === 'string' ? v.date : '',
-        durationMinutes: Math.max(0, parseInt(v.durationMinutes, 10) || 0),
-        note: typeof v.note === 'string' ? v.note : '',
-        photos: sanitizePhotos(v.photos)
-      });
-    }
-  }
-  var rating = parseInt(raw.rating, 10);
-  if (!(rating >= 1 && rating <= 5)) rating = 0; // 0 = 未评分
-  var name = String(raw.name || '未命名地点').slice(0, 30);
-  var facilities = {};
-  ['parking', 'stroller', 'toilet', 'nursing', 'food'].forEach(function (id) {
-    var value = raw.facilities && raw.facilities[id];
-    if (value === 'yes' || value === 'limited') facilities[id] = value;
-  });
-  var place = {
-    id: typeof raw.id === 'string' ? raw.id : uid(),
-    name: name,
-    category: typeof raw.category === 'string' && CATEGORIES.some(function (c) { return c.value === raw.category; })
-      ? raw.category : 'other',
-    provider: raw.provider === 'tencent' ? 'tencent' : '',
-    poiId: typeof raw.poiId === 'string' ? raw.poiId : '',
+  if (!raw || raw.provider !== 'tencent' || typeof raw.poiId !== 'string' || !raw.poiId.trim() ||
+      raw.poiId.length > 100 || typeof raw.name !== 'string' || !raw.name.trim() ||
+      !Number.isFinite(raw.lat) || !Number.isFinite(raw.lng)) return null;
+  return {
+    provider: 'tencent', poiId: raw.poiId, name: raw.name.slice(0, 30),
     address: typeof raw.address === 'string' ? raw.address.slice(0, 120) : '',
-    facilities: facilities,
-    lat: parseFloat(raw.lat),
-    lng: parseFloat(raw.lng)
+    category: categoryOf(raw.category).value, lat: raw.lat, lng: raw.lng
   };
-  if (raw.status !== undefined) place.status = raw.status === 'visited' ? 'visited' : 'wish';
-  if (raw.rating !== undefined) place.rating = rating;
-  if (raw.createdAt !== undefined) place.createdAt = typeof raw.createdAt === 'number' ? raw.createdAt : Date.now();
-  if (raw.visits !== undefined) place.visits = visits;
-  if (raw.practicalNotes !== undefined) {
-    place.practicalNotes = typeof raw.practicalNotes === 'string' ? raw.practicalNotes : '';
-  }
-  if (raw.tags !== undefined) {
-    place.tags = Array.isArray(raw.tags) ? raw.tags.filter(function (t) {
-      return LEGACY_TAG_IDS.indexOf(t) !== -1;
-    }).slice(0, 8) : [];
-  }
-  // 未知旧字段可能含个人修改；兼容读写时一并保留。
-  return Object.assign(Object.create(null), raw, place);
-}
-
-function migrateLegacyCategory(raw) {
-  if (!raw || typeof raw !== 'object') return raw;
-  var migrated = Object.assign({}, raw);
-  var name = String(raw.name || '');
-  if (raw.category === 'zoo' && /(水族馆|海洋馆)/.test(name)) migrated.category = 'aquarium';
-  if (raw.category === 'museum' && /(科技馆|科学馆|天文馆)/.test(name)) migrated.category = 'science';
-  return migrated;
-}
-
-function upgradeLegacySeedIdentities() {
-  var changed = false;
-  state.places.forEach(function (place) {
-    if (isTencentPlace(place)) return;
-    var legacyCoords = LEGACY_SEED_COORDS[place.name];
-    if (!legacyCoords || place.lat !== legacyCoords[0] || place.lng !== legacyCoords[1]) return;
-    var targetName = SEED_NAME_ALIASES[place.name] || place.name;
-    var seed = KNOWN_SEED_IDENTITIES.find(function (candidate) { return candidate.name === targetName; });
-    if (!seed) return;
-    var current = seedPlace(seed);
-    place.name = current.name;
-    place.category = current.category;
-    place.provider = current.provider;
-    place.poiId = current.poiId;
-    place.address = current.address;
-    place.lat = current.lat;
-    place.lng = current.lng;
-    place.facilities = current.facilities;
-    changed = true;
-  });
-  return changed;
-}
-
-function isUntouchedPreset(raw) {
-  if (!raw || typeof raw !== 'object') return false;
-  var seed = KNOWN_SEED_IDENTITIES.find(function (candidate) {
-    return raw.id === 'tencent-' + candidate.poiId;
-  });
-  if (!seed) return false;
-  var expected = seedPlace(seed);
-  // 只认完整已发布指纹。旧随机 ID、档案字段和任何未知差异都保留。
-  return Object.keys(raw).length === Object.keys(expected).length && Object.keys(expected).every(function (key) {
-    if (key !== 'facilities') return raw[key] === expected[key];
-    return raw.facilities && typeof raw.facilities === 'object' &&
-      Object.keys(raw.facilities).length === Object.keys(expected.facilities).length &&
-      Object.keys(expected.facilities).every(function (id) { return raw.facilities[id] === expected.facilities[id]; });
-  });
 }
 
 function loadState() {
-  var raw = null;
-  try { raw = localStorage.getItem(STORAGE_KEY); } catch (e) { raw = null; }
-  if (raw) {
-    try {
-      var parsed = JSON.parse(raw);
-      if (!parsed || !Array.isArray(parsed.places)) {
-        throw new Error('unsupported local data');
-      }
-      var parsedVersion = parsed.version === undefined ? 1 : Number(parsed.version);
-      if (!Number.isInteger(parsedVersion) || parsedVersion < 1 || parsedVersion > STORAGE_VERSION) {
-        throw new Error('unsupported local data');
-      }
-      var arr = parsed.places;
-      var needsCategoryMigration = parsedVersion < 2;
-      if (needsCategoryMigration) arr = arr.map(migrateLegacyCategory);
-      var sanitizedPlaces = arr.map(sanitizePlace);
-      if (sanitizedPlaces.some(function (p) { return !p || !isFinite(p.lat) || !isFinite(p.lng); })) {
-        throw new Error('unsupported local data');
-      }
-      state.places = sanitizedPlaces;
-      try { lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); } catch (e) { lastSavedPlaces = null; }
-      if (parsedVersion < 3) {
-        state.places = sanitizedPlaces.filter(function (place, index) { return !isUntouchedPreset(parsed.places[index]); });
-      }
-      var seedIdentityChanged = upgradeLegacySeedIdentities();
-      if (parsedVersion < STORAGE_VERSION || seedIdentityChanged) saveState();
-      return;
-    } catch (e) {
-      state.protectionMode = true;
-      state.places = [];
-      return;
-    }
-  }
-  // 公共内容不写入个人集合；新浏览器从空的个人地图开始。
-  saveState();
-}
-
-// 最近一次成功落盘的 places 深拷贝（配额溢出时把内存回滚到该状态，保证内存与磁盘一致）
-var lastSavedPlaces = null;
-
-// 保存状态；捕获 QuotaExceededError 等 setItem 异常：
-// - 配额溢出 → 磁盘仍是旧数据，内存回滚到「上一次成功落盘基线」
-// - localStorage 整体不可用 → 同样回滚内存，避免迁移或删除在未落盘时生效
-function saveState() {
-  if (state.protectionMode) {
-    showToast('⚠️ 原数据正在保护中，请先从“数据与隐私”明确清空');
-    return false;
-  }
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: STORAGE_VERSION, places: state.places }));
-  } catch (e) {
-    // 先判断原始异常：配额溢出直接走回滚分支（存储 100% 全满时探针也会抛错，
-    // 仅凭探针失败会把配额满误判成"存储不可用"，导致不回滚且文案误导）
-    var isQuota = !!(e && (e.name === 'QuotaExceededError' ||
-      /quota/i.test(String((e && e.message) || ''))));
-    var storageAlive = false;
-    if (!isQuota) {
-      try {
-        localStorage.setItem('__pm_probe__', '1');
-        localStorage.removeItem('__pm_probe__');
-        storageAlive = true;
-      } catch (e2) { storageAlive = false; }
-    }
-    try {
-      state.places = lastSavedPlaces ? JSON.parse(JSON.stringify(lastSavedPlaces)) : [];
-    } catch (e3) {
-      state.places = [];
-    }
-    if (isQuota || storageAlive) {
-      showToast('⚠️ 存储空间不足，本次更改未保存。请删除不需要的地点后重试');
-    } else {
-      showToast('⚠️ 保存失败，本地存储不可用');
-    }
-    return false;
-  }
-  try {
-    lastSavedPlaces = JSON.parse(JSON.stringify(state.places)); // 记录新的成功基线
-  } catch (e) { /* 快照失败不影响主流程 */ }
-  return true;
+  // 退役个人地图只保留原始存储，不解析、迁移或重新保存历史档案。
+  try { hasPersonalData = localStorage.getItem(STORAGE_KEY) !== null; }
+  catch (e) { state.protectionMode = true; }
 }
 
 var publicPlaces = [];
 var publicAvatar = '';
+var publicDataUnavailable = false;
 
 function samePoi(a, b) {
   return isTencentPlace(a) && isTencentPlace(b) && a.poiId === b.poiId;
@@ -1157,21 +858,30 @@ function publicVisitFor(place) {
   return publicPlaces.find(function (visit) { return samePoi(visit, place); });
 }
 
-function personalPlacesFor(place) {
-  return state.places.filter(function (personal) {
-    return samePoi(personal, place) || (!isTencentPlace(place) && 'personal:' + personal.id === place.id);
-  });
+function visitAgeInMonths(date) {
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date < CHILD_BIRTH_DATE) return -1;
+  var parts = date.split('-').map(Number);
+  var parsed = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  var today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date());
+  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date || date > today) return -1;
+  var birth = CHILD_BIRTH_DATE.split('-').map(Number);
+  return (parts[0] - birth[0]) * 12 + parts[1] - birth[1] - (parts[2] < birth[2] ? 1 : 0);
+}
+
+function validVisitPhoto(photo) {
+  return typeof photo === 'string' && (/^assets\/visits\/[a-z0-9-]+\.jpg$/.test(photo) ||
+    /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(photo) && photo.length <= 450000);
+}
+
+function validVisitScore(score) {
+  return typeof score === 'number' && Number.isFinite(score) && score >= 1 && score <= 5 && Math.round(score * 10) === score * 10;
 }
 
 function mapPlaces() {
-  // 展示 ID 分开命名，旧个人 ID 即使含 public: 也不会认领公共地点。
-  var places = publicPlaces.slice();
-  state.places.forEach(function (personal) {
-    if (!places.some(function (p) { return samePoi(p, personal); })) {
-      places.push(Object.assign({}, personal, { id: 'personal:' + personal.id }));
-    }
+  return publicPlaces.filter(function (place) {
+    var visit = place.visit;
+    return validVisitPhoto(visit.photo) && validVisitScore(visit.score) && visitAgeInMonths(visit.visitedOn) >= 0;
   });
-  return places;
 }
 
 function findPlace(id) {
@@ -1181,9 +891,9 @@ function findPlace(id) {
 async function loadPublicPlaces() {
   try {
     var response = await fetch('public-places.json', { signal: AbortSignal.timeout(4000) });
-    if (!response.ok) return;
+    if (!response.ok) throw new Error('public data unavailable');
     var data = await response.json();
-    if (!data || !Array.isArray(data.places)) return;
+    if (!data || !Array.isArray(data.places)) throw new Error('invalid public data');
     data.places.forEach(function (raw) {
       var place = sanitizePlace(raw);
       if (!isTencentPlace(place) || Math.abs(place.lat) > 90 || Math.abs(place.lng) > 180 ||
@@ -1205,7 +915,12 @@ async function loadPublicPlaces() {
       bitmap.close();
       publicAvatar = canvas.toDataURL('image/png');
     }
-  } catch (e) { /* 公共资料不可用时仍可使用个人地点与搜索。 */ }
+  } catch (e) {
+    if (!publicPlaces.length) {
+      publicDataUnavailable = true;
+      showToast('公开到访记录暂时无法读取，请刷新重试');
+    }
+  }
 }
 
 function isTencentPlace(place) {
@@ -1277,7 +992,7 @@ function activateFocusLayer(container, onEscape) {
   container.setAttribute('aria-hidden', 'false');
   container.removeAttribute('inert');
   var focusables = focusableElements(container);
-  if (focusables.length) focusables[0].focus();
+  if (focusables.length) focusables[0].focus({ preventScroll: true });
   else {
     container.setAttribute('tabindex', '-1');
     container.focus();
@@ -1347,7 +1062,7 @@ function showFirstUsePrivacyNote() {
     if (localStorage.getItem(ONBOARD_KEY)) return;
     localStorage.setItem(ONBOARD_KEY, '1');
   } catch (e) { /* 仍显示一次内存态提示 */ }
-  showToast('地点与旧档案只保存在当前浏览器；腾讯地图会联网。详情见“数据与隐私”');
+  showToast('11 的到访记录由维护者发布；旧个人档案保留在本机。详情见“数据与隐私”');
 }
 
 // 确认弹窗（Promise 风格）
@@ -1372,22 +1087,6 @@ function confirmDialog(msg) {
 }
 
 var userPos = null;
-
-function haversineKm(lat1, lng1, lat2, lng2) {
-  var R = 6371;
-  var dLat = (lat2 - lat1) * Math.PI / 180;
-  var dLng = (lng2 - lng1) * Math.PI / 180;
-  var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  return 2 * R * Math.asin(Math.sqrt(a));
-}
-
-function distText(km) {
-  if (km < 1) return Math.round(km * 1000) + 'm';
-  if (km < 100) return (Math.round(km * 10) / 10) + 'km';
-  return Math.round(km) + 'km';
-}
 
 var gcj02Regions = [
   [[120.85, 30.65], [122.25, 30.65], [122.25, 31.9], [120.85, 31.9]],
@@ -1460,9 +1159,6 @@ var userLocationLayer = null;
 var mapLoadTimer = null;
 var locationPending = false;
 var lastMarkerClickAt = 0; // 防止点击图钉时误触发地图空白点击
-var explorePois = [];      // 当前视野内的临时腾讯 POI，不写入本地数据
-var exploreSeq = 0;
-var exploreRefreshTimer = null;
 
 function ensureUserLocationLayer() {
   if (userLocationLayer || !map || typeof TMap === 'undefined') return userLocationLayer;
@@ -1549,7 +1245,8 @@ function initMap() {
   try {
     map = new TMap.Map($('map'), {
       center: new TMap.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng),
-      zoom: DEFAULT_ZOOM
+      zoom: DEFAULT_ZOOM,
+      baseMap: { type: 'vector', features: ['base', 'label'] }
     });
 
     markerLayer = new TMap.MultiMarker({
@@ -1567,28 +1264,11 @@ function initMap() {
         openDetail(props.placeId);
         return;
       }
-      if (!props || props.exploreIndex === undefined) return;
-      var poi = explorePois[props.exploreIndex];
-      if (!poi) return;
-      openPoiPreview({
-        name: poi.title,
-        category: state.mapCatFilter,
-        provider: 'tencent',
-        address: poi.address || '',
-        poiId: poi.id,
-        lat: poi.location.lat,
-        lng: poi.location.lng
-      });
     });
 
     map.on('click', function () {
       if (Date.now() - lastMarkerClickAt < 400) return;
       hideSearchResults();
-    });
-    map.on('idle', function () {
-      if (state.mapCatFilter === 'all') return;
-      clearTimeout(exploreRefreshTimer);
-      exploreRefreshTimer = setTimeout(refreshExploreMarkers, 250);
     });
     var currentMap = map;
     map.on('tilesloaded', function () {
@@ -1596,7 +1276,6 @@ function initMap() {
       clearTimeout(mapLoadTimer);
       mapLoadTimer = null;
       $('mapFallback').hidden = true;
-      if (state.mapCatFilter !== 'all') refreshExploreMarkers();
     });
     mapLoadTimer = setTimeout(function () {
       if (map !== currentMap) return;
@@ -1616,10 +1295,7 @@ function initMap() {
 
 function showMapFallback() {
   clearTimeout(mapLoadTimer);
-  clearTimeout(exploreRefreshTimer);
   mapLoadTimer = null;
-  exploreSeq += 1;
-  explorePois = [];
   $('mapFallback').hidden = false;
   renderMapFallback();
 }
@@ -1656,21 +1332,6 @@ function renderMarkers() {
       properties: { placeId: p.id }
     };
   });
-  var savedPoiIds = {};
-  mapPlaces().forEach(function (place) {
-    if (place.poiId) savedPoiIds[String(place.poiId)] = true;
-  });
-  if (state.mapCatFilter !== 'all') {
-    explorePois.forEach(function (poi, index) {
-      if (savedPoiIds[poi.id]) return;
-      geometries.push({
-        id: 'explore-' + poi.id,
-        styleId: state.mapCatFilter + '-explore',
-        position: new TMap.LatLng(poi.location.lat, poi.location.lng),
-        properties: { exploreIndex: index }
-      });
-    });
-  }
   markerLayer.setGeometries(geometries);
 }
 
@@ -1693,14 +1354,14 @@ function focusPlace(place) {
   map.easeTo({
     center: new TMap.LatLng(place.lat, place.lng),
     zoom: Math.max(map.getZoom(), 15),
-    duration: 500
+    duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 500
   });
 }
 
 /* ============================================================
    6. 抽屉控制（添加 / 详情 / 数据与隐私）
    ============================================================ */
-var DRAWERS = ['drawerAdd', 'drawerDetail', 'drawerPrivacy'];
+var DRAWERS = ['drawerAdd', 'drawerDetail', 'drawerPrivacy', 'drawerPlaces'];
 
 function anyDrawerOpen() {
   return DRAWERS.some(function (id) { return $(id).classList.contains('open'); });
@@ -1743,6 +1404,7 @@ function isLocalMaintenance() {
 }
 
 function openAddForm(poi) {
+  if (!localMaintenance) return;
   state.addForm = {
     name: String(poi.name || '').trim().slice(0, 30),
     address: String(poi.address || '').trim().slice(0, 120),
@@ -1763,59 +1425,20 @@ function openAddForm(poi) {
   }, 300);
 }
 
-function submitAdd(forRating) {
-  if (state.protectionMode) {
-    showToast('⚠️ 原数据正在保护中，请先从“数据与隐私”明确清空');
-    closeAllDrawers();
-    return;
+function submitAdd() {
+  if (!localMaintenance) return;
+  var poi = state.addForm;
+  if (poi.source !== 'map-poi' || !poi.name || !poi.poiId || !Number.isFinite(poi.lat) ||
+      !Number.isFinite(poi.lng) || Math.abs(poi.lat) > 90 || Math.abs(poi.lng) > 180) {
+    showToast('请先从地图搜索结果中选择地点'); return;
   }
-  var name = state.addForm.name;
-  if (state.addForm.source !== 'map-poi' || !name || !state.addForm.poiId ||
-      !isFinite(state.addForm.lat) || !isFinite(state.addForm.lng)) {
-    showToast('请先从地图搜索结果中选择地点');
-    closeAllDrawers();
-    return;
-  }
-  var place = {
-    id: uid(),
-    name: name,
-    category: state.addForm.category,
-    provider: 'tencent',
-    poiId: state.addForm.poiId,
-    address: state.addForm.address,
-    lat: state.addForm.lat,
-    lng: state.addForm.lng,
-    facilities: {}
-  };
-  if (forRating === true) {
-    if (!isLocalMaintenance()) return;
-    try {
-      sessionStorage.setItem('playmap_rating_poi', JSON.stringify({
-        provider: place.provider, poiId: place.poiId, name: place.name,
-        address: place.address, category: place.category, lat: place.lat, lng: place.lng
-      }));
-      location.assign('maintainer.html');
-    } catch (e) { showToast('无法打开评分问卷，请检查浏览器存储权限后重试'); }
-    return;
-  }
-  if (state.places.some(function (personal) { return samePoi(personal, place); })) {
-    closeAllDrawers();
-    showToast('这个地点已在我的地图中');
-    return;
-  }
-  state.places.push(place);
-  if (!saveState()) {
-    closeAllDrawers(); // 写入失败已回滚：关闭抽屉，配额提示已由 saveState 显示
-    return;
-  }
-  // 新增地点若被当前类别筛选隐藏，自动复位为「全部」，避免"加了却看不见"的困惑
-  if (state.mapCatFilter !== 'all' && place.category !== state.mapCatFilter) {
-    state.mapCatFilter = 'all';
-    renderMapCatStrip();
-  }
-  renderMarkers();
-  closeAllDrawers();
-  showToast('已添加「' + name + '」');
+  try {
+    sessionStorage.setItem('playmap_rating_poi', JSON.stringify({
+      provider: 'tencent', poiId: poi.poiId, name: poi.name, address: poi.address,
+      category: poi.category, lat: poi.lat, lng: poi.lng
+    }));
+    location.assign('maintainer.html');
+  } catch (e) { showToast('无法打开评分问卷，请检查浏览器存储权限后重试'); }
 }
 
 /* ---------- 地点详情 ---------- */
@@ -1840,26 +1463,6 @@ function openNavigation(place) {
   if (!opened) showNavigationFallback(place, url);
 }
 
-function copyDestination(place) {
-  var text = place.name + (place.address ? '\n' + place.address : '');
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    return navigator.clipboard.writeText(text);
-  }
-  var textarea = document.createElement('textarea');
-  textarea.value = text;
-  document.body.appendChild(textarea);
-  textarea.select();
-  document.execCommand('copy');
-  document.body.removeChild(textarea);
-  return Promise.resolve();
-}
-
-function copyDestinationWithToast(place) {
-  copyDestination(place).then(function () { showToast('已复制目的地'); }, function () {
-    showToast('复制失败，请长按地点名称复制');
-  });
-}
-
 function showNavigationFallback(place, url) {
   var existing = $('navigationFallback');
   if (existing) existing.remove();
@@ -1867,7 +1470,7 @@ function showNavigationFallback(place, url) {
   block.id = 'navigationFallback';
   block.className = 'navigation-fallback';
   block.innerHTML =
-    '<div role="status">导航没有打开，地点详情仍保留。可以重试、直接打开腾讯地图，或复制目的地。</div>' +
+    '<div role="status">导航没有打开，地点详情仍保留。可以重试或直接打开腾讯地图。</div>' +
     '<div class="detail-actions">' +
       '<button class="btn-nav" id="btnRetryNavigation">重试</button>' +
       '<a class="btn-nav" href="' + escapeHtml(url) + '" target="_blank" rel="noopener">打开腾讯地图</a>' +
@@ -1877,42 +1480,21 @@ function showNavigationFallback(place, url) {
 }
 
 function openPoiPreview(poi) {
+  if (!localMaintenance) return;
   state.currentDetailId = null;
-  var cat = categoryOf(poi.category);
-  $('detailContent').innerHTML =
-    '<div class="grabber"></div>' +
-    '<div class="detail-head">' +
-      '<div class="d-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
-      '<div class="detail-main">' +
-        '<div class="d-name" id="detailTitle">' + escapeHtml(poi.name) + '</div>' +
-        '<div class="d-cat">' + (poi.category ? cat.label : '搜索结果') + ' · 📍 ' +
-          (userPos
-            ? '距我 ' + distText(haversineKm(userPos.lat, userPos.lng, poi.lat, poi.lng))
-            : poi.lat.toFixed(4) + ', ' + poi.lng.toFixed(4)) +
-        '</div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="detail-actions"><button class="btn-nav" id="btnNav">🧭 导航去这里</button>' +
-      '<button class="btn-ghost" id="btnCopyDestination">复制目的地</button></div>' +
-    '<button class="btn-ghost" id="btnSavePoi">＋ 添加到我的地图</button>';
+  $('detailContent').innerHTML = '<div class="grabber"></div><div class="detail-head">' +
+    '<div class="detail-main"><div class="d-name" id="detailTitle">' + escapeHtml(poi.name) + '</div>' +
+    '<div class="d-cat">' + escapeHtml(poi.address || '') + '</div></div></div>' +
+    '<button class="btn-ghost" id="btnChoosePoi">选择类别并填写评分</button>';
   openDrawer('drawerDetail');
-  $('btnNav').addEventListener('click', function () { openNavigation(poi); });
-  $('btnCopyDestination').addEventListener('click', function () { copyDestinationWithToast(poi); });
-  $('btnSavePoi').addEventListener('click', function () {
-    openAddForm(poi);
-  });
-}
-
-function contentText(value) {
-  return typeof value === 'string' ? escapeHtml(value.slice(0, 1000)) : '';
+  $('btnChoosePoi').addEventListener('click', function () { openAddForm(poi); });
 }
 
 function visitHtml(place) {
   var published = publicVisitFor(place);
   if (!published) return '';
   var visit = published.visit;
-  var score = typeof visit.score === 'number' && Number.isFinite(visit.score) && visit.score >= 1 && visit.score <= 5 &&
-    Math.round(visit.score * 10) === visit.score * 10 ? visit.score.toFixed(1) : '';
+  var score = validVisitScore(visit.score) ? visit.score.toFixed(1) : '';
   var stars = [0, 20, 40, 60, 80].map(function (x) {
     return '<path transform="translate(' + x + ')" d="M10 1L12.8 6.8L19 7.7L14.5 12.1L15.6 18.3L10 15.4L4.4 18.3L5.5 12.1L1 7.7L7.2 6.8Z"/>';
   }).join('');
@@ -1920,63 +1502,37 @@ function visitHtml(place) {
     '<svg class="rating-stars" viewBox="0 0 100 20" aria-hidden="true"><defs><clipPath id="rating-fill"><rect width="' +
     (Number(score) * 20) + '" height="20"/></clipPath></defs>' + stars + '<g class="filled" clip-path="url(#rating-fill)">' + stars + '</g></svg>' +
     '<strong aria-hidden="true">' + score + ' / 5</strong></span>' : '<span class="visit-score">暂无评分</span>';
-  var photo = typeof visit.photo === 'string' && (/^assets\/visits\/[a-z0-9-]+\.jpg$/.test(visit.photo) ||
-    /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(visit.photo) && visit.photo.length <= 450000)
+  var photo = validVisitPhoto(visit.photo)
     ? '<img class="visit-photo" src="' + visit.photo + '" alt="11 在' + escapeHtml(place.name) + '的到访打卡照">' : '';
   return '<section aria-label="11 的到访记录"><div class="visit-heading">' +
     (publicAvatar ? '<img class="visit-avatar" src="' + publicAvatar + '" alt="11 的头像">' :
       '<span class="visit-avatar" aria-hidden="true">11</span>') +
-    '<div class="visit-rating"><strong>11 评分</strong><div class="visit-score-row">' + rating + '</div></div></div>' + photo + '</section>';
+    '<div class="visit-rating"><strong>11 评分</strong><div class="visit-score-row">' + rating + '</div></div></div><div class="visit-photo-wrap">' + photo + '</div></section>';
+}
+
+function visitStampHtml(visit) {
+  var months = visitAgeInMonths(visit.visitedOn);
+  if (months < 0) return '';
+  var date = visit.visitedOn;
+  var parts = date.split('-').map(Number);
+  return '<p class="visit-stamp"><img class="stamp-berry" src="assets/strawberry-stamp.png" alt="">' +
+    '<span class="stamp-title">11 到此一游！</span><time datetime="' + date + '" aria-label="' +
+    parts[0] + '年' + parts[1] + '月' + parts[2] + '日">' + date.replace(/-/g, '.') + '</time>' +
+    '<span class="stamp-age">' + Math.floor(months / 12) + '岁' + months % 12 + '个月打卡</span></p>';
 }
 
 function renderDetail() {
   var p = findPlace(state.currentDetailId);
   if (!p) { closeAllDrawers(); return; }
-  var isPublic = !!publicVisitFor(p);
   var focusSnapshot = captureFocus($('detailContent'));
   var cat = categoryOf(p.category);
-  var locationText = userPos
-    ? '距我 ' + distText(haversineKm(userPos.lat, userPos.lng, p.lat, p.lng))
-    : (p.address || p.lat.toFixed(4) + ', ' + p.lng.toFixed(4));
-
-  $('detailContent').innerHTML =
-    '<div class="grabber"></div>' +
-    '<div class="detail-head">' +
-      '<div class="d-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
-      '<div class="detail-main">' +
-        '<div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' +
-        '<div class="d-cat">' + cat.label + (isPublic ? '' : ' · 📍 ' + escapeHtml(locationText)) + '</div>' +
-      '</div>' +
-    '</div>' +
-    '<div class="detail-actions"><button class="btn-nav" id="btnNav">🧭 导航去这里</button>' +
-      '<button class="btn-ghost" id="btnCopyDestination">复制目的地</button></div>' +
-    visitHtml(p) +
-    (personalPlacesFor(p).length ? '<button class="btn-danger detail-delete" id="btnDeletePlace">删除这个地点</button>' :
-      '<button class="btn-ghost" id="btnSavePublic">＋ 添加到我的地图</button>');
-
+  $('detailContent').innerHTML = '<div class="grabber"></div><div class="detail-head">' +
+    '<div class="d-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
+    '<div class="detail-main"><div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' +
+    '<div class="d-cat">' + cat.label + '</div></div>' + visitStampHtml(p.visit) + '</div>' + visitHtml(p) +
+    '<div class="detail-actions"><button class="btn-nav" id="btnNav">🧭 导航去这里</button></div>';
   restoreFocus($('detailContent'), focusSnapshot);
-  if ($('btnNav')) $('btnNav').addEventListener('click', function () { openNavigation(p); });
-  if ($('btnCopyDestination')) $('btnCopyDestination').addEventListener('click', function () { copyDestinationWithToast(p); });
-  if ($('btnSavePublic')) $('btnSavePublic').addEventListener('click', function () { openAddForm(p); });
-  if ($('btnDeletePlace')) $('btnDeletePlace').addEventListener('click', async function () {
-    if (state.protectionMode) {
-      showToast('⚠️ 原数据正在保护中，请先从“数据与隐私”明确清空');
-      return;
-    }
-    var ok = await confirmDialog('确定删除「' + p.name + '」及其全部本地数据吗？删除后无法恢复。');
-    if (!ok) return;
-    var removed = personalPlacesFor(p);
-    state.places = state.places.filter(function (place) { return removed.indexOf(place) === -1; });
-    state.currentDetailId = null;
-    if (!saveState()) {
-      renderMarkers();
-      closeAllDrawers();
-      return;
-    }
-    renderMarkers();
-    closeAllDrawers();
-    showToast('已删除「' + p.name + '」');
-  });
+  $('btnNav').addEventListener('click', function () { openNavigation(p); });
 }
 /* ---------- 数据与隐私 ---------- */
 function getConfiguredTmapKey() {
@@ -2008,8 +1564,6 @@ var JSONP_TIMEOUT_MS = 8000;     // JSONP 超时：8s 自动清理（弱网/代�
 var SEARCH_REGION = '上海';      // 在线搜索城市范围（V1 单城策略；无结果时 auto_extend=1 自动扩到全国）
 var SEARCH_PAGE_SIZE = 20;       // 接口每页条数（上限 20）
 var SEARCH_SHOW_COUNT = 12;      // 实际展示的在线结果条数
-var EXPLORE_LIMIT = 8;
-var EXPLORE_MIN_SPACING_PX = 72;
 
 function getPoiSearcher() {
   if (poiSearcher) return poiSearcher;
@@ -2128,178 +1682,6 @@ function mapPoiData(res) {
   });
 }
 
-function explorePoint(poi, bounds, width, height) {
-  var sw = bounds.getSouthWest();
-  var ne = bounds.getNorthEast();
-  return {
-    x: (poi.location.lng - sw.getLng()) / (ne.getLng() - sw.getLng()) * width,
-    y: (ne.getLat() - poi.location.lat) / (ne.getLat() - sw.getLat()) * height
-  };
-}
-
-function explorePoiMatchesCategory(poi, category) {
-  var text = poi.title + ' ' + poi.providerCategory;
-  return (category.searchTerms || []).some(function (term) { return text.indexOf(term) !== -1; });
-}
-
-function selectExplorePois(pois, category, bounds) {
-  var rect = $('map').getBoundingClientRect();
-  var width = Math.max(rect.width, 1);
-  var height = Math.max(rect.height, 1);
-  var center = map.getCenter();
-  var centerPoint = explorePoint({ location: { lat: center.getLat(), lng: center.getLng() } }, bounds, width, height);
-  var maxDistance = Math.max(
-    Math.hypot(centerPoint.x, centerPoint.y),
-    Math.hypot(width - centerPoint.x, centerPoint.y),
-    Math.hypot(centerPoint.x, height - centerPoint.y),
-    Math.hypot(width - centerPoint.x, height - centerPoint.y),
-    1
-  );
-  var occupied = placesForActiveCategory().map(function (place) {
-    return explorePoint({ location: place }, bounds, width, height);
-  }).filter(function (point) {
-    return point.x >= 0 && point.x <= width && point.y >= 0 && point.y <= height;
-  });
-  var rankMax = Math.max(pois.length - 1, 1);
-  var eligible = pois.filter(function (poi) {
-    return explorePoiMatchesCategory(poi, category);
-  }).map(function (poi, index) {
-    var point = explorePoint(poi, bounds, width, height);
-    var distanceScore = 1 - Math.min(Math.hypot(point.x - centerPoint.x, point.y - centerPoint.y) / maxDistance, 1);
-    var relevanceScore = 1 - index / rankMax;
-    return { poi: poi, point: point, score: distanceScore * 0.8 + relevanceScore * 0.2, rank: index };
-  }).sort(function (a, b) {
-    return b.score - a.score || a.rank - b.rank;
-  });
-  var selected = [];
-  eligible.some(function (candidate) {
-    var hasRoom = occupied.every(function (point) {
-      return Math.hypot(candidate.point.x - point.x, candidate.point.y - point.y) >= EXPLORE_MIN_SPACING_PX;
-    });
-    if (!hasRoom) return false;
-    selected.push(candidate.poi);
-    occupied.push(candidate.point);
-    return selected.length === EXPLORE_LIMIT;
-  });
-  return selected;
-}
-
-// 按当前地图矩形视野分页获取腾讯 POI，再收敛为少量决策候选。
-function refreshExploreMarkers() {
-  clearTimeout(exploreRefreshTimer);
-  var seq = ++exploreSeq;
-  explorePois = [];
-  renderMarkers();
-  if (!map || state.mapCatFilter === 'all') return;
-  var category = categoryOf(state.mapCatFilter);
-  var key = getConfiguredTmapKey();
-  if (!category.searchKeyword || !key) return;
-  var bounds = map.getBounds();
-  var sw = bounds.getSouthWest();
-  var ne = bounds.getNorthEast();
-  var boundary = 'rectangle(' + sw.getLat() + ',' + sw.getLng() + ',' + ne.getLat() + ',' + ne.getLng() + ')';
-  var savedPoiIds = {};
-  var seenPoiIds = {};
-  var candidatePois = [];
-  mapPlaces().forEach(function (place) {
-    if (place.poiId) savedPoiIds[String(place.poiId)] = true;
-  });
-
-  function loadPage(pageIndex) {
-    var url = 'https://apis.map.qq.com/ws/place/v1/search' +
-      '?keyword=' + encodeURIComponent(category.searchKeyword) +
-      '&boundary=' + encodeURIComponent(boundary) +
-      '&page_size=' + SEARCH_PAGE_SIZE +
-      '&page_index=' + pageIndex +
-      '&key=' + encodeURIComponent(key) +
-      '&output=jsonp&callback=';
-    jsonpGet(url, seq, function (res, err) {
-      if (err || !res || res.status !== 0 || !Array.isArray(res.data)) {
-        if (candidatePois.length) {
-          explorePois = selectExplorePois(candidatePois, category, bounds);
-          renderMarkers();
-        }
-        showToast(pageIndex === 1 ? '在线探索点暂不可用，请稍后重试' : '部分探索点暂未加载完整');
-        return;
-      }
-      mapPoiData(res).forEach(function (poi) {
-        if (!poi.id || savedPoiIds[poi.id] || seenPoiIds[poi.id]) return;
-        seenPoiIds[poi.id] = true;
-        candidatePois.push(poi);
-      });
-      var count = Math.min(Math.max(parseInt(res.count, 10) || 0, candidatePois.length), 200);
-      var pageCount = Math.ceil(count / SEARCH_PAGE_SIZE);
-      if (pageIndex < pageCount) {
-        loadPage(pageIndex + 1);
-        return;
-      }
-      explorePois = selectExplorePois(candidatePois, category, bounds);
-      renderMarkers();
-      showToast('已显示 ' + explorePois.length + ' 个附近候选，移动地图查看更多');
-    }, function () { return seq === exploreSeq; });
-  }
-
-  loadPage(1);
-}
-
-// 双跳检索：① suggestion 模糊建议（地图 App 搜索框同款，容错强）
-//           ② status 0 但空结果时 → place/search 全城检索补一刀；两个都空才报"没找到"
-function jsonpPlaceSearch(keyword, lat, lng, key, seq) {
-  var suggestionUrl = 'https://apis.map.qq.com/ws/place/v1/suggestion' +
-    '?keyword=' + encodeURIComponent(keyword) +
-    '&region=' + encodeURIComponent(SEARCH_REGION) +
-    '&key=' + encodeURIComponent(key) +
-    '&output=jsonp&callback=';
-  var hop1Retried = false;
-  function onSuggestion(res, err) {
-    if (!err && res && res.status === 0 && Array.isArray(res.data) && res.data.length) {
-      renderSearchResults(mapPoiData(res).slice(0, SEARCH_SHOW_COUNT), searchLocalPlaces(keyword));
-      return;
-    }
-    if (!err && res && res.status !== 0) {
-      renderSearchResults([], searchLocalPlaces(keyword),
-        '在线搜索暂不可用；仍可浏览或搜索已有地点，稍后可重试。');
-      return;
-    }
-    if (err === 'timeout' && !hop1Retried) {
-      hop1Retried = true;
-      jsonpGet(suggestionUrl, seq, onSuggestion); // 网络/代理抖动：自动重试一次
-      return;
-    }
-    if (err) {
-      renderSearchResults([], searchLocalPlaces(keyword),
-        '在线搜索暂不可用；仍可浏览或搜索已有地点，稍后可重试。');
-      return;
-    }
-    // suggestion 返回成功但空结果 → 第二跳：place/search 全城检索
-    var searchUrl = 'https://apis.map.qq.com/ws/place/v1/search' +
-      '?keyword=' + encodeURIComponent(keyword) +
-      '&boundary=region(' + encodeURIComponent(SEARCH_REGION) + ',1)' +
-      '&page_size=' + SEARCH_PAGE_SIZE +
-      '&key=' + encodeURIComponent(key) +
-      '&output=jsonp&callback=';
-    jsonpGet(searchUrl, seq, function (res2, err2) {
-      if (!err2 && res2 && res2.status === 0 && Array.isArray(res2.data) && res2.data.length) {
-        renderSearchResults(mapPoiData(res2).slice(0, SEARCH_SHOW_COUNT), searchLocalPlaces(keyword));
-        return;
-      }
-      if (!err2 && res2 && res2.status !== 0) {
-        renderSearchResults([], searchLocalPlaces(keyword),
-          '在线搜索暂不可用；仍可浏览或搜索已有地点，稍后可重试。');
-        return;
-      }
-      if (err2) {
-        renderSearchResults([], searchLocalPlaces(keyword),
-          '在线搜索暂不可用；仍可浏览或搜索已有地点，稍后可重试。');
-        return;
-      }
-      renderSearchResults([], searchLocalPlaces(keyword)); // 两跳皆空：真的没找到
-    });
-  }
-  jsonpGet(suggestionUrl, seq, onSuggestion);
-}
-
-// 通道 A 失败后的分流：配置有效时走 B，否则保留本地搜索。
 function fallbackToChannelB(keyword, lat, lng, seq) {
   var key = getConfiguredTmapKey();
   if (!key) {
@@ -2379,7 +1761,7 @@ function selectSearchResult(idx) {
   }
   if (!isFinite(lat) || !isFinite(lng)) return;
   $('searchInput').blur();
-  map.easeTo({
+  if (map) map.easeTo({
     center: new TMap.LatLng(lat, lng),
     zoom: Math.max(map.getZoom(), 15),
     duration: 500
@@ -2444,6 +1826,19 @@ function bindSearchEvents() {
    10. 事件绑定 & 启动
    ============================================================ */
 function bindEvents() {
+  $('btnPlaceList').addEventListener('click', function () {
+    var places = placesForActiveCategory();
+    $('placeList').innerHTML = places.length ? places.map(function (place) {
+      return '<button class="fallback-place" data-place-id="' + escapeHtml(place.id) + '">' + escapeHtml(place.name) + '</button>';
+    }).join('') : '<p class="sub sub-left">这个类别暂无完整的到访记录</p>';
+    openDrawer('drawerPlaces');
+  });
+  $('placeList').addEventListener('click', function (evt) {
+    var button = evt.target.closest('[data-place-id]');
+    if (!button) return;
+    var place = findPlace(button.getAttribute('data-place-id'));
+    if (place) { focusPlace(place); openDetail(place.id); }
+  });
   // 地图右下角定位：由用户主动点击触发权限请求
   $('btnLocate').addEventListener('click', locateUser);
 
@@ -2457,7 +1852,6 @@ function bindEvents() {
     state.addForm.category = btn.getAttribute('data-cat');
     renderCatGrid();
   });
-  $('btnSubmitAdd').addEventListener('click', submitAdd);
   $('btnRateLocal').addEventListener('click', function () { submitAdd(true); });
   $('btnCancelAdd').addEventListener('click', closeAllDrawers);
 
@@ -2467,7 +1861,7 @@ function bindEvents() {
     if (!chip) return;
     state.mapCatFilter = chip.getAttribute('data-cat');
     renderMapCatStrip();
-    refreshExploreMarkers();
+    renderMarkers();
   });
 
   $('fallbackList').addEventListener('click', function (evt) {
@@ -2481,7 +1875,7 @@ function bindEvents() {
   $('btnOpenPrivacy').addEventListener('click', function () { openDrawer('drawerPrivacy'); });
   $('btnClosePrivacy').addEventListener('click', closeAllDrawers);
   $('btnClear').addEventListener('click', async function () {
-    if (!state.places.length && !state.protectionMode) { showToast('当前没有数据可清空'); return; }
+    if (!hasPersonalData && !state.protectionMode) { showToast('当前没有数据可清空'); return; }
     var ok = await confirmDialog('⚠️ 将清空你的地点及旧档案，且无法恢复。11 的公开地点保留。确定吗？');
     if (!ok) return;
     var ok2 = await confirmDialog('再次确认：真的要清空我的地点及旧档案吗？');
@@ -2492,9 +1886,8 @@ function bindEvents() {
       showToast('⚠️ 清空失败，本地存储不可用');
       return;
     }
-    state.places = [];
+    hasPersonalData = false;
     state.protectionMode = false;
-    lastSavedPlaces = [];
     $('dataAlert').hidden = true;
     renderMarkers();
     closeAllDrawers();
@@ -2507,11 +1900,16 @@ async function init() {
   loadState();
   $('dataAlert').hidden = !state.protectionMode;
   bindEvents();
-  bindSearchEvents();
+  if (localMaintenance) bindSearchEvents();
+  $('searchBox').hidden = !localMaintenance;
+  $('visitHeader').hidden = localMaintenance;
   renderMapCatStrip();
   await loadPublicPlaces();
+  $('visitCount').textContent = mapPlaces().length + ' 个地点';
+  $('btnPlaceList').disabled = false;
   initMap();
-  showFirstUsePrivacyNote();
+  if (mapPlaces().length === 1) focusPlace(mapPlaces()[0]);
+  if (!publicDataUnavailable) showFirstUsePrivacyNote();
 }
 
 if (document.readyState === 'loading') {
