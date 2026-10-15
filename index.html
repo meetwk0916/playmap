@@ -1682,6 +1682,63 @@ function mapPoiData(res) {
   });
 }
 
+// 双跳检索：① suggestion 模糊建议（地图 App 搜索框同款，容错强）
+//           ② status 0 但空结果时 → place/search 全城检索补一刀；两个都空才报"没找到"
+function jsonpPlaceSearch(keyword, lat, lng, key, seq) {
+  var suggestionUrl = 'https://apis.map.qq.com/ws/place/v1/suggestion' +
+    '?keyword=' + encodeURIComponent(keyword) +
+    '&region=' + encodeURIComponent(SEARCH_REGION) +
+    '&key=' + encodeURIComponent(key) +
+    '&output=jsonp&callback=';
+  var hop1Retried = false;
+  function onSuggestion(res, err) {
+    if (!err && res && res.status === 0 && Array.isArray(res.data) && res.data.length) {
+      renderSearchResults(mapPoiData(res).slice(0, SEARCH_SHOW_COUNT), searchLocalPlaces(keyword));
+      return;
+    }
+    if (!err && res && res.status !== 0) {
+      renderSearchResults([], searchLocalPlaces(keyword),
+        '在线搜索暂不可用；仍可浏览或搜索已有地点，稍后可重试。');
+      return;
+    }
+    if (err === 'timeout' && !hop1Retried) {
+      hop1Retried = true;
+      jsonpGet(suggestionUrl, seq, onSuggestion); // 网络/代理抖动：自动重试一次
+      return;
+    }
+    if (err) {
+      renderSearchResults([], searchLocalPlaces(keyword),
+        '在线搜索暂不可用；仍可浏览或搜索已有地点，稍后可重试。');
+      return;
+    }
+    // suggestion 返回成功但空结果 → 第二跳：place/search 全城检索
+    var searchUrl = 'https://apis.map.qq.com/ws/place/v1/search' +
+      '?keyword=' + encodeURIComponent(keyword) +
+      '&boundary=region(' + encodeURIComponent(SEARCH_REGION) + ',1)' +
+      '&page_size=' + SEARCH_PAGE_SIZE +
+      '&key=' + encodeURIComponent(key) +
+      '&output=jsonp&callback=';
+    jsonpGet(searchUrl, seq, function (res2, err2) {
+      if (!err2 && res2 && res2.status === 0 && Array.isArray(res2.data) && res2.data.length) {
+        renderSearchResults(mapPoiData(res2).slice(0, SEARCH_SHOW_COUNT), searchLocalPlaces(keyword));
+        return;
+      }
+      if (!err2 && res2 && res2.status !== 0) {
+        renderSearchResults([], searchLocalPlaces(keyword),
+          '在线搜索暂不可用；仍可浏览或搜索已有地点，稍后可重试。');
+        return;
+      }
+      if (err2) {
+        renderSearchResults([], searchLocalPlaces(keyword),
+          '在线搜索暂不可用；仍可浏览或搜索已有地点，稍后可重试。');
+        return;
+      }
+      renderSearchResults([], searchLocalPlaces(keyword)); // 两跳皆空：真的没找到
+    });
+  }
+  jsonpGet(suggestionUrl, seq, onSuggestion);
+}
+
 function fallbackToChannelB(keyword, lat, lng, seq) {
   var key = getConfiguredTmapKey();
   if (!key) {

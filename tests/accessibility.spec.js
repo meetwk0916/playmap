@@ -440,3 +440,23 @@ test('public record fetch failure is explained without touching old storage', as
   await expect(page.locator('#toast')).toContainText('公开到访记录暂时无法读取');
   expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe('unreadable private data');
 });
+
+test('local maintenance falls back through JSONP suggestion and city search when SDK search fails', async ({ page }) => {
+  await page.route('**/map.qq.com/api/gljs**', route => route.fulfill({ contentType: 'application/javascript',
+    body: tmapStub + '\nTMap.service.Search = function () { this.searchNearby = () => Promise.reject(new Error("SDK unavailable")); };' }));
+  const hops = [];
+  await page.route('**/apis.map.qq.com/ws/place/v1/**', route => {
+    const url = new URL(route.request().url());
+    hops.push(url.pathname);
+    const data = url.pathname.endsWith('/suggestion') ? [] : [{ id: 'jsonp-poi', title: '降级检索公园', address: '测试路', location: { lat: 31.24, lng: 121.48 } }];
+    return route.fulfill({ contentType: 'application/javascript', body: `${url.searchParams.get('callback')}(${JSON.stringify({ status: 0, data })})` });
+  });
+  await page.goto('/?maintain=1');
+  await page.locator('#searchInput').fill('降级检索公园');
+  const result = page.locator('.sr-item').filter({ hasText: '降级检索公园' });
+  await expect(result).toBeVisible({ timeout: 5000 }); await result.click();
+  await page.getByRole('button', { name: '选择类别并填写评分', exact: true }).click();
+  await page.getByRole('button', { name: '11 去过，填写评分', exact: true }).click();
+  await expect(page.locator('#heading')).toContainText('降级检索公园');
+  expect(hops).toEqual(['/ws/place/v1/suggestion', '/ws/place/v1/search']);
+});
