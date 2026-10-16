@@ -41,6 +41,7 @@ Playwright 需要 Chromium 及其系统动态库。缺少系统依赖时，不�
 - GitHub Issues：`docs/agents/issue-tracker.md`
 - 标签映射：`docs/agents/triage-labels.md`
 - 领域文档约定：`docs/agents/domain.md`
+- 视觉原型调整：先读 `docs/11-visit-map-design.md` 的「界面原型」，以原页面为对照评阅局部变化。
 
 ## 技能参考文件路径（WSL 会话）
 

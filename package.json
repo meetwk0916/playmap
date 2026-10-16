@@ -4,7 +4,9 @@
   "scripts": {
     "check:design": "node scripts/check-design-discipline.mjs",
     "test": "playwright test",
-    "test:album": "node --test tests/album-*.test.mjs"
+    "test:album": "node --test tests/album-*.test.mjs",
+    "test:release": "node --test tests/release-verification.test.mjs",
+    "verify:production": "node scripts/verify-production.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.55.0"
