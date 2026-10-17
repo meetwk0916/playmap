@@ -104,7 +104,8 @@
       "lat": 31.225811,
       "lng": 121.49827,
       "visitedOn": "2026-09-19",
-      "photo": "assets/visits/bfc-20260919.jpg"
+      "photo": "assets/visits/bfc-20260919.jpg",
+      "score": 4.5
     },
     {
       "provider": "tencent",
@@ -135,7 +136,8 @@
       "lat": 30.88495,
       "lng": 121.095761,
       "visitedOn": "2026-09-27",
-      "photo": "assets/visits/legoland-20260927.jpg"
+      "photo": "assets/visits/legoland-20260927.jpg",
+      "score": 3.8
     }
   ]
 }
