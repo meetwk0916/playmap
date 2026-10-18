@@ -56,7 +56,7 @@ button:disabled { opacity: .5; cursor: default; }
 <label for="rating">11 评分（1–5 星，可填一位小数）</label>
 <input id="rating" type="number" min="1" max="5" step="0.1" inputmode="decimal" placeholder="暂不评分">
 <label for="visitedOn">到访日期</label>
-<input id="visitedOn" type="date" min="2024-06-11">
+<input id="visitedOn" type="date">
 <p class="muted">日期对应所选照片的那次到访。未填评分、照片或准确日期的记录可保存草稿，补齐后才上图。</p>
 <label for="photoInput">11 到访打卡照（最多一张）</label>
 <input id="photoInput" type="file" accept="image/*">
@@ -85,6 +85,7 @@ button:disabled { opacity: .5; cursor: default; }
 <p id="status" role="status"></p>
 <p class="muted">保存后的草稿只在当前浏览器和本地地址保留，与个人地图分开。发布只需三步：下载待发布 JSON → 将文件和发布指令交给 WorkBuddy → 核对结果并确认发布。<a href="docs/public-places.md#三步发布workbuddy-接管" target="_blank" rel="noopener">查看发布指令</a>。清除浏览器数据会删除草稿，建议导出留存。</p>
 </main>
+<script src="assets/visit-rules.js"></script>
 <script>
 'use strict';
 const $ = id => document.getElementById(id);
@@ -140,9 +141,11 @@ function question() {
   show('question');
   $('heading').textContent = place.name + ' · 11 到访记录';
   $('rating').value = typeof place.score === 'number' ? String(place.score) : '';
-  $('visitedOn').value = typeof place.visitedOn === 'string' ? place.visitedOn : '';
+  // Invalid historical dates remain in the draft until the date itself is edited.
+  $('visitedOn').value = VisitRules.inspect(place).ageMonths >= 0 ? place.visitedOn : '';
   dateChanged = false;
-  $('visitedOn').max = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date());
+  $('visitedOn').min = VisitRules.birthDate;
+  $('visitedOn').max = VisitRules.today();
   photo = typeof place.photo === 'string' ? place.photo : '';
   $('photoInput').value = '';
   $('removePhoto').checked = false;
@@ -170,7 +173,7 @@ $('photoInput').addEventListener('change', async () => {
     canvas.getContext('2d').drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close();
     const next = canvas.toDataURL('image/jpeg', 0.72);
-    if (next.length > 450000) throw new Error();
+    if (!VisitRules.inspect({ photo: next }).validPhoto) throw new Error();
     photo = next; $('removePhoto').checked = false; dirty = true;
     $('error').textContent = ''; updatePhotoPreview();
   } catch { $('error').textContent = '照片无法处理或超过大小限制，请选一张较小的图片。'; $('photoInput').value = ''; }
@@ -193,16 +196,17 @@ $('question').addEventListener('submit', event => {
   else delete place.score;
   if ($('removePhoto').checked) delete place.photo;
   else if (photo) place.photo = photo;
-  $('score').textContent = value ? Number(value).toFixed(1) + ' / 5 星' : '暂无评分';
+  const rules = VisitRules.inspect(place);
+  $('score').textContent = rules.validScore ? place.score.toFixed(1) + ' / 5 星' : '暂无有效评分';
+  if (!value) $('score').textContent = '暂无评分';
   $('reviewTitle').textContent = place.name + ' · 11 评分';
-  if (date) {
-    const [year, month, day] = date.split('-').map(Number);
-    const months = (year - 2024) * 12 + month - 6 - (day < 11 ? 1 : 0);
-    $('reviewDate').textContent = date.replace(/-/g, '.') + ' · ' + Math.floor(months / 12) + '岁' + months % 12 + '个月';
-  } else $('reviewDate').textContent = '缺少到访日期，暂不上图';
-  if (!value || !place.photo) $('reviewDate').textContent += ' · 评分或照片待补，暂不上图';
-  $('reviewPhoto').hidden = !place.photo;
-  if (place.photo) $('reviewPhoto').src = place.photo;
+  if (rules.ageMonths >= 0) {
+    const months = rules.ageMonths;
+    $('reviewDate').textContent = place.visitedOn.replace(/-/g, '.') + ' · ' + Math.floor(months / 12) + '岁' + months % 12 + '个月';
+  } else $('reviewDate').textContent = place.visitedOn ? '到访日期无效，暂不上图' : '缺少到访日期，暂不上图';
+  if (!rules.validScore || !rules.validPhoto) $('reviewDate').textContent += ' · 评分或照片待补或无效，暂不上图';
+  $('reviewPhoto').hidden = !rules.validPhoto;
+  if (rules.validPhoto) $('reviewPhoto').src = place.photo;
   $('output').value = JSON.stringify(draft, null, 2) + '\n';
   dirty = true;
   show('review'); $('reviewTitle').focus();

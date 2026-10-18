@@ -41,9 +41,11 @@ test('rating is optional, bounded, and does not infer from old dimensions', asyn
   await page.goto('/maintainer.html');
   await page.locator('#start').click();
   await expect(page.locator('#rating')).toHaveValue('');
-  await page.locator('#rating').fill('5.1');
-  await page.locator('#next').click();
-  await expect(page.locator('#question')).toBeVisible();
+  for (const invalid of ['5.1', '0.9', '4.29']) {
+    await page.locator('#rating').fill(invalid);
+    await page.locator('#next').click();
+    await expect(page.locator('#question')).toBeVisible();
+  }
   await page.locator('#rating').fill('');
   await page.locator('#next').click();
   await expect(page.locator('#score')).toHaveText('暂无评分');
@@ -150,4 +152,21 @@ test('editing a score preserves an old partial date until the date itself is edi
   const draft = JSON.parse(await page.locator('#output').inputValue());
   expect(draft.places[0].visitedOn).toBe('2026-09');
   await expect(page.locator('#reviewDate')).toContainText('暂不上图');
+});
+
+
+test('invalid historical dates stay in the draft and are explained without an age', async ({ page }) => {
+  const data = structuredClone(publicData);
+  data.places[0].visitedOn = '2026-02-30';
+  data.places[0].extra = { retained: true };
+  await page.route('**/public-places.json', route => route.fulfill({ json: data }));
+  await page.goto('/maintainer.html');
+  await preview(page);
+  await expect(page.locator('#reviewDate')).toContainText('到访日期无效');
+  await expect(page.locator('#reviewDate')).toContainText('暂不上图');
+  await expect(page.locator('#reviewDate')).not.toContainText('岁');
+  await page.locator('#save').click();
+  await page.reload();
+  const exported = JSON.parse(await page.locator('#batchOutput').inputValue());
+  expect(exported.places[0]).toEqual({ ...data.places[0], score: 4.7 });
 });

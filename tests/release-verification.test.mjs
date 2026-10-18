@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 test('production verifier compares commit bytes and fails closed', async t => {
   const cwd = await mkdtemp(join(tmpdir(), 'playmap-release-'));
-  const files = { 'index.html': '<html>fixture</html>', 'public-places.json': '{"places":[]}', 'assets/test.jpg': 'photo' };
+  const files = { 'index.html': '<html>fixture</html>', 'public-places.json': '{"places":[]}', 'assets/test.jpg': 'photo', 'assets/visit-rules.js': 'window.VisitRules = {};' };
   let mode = 'normal';
   let attempts = 0;
   const server = createServer((req, res) => {
@@ -17,7 +17,8 @@ test('production verifier compares commit bytes and fails closed', async t => {
     if (path === 'assets/test.jpg') attempts++;
     if (path === 'assets/test.jpg' && mode === 'transient' && attempts === 1) { res.writeHead(503).end(); return; }
     if (path === 'maintainer.html') { res.writeHead(mode === 'exposed' ? 200 : 404).end(); return; }
-    res.end(mode === 'stale' && path === 'index.html' ? 'old page' : files[path]);
+    res.end(mode === 'stale' && path === 'index.html' ? 'old page' :
+      mode === 'stale-rules' && path === 'assets/visit-rules.js' ? 'old rules' : files[path]);
   });
   try {
     await mkdir(join(cwd, 'assets'));
@@ -37,7 +38,7 @@ test('production verifier compares commit bytes and fails closed', async t => {
       child.on('error', reject);
       child.on('close', code => { try { resolve({ code, report: JSON.parse(stdout) }); } catch { reject(new Error(stderr || stdout)); } });
     });
-    for (const scenario of ['normal', 'transient', 'stale', 'exposed']) {
+    for (const scenario of ['normal', 'transient', 'stale', 'stale-rules', 'exposed']) {
       await t.test(scenario, async () => {
         mode = scenario; attempts = 0;
         const { code, report } = await run();
@@ -46,6 +47,9 @@ test('production verifier compares commit bytes and fails closed', async t => {
         assert.equal(report.commit, commit);
         assert.equal(report.browserInteraction, 'not-checked');
         if (mode === 'transient') assert.equal(attempts, 2);
+        const rules = report.results.find(result => result.path === 'assets/visit-rules.js');
+        assert.equal(rules.ok, mode !== 'stale-rules');
+        if (mode === 'stale-rules') assert.equal(rules.attempts, 3);
       });
     }
   } finally {
