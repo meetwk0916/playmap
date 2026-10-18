@@ -7,7 +7,7 @@
 ## 运行与验证
 
 ```bash
-python3 -m http.server 4173 --bind 127.0.0.1
+npm run dev
 npm run check:design
 npm test
 ```
@@ -17,7 +17,7 @@ Playwright 需要 Chromium 及其系统动态库。缺少系统依赖时，不�
 ## 技术栈与结构
 
 - `index.html`：现役地图页面，原生 HTML/CSS/JavaScript + 腾讯地图 GL JS API；与维护页共用 `assets/visit-rules.js` 到访规则。
-- `maintainer.html`：仅本地的评分、照片手工补充和草稿批量导出；维护机制见 `docs/public-places.md`。
+- `maintainer.html`：仅本地的玩后感、照片手工补充和草稿批量导出；维护机制见 `docs/public-places.md`。
 - `tests/accessibility.spec.js`、`tests/maintainer.spec.js`：地图流程、数据兼容、可访问性及维护草稿保护测试。
 - `scripts/check-design-discipline.mjs`：设计令牌静态门禁。
 - `docs/product-history.md`：已退役方向及仍有效的决策背景。
@@ -37,6 +37,7 @@ Playwright 需要 Chromium 及其系统动态库。缺少系统依赖时，不�
 
 ## Agent 配置
 
+- 判断分支或执行 Git 写操作前，重新核对当前分支、工作树和提交状态；判断远端状态时先刷新远端引用。已获授权的提交若被 `.git` 沙箱权限拦截，在同一轮按权限流程重试并核对结果。
 - 修改公开地点、评分、照片或维护页，以及读取相册、挑代表照或发布内容：先读 `docs/public-places.md`，按现役合同和“三步发布”执行。先展示准确本地结果，确认后连续完成推送与页面、数据及照片的生产核验。
 - GitHub Issues：`docs/agents/issue-tracker.md`
 - 标签映射：`docs/agents/triage-labels.md`

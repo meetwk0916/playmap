@@ -1,6 +1,7 @@
 const { defineConfig } = require('@playwright/test');
 
 module.exports = defineConfig({
+  globalSetup: './scripts/check-local-server.cjs',
   testDir: './tests',
   testMatch: '**/*.spec.js',
   use: {
@@ -8,7 +9,7 @@ module.exports = defineConfig({
     viewport: { width: 375, height: 812 }
   },
   webServer: {
-    command: 'python3 -m http.server 4173 --bind 127.0.0.1',
+    command: 'npm run dev',
     port: 4173,
     reuseExistingServer: true
   }
