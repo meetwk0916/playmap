@@ -749,6 +749,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   </div>
 </div>
 
+<script src="assets/visit-rules.js"></script>
 <script>
 /* ============================================================
    1. 常量与类别定义
@@ -761,7 +762,6 @@ var STORAGE_VERSION = 3;                    // 数据结构版本
 var ONBOARD_KEY = 'baby_playmap_onboarded'; // 首次隐私简述标记
 var DEFAULT_CENTER = { lat: 31.2304, lng: 121.4737 }; // 上海人民广场一带
 var DEFAULT_ZOOM = 12;
-var CHILD_BIRTH_DATE = '2024-06-11';
 var localMaintenance = isLocalMaintenance() && new URLSearchParams(location.search).get('maintain') === '1';
 var hasPersonalData = false;
 
@@ -858,29 +858,9 @@ function publicVisitFor(place) {
   return publicPlaces.find(function (visit) { return samePoi(visit, place); });
 }
 
-function visitAgeInMonths(date) {
-  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date < CHILD_BIRTH_DATE) return -1;
-  var parts = date.split('-').map(Number);
-  var parsed = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
-  var today = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date());
-  if (!Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date || date > today) return -1;
-  var birth = CHILD_BIRTH_DATE.split('-').map(Number);
-  return (parts[0] - birth[0]) * 12 + parts[1] - birth[1] - (parts[2] < birth[2] ? 1 : 0);
-}
-
-function validVisitPhoto(photo) {
-  return typeof photo === 'string' && (/^assets\/visits\/[a-z0-9-]+\.jpg$/.test(photo) ||
-    /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(photo) && photo.length <= 450000);
-}
-
-function validVisitScore(score) {
-  return typeof score === 'number' && Number.isFinite(score) && score >= 1 && score <= 5 && Math.round(score * 10) === score * 10;
-}
-
 function mapPlaces() {
   return publicPlaces.filter(function (place) {
-    var visit = place.visit;
-    return validVisitPhoto(visit.photo) && validVisitScore(visit.score) && visitAgeInMonths(visit.visitedOn) >= 0;
+    return VisitRules.inspect(place.visit).complete;
   });
 }
 
@@ -1494,7 +1474,8 @@ function visitHtml(place) {
   var published = publicVisitFor(place);
   if (!published) return '';
   var visit = published.visit;
-  var score = validVisitScore(visit.score) ? visit.score.toFixed(1) : '';
+  var rules = VisitRules.inspect(visit);
+  var score = rules.validScore ? visit.score.toFixed(1) : '';
   var stars = [0, 20, 40, 60, 80].map(function (x) {
     return '<path transform="translate(' + x + ')" d="M10 1L12.8 6.8L19 7.7L14.5 12.1L15.6 18.3L10 15.4L4.4 18.3L5.5 12.1L1 7.7L7.2 6.8Z"/>';
   }).join('');
@@ -1502,7 +1483,7 @@ function visitHtml(place) {
     '<svg class="rating-stars" viewBox="0 0 100 20" aria-hidden="true"><defs><clipPath id="rating-fill"><rect width="' +
     (Number(score) * 20) + '" height="20"/></clipPath></defs>' + stars + '<g class="filled" clip-path="url(#rating-fill)">' + stars + '</g></svg>' +
     '<strong aria-hidden="true">' + score + ' / 5</strong></span>' : '<span class="visit-score">暂无评分</span>';
-  var photo = validVisitPhoto(visit.photo)
+  var photo = rules.validPhoto
     ? '<img class="visit-photo" src="' + visit.photo + '" alt="11 在' + escapeHtml(place.name) + '的到访打卡照">' : '';
   return '<section aria-label="11 的到访记录"><div class="visit-heading">' +
     (publicAvatar ? '<img class="visit-avatar" src="' + publicAvatar + '" alt="11 的头像">' :
@@ -1511,7 +1492,7 @@ function visitHtml(place) {
 }
 
 function visitStampHtml(visit) {
-  var months = visitAgeInMonths(visit.visitedOn);
+  var months = VisitRules.inspect(visit).ageMonths;
   if (months < 0) return '';
   var date = visit.visitedOn;
   var parts = date.split('-').map(Number);

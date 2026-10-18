@@ -16,7 +16,7 @@ Playwright 需要 Chromium 及其系统动态库。缺少系统依赖时，不�
 
 ## 技术栈与结构
 
-- `index.html`：现役单文件应用，原生 HTML/CSS/JavaScript + 腾讯地图 GL JS API。
+- `index.html`：现役地图页面，原生 HTML/CSS/JavaScript + 腾讯地图 GL JS API；与维护页共用 `assets/visit-rules.js` 到访规则。
 - `maintainer.html`：仅本地的评分、照片手工补充和草稿批量导出；维护机制见 `docs/public-places.md`。
 - `tests/accessibility.spec.js`、`tests/maintainer.spec.js`：地图流程、数据兼容、可访问性及维护草稿保护测试。
 - `scripts/check-design-discipline.mjs`：设计令牌静态门禁。

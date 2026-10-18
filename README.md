@@ -8,7 +8,7 @@
 python3 -m http.server 4173 --bind 127.0.0.1
 ```
 
-打开 <http://127.0.0.1:4173/index.html>。应用是单文件原生 HTML/CSS/JavaScript，使用腾讯地图 GL JS API；数据保存在浏览器 `localStorage`，不需要后端。公开记录来自仓库 JSON，旧个人数据保留在原有存储键中。
+打开 <http://127.0.0.1:4173/index.html>。应用使用原生 HTML/CSS/JavaScript 和腾讯地图 GL JS API；地图与维护页共用 `assets/visit-rules.js` 解释到访记录。数据保存在浏览器 `localStorage`，不需要后端。公开记录来自仓库 JSON，旧个人数据保留在原有存储键中。
 
 生产站点为 <https://meetwk.site/playmap/>，由 GitHub Pages 从 `main` 分支根目录发布并强制使用 HTTPS。
 

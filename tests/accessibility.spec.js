@@ -460,3 +460,53 @@ test('local maintenance falls back through JSONP suggestion and city search when
   await expect(page.locator('#heading')).toContainText('降级检索公园');
   expect(hops).toEqual(['/ws/place/v1/suggestion', '/ws/place/v1/search']);
 });
+
+test.describe('map and maintenance interpret the same visit in Shanghai time', () => {
+  test.use({ timezoneId: 'America/Los_Angeles' });
+  for (const [label, patch, age] of [
+    ['birth day', { visitedOn: '2024-06-11' }, '0岁0个月'],
+    ['day before month birthday', { visitedOn: '2026-09-10' }, '2岁2个月'],
+    ['month birthday', { visitedOn: '2026-09-11' }, '2岁3个月'],
+    ['leap day', { visitedOn: '2028-02-29' }, '3岁8个月'],
+    ['Shanghai today while device is yesterday', { visitedOn: '2028-03-01' }, '3岁8个月'],
+    ['Shanghai tomorrow', { visitedOn: '2028-03-02' }, null],
+    ['before birth', { visitedOn: '2024-06-10' }, null],
+    ['impossible leap day', { visitedOn: '2027-02-29' }, null],
+    ['unsupported photo', { photo: 'https://example.invalid/visit.jpg' }, null],
+    ['unsupported data image', { photo: 'data:image/png;base64,AAAA' }, null],
+    ['oversized JPEG', { photo: 'data:image/jpeg;base64,' + 'A'.repeat(450000) }, null],
+    ['supported JPEG', { photo: 'data:image/jpeg;base64,AAAA' }, '2岁3个月'],
+    ['minimum score', { score: 1 }, '2岁3个月'],
+    ['maximum score', { score: 5 }, '2岁3个月']
+  ]) {
+    test(label, async ({ page }) => {
+      await page.clock.setFixedTime(new Date('2028-02-29T16:30:00Z'));
+      const record = { ...visit, ...patch, history: { retained: ['original'] } };
+      await serveVisits(page, [record]);
+      await page.reload();
+      await page.getByRole('button', { name: '地点列表', exact: true }).click();
+      await expect(page.locator('#placeList button')).toHaveCount(age === null ? 0 : 1);
+      if (age !== null) {
+        await page.locator('#placeList button').click();
+        await expect(page.locator('.stamp-age')).toHaveText(age + '打卡');
+      }
+      await page.goto('/maintainer.html');
+      await page.locator('#start').click();
+      await expect(page.getByLabel('到访日期')).toHaveAttribute('max', '2028-03-01');
+      await page.locator('#next').click();
+      await expect(page.locator('#review')).toBeVisible();
+      if (age === null) await expect(page.locator('#reviewDate')).toContainText('暂不上图');
+      else {
+        await expect(page.locator('#reviewDate')).toContainText(age);
+        await expect(page.locator('#reviewDate')).not.toContainText('暂不上图');
+      }
+      if (label.includes('photo') || label.includes('image') || label.includes('oversized')) {
+        await expect(page.locator('#reviewPhoto')).toBeHidden();
+      }
+      expect(JSON.parse(await page.locator('#output').inputValue()).places[0]).toEqual(record);
+      if (label === 'unsupported photo') {
+        await page.screenshot({ path: '/tmp/playmap-37-invalid-photo-preview.png', fullPage: true });
+      }
+    });
+  }
+});
