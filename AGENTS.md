@@ -7,7 +7,7 @@
 ## 运行与验证
 
 ```bash
-python3 -m http.server 4173 --bind 127.0.0.1
+npm run dev
 npm run check:design
 npm test
 ```
@@ -37,6 +37,7 @@ Playwright 需要 Chromium 及其系统动态库。缺少系统依赖时，不�
 
 ## Agent 配置
 
+- 判断分支或执行 Git 写操作前，重新核对当前分支、工作树和提交状态；判断远端状态时先刷新远端引用。已获授权的提交若被 `.git` 沙箱权限拦截，在同一轮按权限流程重试并核对结果。
 - 修改公开地点、评分、照片或维护页，以及读取相册、挑代表照或发布内容：先读 `docs/public-places.md`，按现役合同和“三步发布”执行。先展示准确本地结果，确认后连续完成推送与页面、数据及照片的生产核验。
 - GitHub Issues：`docs/agents/issue-tracker.md`
 - 标签映射：`docs/agents/triage-labels.md`
