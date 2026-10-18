@@ -521,6 +521,7 @@ for (const [label, reflection, displayed] of [
   ['overlong', '玩'.repeat(81), ''], ['multiline', '第一行\n第二行', '']
 ]) {
   test(`reflection ${label} displays safely without changing visit context`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await serveVisits(page, [{ ...visit, score: 'invalid historical score', reflection }]);
     await page.reload();
     await openVisit(page);
