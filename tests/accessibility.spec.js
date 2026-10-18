@@ -514,6 +514,7 @@ test.describe('map and maintenance interpret the same visit in Shanghai time', (
 });
 
 for (const [label, reflection, displayed] of [
+  ['short sentence', '  这是测试示意：玩得开心，也有一点遗憾。  ', '这是测试示意：玩得开心，也有一点遗憾。'],
   ['trimmed literal HTML', '  <img src=x onerror="window.reflectionExecuted=true">  ', '<img src=x onerror="window.reflectionExecuted=true">'],
   ['80 characters', '玩'.repeat(80), '玩'.repeat(80)],
   ['absent', undefined, ''], ['blank', '   ', ''], ['invalid type', { text: '不能显示' }, ''],
@@ -524,6 +525,7 @@ for (const [label, reflection, displayed] of [
     await page.reload();
     await openVisit(page);
     const detail = page.getByRole('dialog', { name: visit.name, exact: true });
+    await detail.evaluate(el => Promise.all(el.getAnimations({ subtree: true }).map(animation => animation.finished)));
     await expect(detail.getByText('11’s 玩后感', { exact: true })).toHaveCount(displayed ? 1 : 0);
     if (displayed) await expect(detail.locator('.visit-reflection')).toHaveText(displayed);
     else await expect(detail.locator('.visit-heading')).toHaveCount(0);
@@ -542,7 +544,9 @@ for (const [label, reflection, displayed] of [
     });
     expect(layout.stampBottom).toBeLessThanOrEqual(layout.photoTop);
     expect(layout.navTop).toBeGreaterThanOrEqual(layout.photoBottom);
-    if (label === '80 characters' || label === 'trimmed literal HTML') {
+    if (label === '80 characters' || label === 'short sentence' || label === 'absent') {
+      await expect.poll(() => page.evaluate(() => innerWidth)).toBe(390);
+      await expect.poll(async () => (await detail.boundingBox()).width).toBe(390);
       await page.screenshot({ path: '/tmp/playmap-39-logs/synthetic-' + label.replaceAll(' ', '-') + '-390.png' });
     }
     if (label === '80 characters') {
@@ -551,7 +555,18 @@ for (const [label, reflection, displayed] of [
       await expect.poll(async () => (await detail.boundingBox()).width).toBe(320);
       await expect(detail.locator('.visit-photo')).toBeVisible();
       expect(await detail.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+      const narrow = await detail.evaluate(el => {
+        const photo = el.querySelector('.visit-photo').getBoundingClientRect();
+        const stamp = el.querySelector('.visit-stamp').getBoundingClientRect();
+        const nav = el.querySelector('#btnNav').getBoundingClientRect();
+        return { stampBottom: stamp.bottom, photoTop: photo.top, navTop: nav.top, photoBottom: photo.bottom };
+      });
+      expect(narrow.stampBottom).toBeLessThanOrEqual(narrow.photoTop);
+      expect(narrow.navTop).toBeGreaterThanOrEqual(narrow.photoBottom);
       await page.screenshot({ path: '/tmp/playmap-39-logs/synthetic-80-characters-320.png' });
+      await detail.getByRole('button', { name: '🧭 导航去这里', exact: true }).scrollIntoViewIfNeeded();
+      await expect(detail.getByRole('button', { name: '🧭 导航去这里', exact: true })).toBeInViewport();
+      await page.screenshot({ path: '/tmp/playmap-39-logs/synthetic-80-characters-320-navigation.png' });
     }
   });
 }
