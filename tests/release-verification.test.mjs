@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, chmod, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
@@ -30,8 +30,8 @@ test('production verifier compares commit bytes and fails closed', async t => {
     await writeFile(join(cwd, 'index.html'), 'uncommitted edit');
     await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
     const script = fileURLToPath(new URL('../scripts/verify-production.mjs', import.meta.url));
-    const run = () => new Promise((resolve, reject) => {
-      const child = spawn(process.execPath, [script, commit, `http://127.0.0.1:${server.address().port}/playmap/`], { cwd });
+    const run = (args = [], env = {}) => new Promise((resolve, reject) => {
+      const child = spawn(process.execPath, [script, commit, `http://127.0.0.1:${server.address().port}/playmap/`, ...args], { cwd, env: { ...process.env, ...env } });
       let stdout = ''; let stderr = '';
       child.stdout.on('data', data => { stdout += data; });
       child.stderr.on('data', data => { stderr += data; });
@@ -52,8 +52,48 @@ test('production verifier compares commit bytes and fails closed', async t => {
         if (mode === 'stale-rules') assert.equal(rules.attempts, 3);
       });
     }
+    await t.test('Pages wait retries API failure and rejects a different built commit', async () => {
+      mode = 'normal';
+      const gh = join(cwd, 'gh');
+      await writeFile(gh, `#!${process.execPath}\n` + `
+const fs = require('node:fs');
+const count = fs.existsSync('calls') ? Number(fs.readFileSync('calls', 'utf8')) : 0;
+fs.writeFileSync('calls', String(count + 1));
+if (count === 0) { console.error('GitHub API: EOF'); process.exit(1); }
+console.log(JSON.stringify({ status: 'built', commit: count === 1 ? 'old-commit' : process.env.TARGET_COMMIT }));
+`);
+      await chmod(gh, 0o755);
+      const { code, report } = await run(['--wait-for-pages'], { PATH: `${cwd}:${process.env.PATH}`, TARGET_COMMIT: commit });
+      assert.equal(code, 0);
+      assert.equal(report.filesVerified, true);
+      assert.deepEqual(report.deployment, { status: 'built', commit, verified: true });
+      assert.equal(await readFile(join(cwd, 'calls'), 'utf8'), '3');
+      await writeFile(gh, `#!${process.execPath}\nconsole.log(JSON.stringify({status:'errored',commit:process.env.TARGET_COMMIT}));\n`);
+      const failed = await run(['--wait-for-pages'], { PATH: `${cwd}:${process.env.PATH}`, TARGET_COMMIT: commit });
+      assert.equal(failed.code, 1);
+      assert.equal(failed.report.filesVerified, true);
+      assert.deepEqual(failed.report.deployment, { status: 'errored', commit, verified: false });
+    });
   } finally {
     await new Promise(resolve => server.close(resolve));
     await rm(cwd, { recursive: true, force: true });
   }
+});
+
+test('local preview accepts its own directory and rejects a different server', async () => {
+  const checkServer = (await import('../scripts/check-local-server.cjs')).default;
+  const root = fileURLToPath(new URL('../', import.meta.url));
+  let sameDirectory = true;
+  const server = createServer(async (req, res) => {
+    try { res.end(sameDirectory ? await readFile(join(root, req.url)) : 'another checkout'); }
+    catch { res.writeHead(404).end(); }
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const config = { projects: [{ use: { baseURL: `http://127.0.0.1:${server.address().port}/` } }] };
+  try {
+    await checkServer(config);
+    sameDirectory = false;
+    await assert.rejects(checkServer(config), /另一份工作目录/);
+  } finally { await new Promise(resolve => server.close(resolve)); }
+  await assert.rejects(checkServer(config), /尚未启动/);
 });
