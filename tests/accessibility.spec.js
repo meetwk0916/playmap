@@ -91,13 +91,13 @@ async function openVisit(page, name = visit.name) {
 test('only complete public visits appear in map and filtered list; personal data remains byte-for-byte intact', async ({ page }) => {
   const raw = JSON.stringify({ version: 1, places: [{ ...visit, poiId: 'personal-only', name: '私人地点', visits: [{ note: '保留原始照片和评分' }] }] });
   await page.addInitScript(raw => localStorage.setItem('baby_playmap_v1', raw), raw);
-  await serveVisits(page, [visit, { ...visit, poiId: 'no-photo', photo: undefined }, { ...visit, poiId: 'no-score', score: undefined }, { ...visit, poiId: 'no-date', visitedOn: undefined }]);
+  await serveVisits(page, [visit, { ...visit, poiId: 'no-photo', photo: undefined }, { ...visit, poiId: 'no-score', name: '未评分公园', score: undefined }, { ...visit, poiId: 'no-date', visitedOn: undefined }]);
   await page.goto('/');
   await expect(page.getByRole('button', { name: '地点列表', exact: true })).toBeVisible();
   await page.getByRole('button', { name: '地点列表', exact: true }).click();
-  await expect(page.locator('#placeList button')).toHaveCount(1);
-  await expect(page.locator('#placeList')).toContainText(visit.name);
-  expect(await page.evaluate(() => window.__markerLayers[0].geometries.length)).toBe(1);
+  await expect(page.locator('#placeList button')).toHaveCount(2);
+  await expect(page.locator('#placeList')).toContainText('未评分公园');
+  expect(await page.evaluate(() => window.__markerLayers[0].geometries.length)).toBe(2);
   expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe(raw);
 });
 
@@ -105,7 +105,8 @@ test('visit detail keeps one photo, date and age in the corner, with navigation 
   await page.goto('/');
   await openVisit(page);
   const detail = page.getByRole('dialog', { name: visit.name, exact: true });
-  await expect(detail.getByRole('img', { name: '11 评分：4.3 / 5 星' })).toBeVisible();
+  await expect(detail.getByText('11’s 玩后感', { exact: true })).toHaveCount(0);
+  await expect(detail.getByRole('img', { name: /评分/ })).toHaveCount(0);
   await expect(detail.locator('time')).toHaveText('2026.09.12');
   await expect(detail.locator('.stamp-age')).toHaveText('2岁3个月打卡');
   await expect(detail.locator('.visit-photo')).toHaveCount(1);
@@ -305,9 +306,8 @@ test('public map has no search or add controls and categories never fetch online
   expect(await page.evaluate(() => window.__mapOptions.baseMap.features)).toEqual(['base', 'label']);
 });
 
-test('invalid score, photo, date and POI identities stay out of markers and lists', async ({ page }) => {
+test('invalid photo, date and POI identities stay out of markers and lists', async ({ page }) => {
   const invalid = [
-    { score: 4.29 }, { score: '4.3' }, { score: 0 }, { score: 6 },
     { photo: 'https://example.com/private.jpg' }, { photo: 'assets/visits/../other.jpg' },
     { visitedOn: '2026-09' }, { visitedOn: '2026-02-30' }, { visitedOn: '2024-06-10' },
     { visitedOn: '9999-01-01' }, { provider: 'other' }, { lat: 99 }
@@ -415,8 +415,8 @@ test('local POI maintenance remains online and never writes personal map data', 
   await expect(page.locator('#searchBox')).toBeVisible();
   await page.locator('#searchInput').fill('搜索公园');
   await page.locator('.sr-item').filter({ hasText: '搜索公园' }).click();
-  await page.getByRole('button', { name: '选择类别并填写评分', exact: true }).click();
-  await page.getByRole('button', { name: '11 去过，填写评分', exact: true }).click();
+  await page.getByRole('button', { name: '选择类别并填写到访记录', exact: true }).click();
+  await page.getByRole('button', { name: '11 去过，填写到访记录', exact: true }).click();
   await expect(page).toHaveURL(/maintainer.html$/);
   await expect(page.locator('#heading')).toContainText('搜索公园');
   expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBeNull();
@@ -455,8 +455,8 @@ test('local maintenance falls back through JSONP suggestion and city search when
   await page.locator('#searchInput').fill('降级检索公园');
   const result = page.locator('.sr-item').filter({ hasText: '降级检索公园' });
   await expect(result).toBeVisible({ timeout: 5000 }); await result.click();
-  await page.getByRole('button', { name: '选择类别并填写评分', exact: true }).click();
-  await page.getByRole('button', { name: '11 去过，填写评分', exact: true }).click();
+  await page.getByRole('button', { name: '选择类别并填写到访记录', exact: true }).click();
+  await page.getByRole('button', { name: '11 去过，填写到访记录', exact: true }).click();
   await expect(page.locator('#heading')).toContainText('降级检索公园');
   expect(hops).toEqual(['/ws/place/v1/suggestion', '/ws/place/v1/search']);
 });
@@ -477,7 +477,9 @@ test.describe('map and maintenance interpret the same visit in Shanghai time', (
     ['oversized JPEG', { photo: 'data:image/jpeg;base64,' + 'A'.repeat(450000) }, null],
     ['supported JPEG', { photo: 'data:image/jpeg;base64,AAAA' }, '2岁3个月'],
     ['minimum score', { score: 1 }, '2岁3个月'],
-    ['maximum score', { score: 5 }, '2岁3个月']
+    ['maximum score', { score: 5 }, '2岁3个月'],
+    ['no score', { score: undefined }, '2岁3个月'],
+    ['invalid legacy score', { score: { old: true } }, '2岁3个月']
   ]) {
     test(label, async ({ page }) => {
       await page.clock.setFixedTime(new Date('2028-02-29T16:30:00Z'));
@@ -510,3 +512,62 @@ test.describe('map and maintenance interpret the same visit in Shanghai time', (
     });
   }
 });
+
+for (const [label, reflection, displayed] of [
+  ['short sentence', '  这是测试示意：玩得开心，也有一点遗憾。  ', '这是测试示意：玩得开心，也有一点遗憾。'],
+  ['trimmed literal HTML', '  <img src=x onerror="window.reflectionExecuted=true">  ', '<img src=x onerror="window.reflectionExecuted=true">'],
+  ['80 characters', '玩'.repeat(80), '玩'.repeat(80)],
+  ['absent', undefined, ''], ['blank', '   ', ''], ['invalid type', { text: '不能显示' }, ''],
+  ['overlong', '玩'.repeat(81), ''], ['multiline', '第一行\n第二行', '']
+]) {
+  test(`reflection ${label} displays safely without changing visit context`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await serveVisits(page, [{ ...visit, score: 'invalid historical score', reflection }]);
+    await page.reload();
+    await openVisit(page);
+    const detail = page.getByRole('dialog', { name: visit.name, exact: true });
+    await detail.evaluate(el => Promise.all(el.getAnimations({ subtree: true }).map(animation => animation.finished)));
+    await expect(detail.getByText('11’s 玩后感', { exact: true })).toHaveCount(displayed ? 1 : 0);
+    if (displayed) await expect(detail.locator('.visit-reflection')).toHaveText(displayed);
+    else await expect(detail.locator('.visit-heading')).toHaveCount(0);
+    await expect(detail.locator('.visit-avatar')).toHaveCount(displayed ? 1 : 0);
+    await expect(detail.locator('.rating-stars')).toHaveCount(0);
+    await expect(detail.locator('.visit-photo')).toBeVisible();
+    await expect(detail.locator('time')).toHaveText('2026.09.12');
+    await expect(detail.getByRole('button', { name: '🧭 导航去这里', exact: true })).toBeVisible();
+    expect(await page.evaluate(() => window.reflectionExecuted)).toBeUndefined();
+    expect(await detail.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    const layout = await detail.evaluate(el => {
+      const photo = el.querySelector('.visit-photo').getBoundingClientRect();
+      const stamp = el.querySelector('.visit-stamp').getBoundingClientRect();
+      const nav = el.querySelector('#btnNav').getBoundingClientRect();
+      return { stampBottom: stamp.bottom, photoTop: photo.top, navTop: nav.top, photoBottom: photo.bottom };
+    });
+    expect(layout.stampBottom).toBeLessThanOrEqual(layout.photoTop);
+    expect(layout.navTop).toBeGreaterThanOrEqual(layout.photoBottom);
+    if (label === '80 characters' || label === 'short sentence' || label === 'absent') {
+      await expect.poll(() => page.evaluate(() => innerWidth)).toBe(390);
+      await expect.poll(async () => (await detail.boundingBox()).width).toBe(390);
+      await page.screenshot({ path: '/tmp/playmap-39-logs/synthetic-' + label.replaceAll(' ', '-') + '-390.png' });
+    }
+    if (label === '80 characters') {
+      await page.setViewportSize({ width: 320, height: 844 });
+      await expect.poll(() => page.evaluate(() => innerWidth)).toBe(320);
+      await expect.poll(async () => (await detail.boundingBox()).width).toBe(320);
+      await expect(detail.locator('.visit-photo')).toBeVisible();
+      expect(await detail.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+      const narrow = await detail.evaluate(el => {
+        const photo = el.querySelector('.visit-photo').getBoundingClientRect();
+        const stamp = el.querySelector('.visit-stamp').getBoundingClientRect();
+        const nav = el.querySelector('#btnNav').getBoundingClientRect();
+        return { stampBottom: stamp.bottom, photoTop: photo.top, navTop: nav.top, photoBottom: photo.bottom };
+      });
+      expect(narrow.stampBottom).toBeLessThanOrEqual(narrow.photoTop);
+      expect(narrow.navTop).toBeGreaterThanOrEqual(narrow.photoBottom);
+      await page.screenshot({ path: '/tmp/playmap-39-logs/synthetic-80-characters-320.png' });
+      await detail.getByRole('button', { name: '🧭 导航去这里', exact: true }).scrollIntoViewIfNeeded();
+      await expect(detail.getByRole('button', { name: '🧭 导航去这里', exact: true })).toBeInViewport();
+      await page.screenshot({ path: '/tmp/playmap-39-logs/synthetic-80-characters-320-navigation.png' });
+    }
+  });
+}

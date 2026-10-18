@@ -18,7 +18,7 @@ p { margin: 8px 0 18px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 24px; margin: 24px 0; }
 label { display: block; font-weight: 600; margin: 18px 0 8px; }
 input, select, textarea, button { font: inherit; }
-select, textarea, input[type="number"], input[type="date"], input[type="file"] { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--text); background: var(--white); }
+select, textarea, input[type="text"], input[type="date"], input[type="file"] { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 10px; color: var(--text); background: var(--white); }
 textarea { resize: vertical; min-height: 110px; }
 .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
 button { min-height: 44px; padding: 10px 18px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--text); cursor: pointer; }
@@ -26,9 +26,7 @@ button.primary { background: var(--primary); color: var(--white); border-color: 
 button:disabled { opacity: .5; cursor: default; }
 :focus-visible { outline: 3px solid var(--primary); outline-offset: 3px; }
 [hidden] { display: none !important; }
-.score-row { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-#recommendationPreview { font-weight: 700; color: var(--primary); }
-#score { color: var(--gold); font-size: 26px; font-weight: 700; }
+#reviewReflection { overflow-wrap: anywhere; }
 #summary p { padding-bottom: 12px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
 #status { color: var(--muted); }
 #error { color: var(--danger); }
@@ -42,22 +40,24 @@ button:disabled { opacity: .5; cursor: default; }
 <main>
 <a href="index.html">← 查看地图</a>
 <h1>维护 11 到访记录</h1>
-<p class="muted">为到访地点直接打分，选一张打卡照，保存草稿后导出发布。</p>
+<p class="muted">为到访地点写一句玩后感，选一张打卡照，保存草稿后导出发布。</p>
 <p id="error" role="alert"></p>
 <section id="choose" class="card">
 <h2>这次记录哪个地点？</h2>
 <label for="place">待维护地点</label>
 <select id="place" disabled></select>
-<p class="muted">已有评分和照片会自动带入。新增地点请从<a href="index.html?maintain=1">本地 POI 搜索</a>选择「11 去过，填写评分」。</p>
+<p class="muted">已有玩后感和照片会自动带入。新增地点请从<a href="index.html?maintain=1">本地 POI 搜索</a>选择「11 去过，填写到访记录」。</p>
 <button id="start" class="primary" disabled>开始填写</button>
 </section>
 <form id="question" class="card" hidden>
 <h2 id="heading" tabindex="-1"></h2>
-<label for="rating">11 评分（1–5 星，可填一位小数）</label>
-<input id="rating" type="number" min="1" max="5" step="0.1" inputmode="decimal" placeholder="暂不评分">
+<label for="reflection">11’s 玩后感</label>
+<input id="reflection" type="text" aria-describedby="reflectionHint reflectionError" placeholder="可以暂空">
+<p id="reflectionHint" class="muted">可选，单行最多 80 字。只写维护者确认的真实体验。</p>
+<p id="reflectionError" role="alert"></p>
 <label for="visitedOn">到访日期</label>
 <input id="visitedOn" type="date">
-<p class="muted">日期对应所选照片的那次到访。未填评分、照片或准确日期的记录可保存草稿，补齐后才上图。</p>
+<p class="muted">日期对应所选照片的那次到访。照片与准确日期齐全即可上图，玩后感可暂空；未补齐的记录也可保存草稿。</p>
 <label for="photoInput">11 到访打卡照（最多一张）</label>
 <input id="photoInput" type="file" accept="image/*">
 <img id="photoPreview" alt="当前打卡照预览" hidden>
@@ -67,7 +67,7 @@ button:disabled { opacity: .5; cursor: default; }
 </form>
 <section id="review" class="card" hidden>
 <h2 id="reviewTitle" tabindex="-1"></h2>
-<div class="score-row"><p id="score"></p></div>
+<div id="reviewReflectionCard" hidden><h3>11’s 玩后感</h3><p id="reviewReflection"></p></div>
 <p id="reviewDate" class="muted"></p>
 <img id="reviewPhoto" alt="11 到访打卡照预览" hidden>
 <div class="actions"><button id="edit">返回修改</button><button id="save" class="primary">保存到本地草稿</button></div>
@@ -91,7 +91,7 @@ button:disabled { opacity: .5; cursor: default; }
 const $ = id => document.getElementById(id);
 const DRAFT_KEY = 'playmap_maintainer_draft_v1';
 let draft, base, savedDraft, savedRaw = null, storageBlocked = false;
-let selected = 0, photo = '', dirty = false, dateChanged = false;
+let selected = 0, photo = '', dirty = false, dateChanged = false, reflectionChanged = false;
 function validData(data) {
   return data && Array.isArray(data.places) && data.places.every(p => p && p.provider === 'tencent' &&
     typeof p.poiId === 'string' && p.poiId && typeof p.name === 'string') &&
@@ -140,7 +140,10 @@ function question() {
   const place = draft.places[selected];
   show('question');
   $('heading').textContent = place.name + ' · 11 到访记录';
-  $('rating').value = typeof place.score === 'number' ? String(place.score) : '';
+  $('reflection').value = VisitRules.inspect(place).reflection;
+  reflectionChanged = false;
+  $('reflection').setCustomValidity('');
+  $('reflectionError').textContent = '';
   // Invalid historical dates remain in the draft until the date itself is edited.
   $('visitedOn').value = VisitRules.inspect(place).ageMonths >= 0 ? place.visitedOn : '';
   dateChanged = false;
@@ -157,7 +160,14 @@ function updatePhotoPreview() {
   if (photo) $('photoPreview').src = photo;
   $('removePhotoLabel').hidden = !photo;
 }
-$('rating').addEventListener('input', () => { dirty = true; });
+$('reflection').addEventListener('input', () => {
+  dirty = true; reflectionChanged = true;
+  const value = $('reflection').value.trim();
+  const invalid = value && VisitRules.inspect({ reflection: value }).reflection !== value;
+  const message = invalid ? '玩后感请填写单行文字，最多 80 字；请缩短后再预览。' : '';
+  $('reflection').setCustomValidity(message);
+  $('reflectionError').textContent = message;
+});
 $('visitedOn').addEventListener('input', () => { dirty = true; dateChanged = true; });
 $('removePhoto').addEventListener('change', () => { dirty = true; updatePhotoPreview(); });
 $('photoInput').addEventListener('change', async () => {
@@ -186,25 +196,27 @@ $('back').addEventListener('click', () => { show('choose'); $('start').focus(); 
 $('question').addEventListener('submit', event => {
   event.preventDefault();
   const place = draft.places[selected];
-  const value = $('rating').value;
+  const value = $('reflection').value.trim();
   const date = $('visitedOn').value;
   if (dateChanged) {
     if (date) place.visitedOn = date;
     else delete place.visitedOn;
   }
-  if (value) place.score = Number(value);
-  else delete place.score;
+  if (reflectionChanged) {
+    if (value) place.reflection = value;
+    else delete place.reflection;
+  }
   if ($('removePhoto').checked) delete place.photo;
   else if (photo) place.photo = photo;
   const rules = VisitRules.inspect(place);
-  $('score').textContent = rules.validScore ? place.score.toFixed(1) + ' / 5 星' : '暂无有效评分';
-  if (!value) $('score').textContent = '暂无评分';
-  $('reviewTitle').textContent = place.name + ' · 11 评分';
+  $('reviewReflection').textContent = rules.reflection;
+  $('reviewReflectionCard').hidden = !rules.reflection;
+  $('reviewTitle').textContent = place.name + ' · 11 到访记录';
   if (rules.ageMonths >= 0) {
     const months = rules.ageMonths;
     $('reviewDate').textContent = place.visitedOn.replace(/-/g, '.') + ' · ' + Math.floor(months / 12) + '岁' + months % 12 + '个月';
   } else $('reviewDate').textContent = place.visitedOn ? '到访日期无效，暂不上图' : '缺少到访日期，暂不上图';
-  if (!rules.validScore || !rules.validPhoto) $('reviewDate').textContent += ' · 评分或照片待补或无效，暂不上图';
+  if (!rules.validPhoto) $('reviewDate').textContent += ' · 照片待补或无效，暂不上图';
   $('reviewPhoto').hidden = !rules.validPhoto;
   if (rules.validPhoto) $('reviewPhoto').src = place.photo;
   $('output').value = JSON.stringify(draft, null, 2) + '\n';
@@ -228,7 +240,7 @@ window.addEventListener('beforeunload', event => { if (dirty) { event.preventDef
 (async () => {
   if (!['localhost', '127.0.0.1', '[::1]'].includes(location.hostname)) {
     $('choose').hidden = true;
-    $('error').textContent = '评分维护仅限本机使用，请在本地打开地图。';
+    $('error').textContent = '到访维护仅限本机使用，请在本地打开地图。';
     return;
   }
   try {

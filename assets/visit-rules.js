@@ -15,12 +15,12 @@ function ageInMonths(date) {
 }
 function inspect(visit) {
   var months = ageInMonths(visit.visitedOn);
-  var score = visit.score;
-  var validScore = typeof score === 'number' && Number.isFinite(score) && score >= 1 && score <= 5 && Math.round(score * 10) === score * 10;
+  var reflection = typeof visit.reflection === 'string' ? visit.reflection.trim() : '';
+  if (reflection.length > 80 || /[\r\n\u2028\u2029]/.test(reflection)) reflection = '';
   var photo = visit.photo;
   var validPhoto = typeof photo === 'string' && (/^assets\/visits\/[a-z0-9-]+\.jpg$/.test(photo) ||
     /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(photo) && photo.length <= 450000);
-  return { ageMonths: months, validScore: validScore, validPhoto: validPhoto, complete: months >= 0 && validScore && validPhoto };
+  return { ageMonths: months, reflection: reflection, validPhoto: validPhoto, complete: months >= 0 && validPhoto };
 }
 window.VisitRules = { birthDate: birthDate, today: today, inspect: inspect };
 })();
