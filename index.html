@@ -571,15 +571,11 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .modal-confirm .btn-no { background: var(--neutral-soft); color: var(--text-light); }
 .visit-heading { display: flex; align-items: center; gap: 10px; margin-top: 18px; }
 .visit-rating { flex: 1; min-width: 0; }
-.visit-score-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .recommendation { white-space: nowrap; border-radius: 999px; padding: 4px 10px; font-size: 13px; font-weight: 700; }
 .recommendation-strong { color: var(--primary-strong); background: var(--spruce-soft); }
 .recommendation-general { color: var(--amber-ink); background: var(--sun-soft); }
 .recommendation-no { color: var(--danger); background: var(--danger-soft); }
-.visit-score { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--rating-ink); }
-.rating-stars { width: 100px; height: 20px; fill: var(--line); }
-.rating-stars .filled { fill: var(--rating-gold); }
-.visit-score strong { font-size: 20px; }
+.visit-reflection { margin-top: 4px; line-height: 1.7; overflow-wrap: anywhere; }
 .visit-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: var(--spruce-soft); display: grid; place-items: center; font-weight: 700; }
 .visit-photo { display: block; width: 100%; max-height: 360px; margin-top: 16px; border-radius: var(--radius); object-fit: contain; background: var(--surface-muted); }
 .assessment { padding: 12px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
@@ -617,7 +613,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .place-list-button { border:0; border-left:1px solid var(--line); padding:0 0 0 12px; min-height:28px; color:var(--primary-deep); background:transparent; font-size:14px; font-weight:700; white-space:nowrap; }
 #visitHeader strong { font-size:15px; }
 #map { isolation:isolate; }
-/* A little warmth, while retaining the original drawer and star rating. */
+/* A little warmth, while retaining the original drawer. */
 .detail-head .d-emoji { transform:rotate(-7deg); border-radius:18px 22px 16px 22px; }
 .visit-heading { position:relative; padding:14px; border-radius:var(--radius); background:var(--sun-soft); }
 .visit-heading::after { content:'✦'; position:absolute; top:8px; right:12px; color:var(--rating-ink); font-size:19px; transform:rotate(12deg); }
@@ -626,7 +622,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .visit-photo-wrap { position:relative; margin-top:16px; }
 .visit-photo-wrap .visit-photo { margin-top:0; }
 #detailContent { position:relative; }
-.detail-head { padding-right:108px; }
+.detail-head { padding-right:108px; min-height:110px; }
 .visit-stamp { position:absolute; z-index:1; top:-3px; right:0; width:100px; height:110px; margin:0; padding:43px 6px 0; color:var(--danger); text-align:center; transform:rotate(4deg); }
 .stamp-berry { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; filter:saturate(.55); opacity:.82; pointer-events:none; }
 .visit-stamp .stamp-title { display:block; position:relative; font-size:9px; font-weight:700; transform:rotate(-3deg); }
@@ -709,7 +705,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
     <div class="cat-grid" id="catGrid"></div>
   </div>
 
-  <button class="btn-ghost" id="btnRateLocal" hidden>11 去过，填写评分</button>
+  <button class="btn-ghost" id="btnRateLocal" hidden>11 去过，填写到访记录</button>
   <button class="btn-ghost" id="btnCancelAdd">取消</button>
 </div>
 
@@ -726,7 +722,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 <div class="drawer" id="drawerPrivacy" role="dialog" aria-modal="true" aria-labelledby="drawerPrivacyTitle" aria-hidden="true" inert>
   <div class="grabber" aria-hidden="true"></div>
   <h2 id="drawerPrivacyTitle">数据与隐私</h2>
-  <p class="sub sub-left">旧个人地点和家庭游玩档案仍保存在当前浏览器，本页不再展示或修改；清除浏览器数据或更换设备会丢失。11 的到访地点、评分和打卡照由维护者公开发布，不属于你的个人数据。</p>
+  <p class="sub sub-left">旧个人地点和家庭游玩档案仍保存在当前浏览器，本页不再展示或修改；清除浏览器数据或更换设备会丢失。11 的到访地点、玩后感和打卡照由维护者公开发布，不属于你的个人数据。</p>
   <p class="sub sub-left">只有点击定位按钮后才会请求位置，位置仅在当前页面用于距离判断，不会保存。</p>
   <p class="sub sub-left">腾讯地图会接收加载地图和打开导航所必需的网络信息；在线 POI 搜索仅用于本地维护。本站不设置账号，不上传业务数据，也不使用统计、广告追踪或用户画像。</p>
   <div class="settings-block">
@@ -1418,7 +1414,7 @@ function submitAdd() {
       category: poi.category, lat: poi.lat, lng: poi.lng
     }));
     location.assign('maintainer.html');
-  } catch (e) { showToast('无法打开评分问卷，请检查浏览器存储权限后重试'); }
+  } catch (e) { showToast('无法打开到访维护页，请检查浏览器存储权限后重试'); }
 }
 
 /* ---------- 地点详情 ---------- */
@@ -1465,7 +1461,7 @@ function openPoiPreview(poi) {
   $('detailContent').innerHTML = '<div class="grabber"></div><div class="detail-head">' +
     '<div class="detail-main"><div class="d-name" id="detailTitle">' + escapeHtml(poi.name) + '</div>' +
     '<div class="d-cat">' + escapeHtml(poi.address || '') + '</div></div></div>' +
-    '<button class="btn-ghost" id="btnChoosePoi">选择类别并填写评分</button>';
+    '<button class="btn-ghost" id="btnChoosePoi">选择类别并填写到访记录</button>';
   openDrawer('drawerDetail');
   $('btnChoosePoi').addEventListener('click', function () { openAddForm(poi); });
 }
@@ -1475,20 +1471,13 @@ function visitHtml(place) {
   if (!published) return '';
   var visit = published.visit;
   var rules = VisitRules.inspect(visit);
-  var score = rules.validScore ? visit.score.toFixed(1) : '';
-  var stars = [0, 20, 40, 60, 80].map(function (x) {
-    return '<path transform="translate(' + x + ')" d="M10 1L12.8 6.8L19 7.7L14.5 12.1L15.6 18.3L10 15.4L4.4 18.3L5.5 12.1L1 7.7L7.2 6.8Z"/>';
-  }).join('');
-  var rating = score ? '<span class="visit-score" role="img" aria-label="11 评分：' + score + ' / 5 星">' +
-    '<svg class="rating-stars" viewBox="0 0 100 20" aria-hidden="true"><defs><clipPath id="rating-fill"><rect width="' +
-    (Number(score) * 20) + '" height="20"/></clipPath></defs>' + stars + '<g class="filled" clip-path="url(#rating-fill)">' + stars + '</g></svg>' +
-    '<strong aria-hidden="true">' + score + ' / 5</strong></span>' : '<span class="visit-score">暂无评分</span>';
   var photo = rules.validPhoto
     ? '<img class="visit-photo" src="' + visit.photo + '" alt="11 在' + escapeHtml(place.name) + '的到访打卡照">' : '';
-  return '<section aria-label="11 的到访记录"><div class="visit-heading">' +
+  var reflection = rules.reflection ? '<div class="visit-heading">' +
     (publicAvatar ? '<img class="visit-avatar" src="' + publicAvatar + '" alt="11 的头像">' :
       '<span class="visit-avatar" aria-hidden="true">11</span>') +
-    '<div class="visit-rating"><strong>11 评分</strong><div class="visit-score-row">' + rating + '</div></div></div><div class="visit-photo-wrap">' + photo + '</div></section>';
+    '<div class="visit-rating"><strong>11’s 玩后感</strong><p class="visit-reflection">' + escapeHtml(rules.reflection) + '</p></div></div>' : '';
+  return '<section aria-label="11 的到访记录">' + reflection + '<div class="visit-photo-wrap">' + photo + '</div></section>';
 }
 
 function visitStampHtml(visit) {
