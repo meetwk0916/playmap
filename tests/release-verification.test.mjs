@@ -15,6 +15,16 @@ test('production verifier compares commit bytes and fails closed', async t => {
   const server = createServer((req, res) => {
     const path = new URL(req.url, 'http://localhost').pathname.replace('/playmap/', '');
     if (path === 'assets/test.jpg') attempts++;
+    if (path === 'assets/test.jpg' && mode === 'slow-body') {
+      res.writeHead(200); res.flushHeaders();
+      setTimeout(() => res.end(files[path]), 16000);
+      return;
+    }
+    if (path === 'assets/test.jpg' && mode === 'broken-body') {
+      res.writeHead(200, { 'Content-Length': 100 }); res.write('partial');
+      setTimeout(() => res.destroy(), 20);
+      return;
+    }
     if (path === 'assets/test.jpg' && mode === 'transient' && attempts === 1) { res.writeHead(503).end(); return; }
     if (path === 'maintainer.html') { res.writeHead(mode === 'exposed' ? 200 : 404).end(); return; }
     res.end(mode === 'stale' && path === 'index.html' ? 'old page' :
@@ -50,8 +60,28 @@ test('production verifier compares commit bytes and fails closed', async t => {
         const rules = report.results.find(result => result.path === 'assets/visit-rules.js');
         assert.equal(rules.ok, mode !== 'stale-rules');
         if (mode === 'stale-rules') assert.equal(rules.attempts, 3);
+        if (mode === 'stale-rules') assert.equal(rules.stage, 'comparison');
       });
     }
+    await t.test('accepts a body slower than the former 15 second limit', async () => {
+      mode = 'slow-body'; attempts = 0;
+      const { code, report } = await run();
+      assert.equal(code, 0);
+      assert.equal(report.filesVerified, true);
+      assert.equal(attempts, 1);
+    });
+    await t.test('reports interrupted bodies and fails after three attempts', async () => {
+      mode = 'broken-body'; attempts = 0;
+      const { code, report } = await run();
+      assert.equal(code, 1);
+      assert.equal(report.filesVerified, false);
+      const photo = report.results.find(result => result.path === 'assets/test.jpg');
+      assert.equal(photo.stage, 'body');
+      assert.equal(photo.timeoutMs, 60000);
+      assert.equal(photo.attempts, 3);
+      assert.equal(attempts, 3);
+      assert.ok(photo.error);
+    });
     await t.test('Pages wait retries API failure and rejects a different built commit', async () => {
       mode = 'normal';
       const gh = join(cwd, 'gh');
