@@ -32,16 +32,19 @@ try {
       let result;
       for (let attempt = 1; attempt <= 3; attempt++) {
         if (waitForPages && Date.now() >= deadline) { result = { path, ok: false, error: 'Deployment wait timed out' }; break; }
+        const started = Date.now();
+        const timeout = waitForPages ? Math.max(1, Math.min(60000, deadline - started)) : 60000;
+        let stage = 'response';
         try {
           const url = new URL(path, base);
           url.searchParams.set('verify', `${commit}-${attempt}-${Date.now()}`);
-          const timeout = waitForPages ? Math.max(1, Math.min(15000, deadline - Date.now())) : 15000;
           const response = await fetch(url, { headers: { 'Cache-Control': 'no-cache' }, signal: AbortSignal.timeout(timeout) });
+          stage = 'body';
           const bytes = Buffer.from(await response.arrayBuffer());
           const ok = expected === null ? response.status === 404 : response.status === 200 && bytes.equals(expected);
-          result = { path, status: response.status, ok, attempts: attempt, ...(expected === null ? {} : { sha256: hash(bytes), expectedSha256: hash(expected) }) };
+          result = { path, status: response.status, ok, attempts: attempt, ...(!ok ? { stage: 'comparison' } : {}), ...(expected === null ? {} : { sha256: hash(bytes), expectedSha256: hash(expected) }) };
         } catch (error) {
-          result = { path, ok: false, attempts: attempt, error: error.message };
+          result = { path, ok: false, attempts: attempt, stage, timeoutMs: timeout, elapsedMs: Date.now() - started, error: error.message };
         }
         if (result.ok) break;
       }
