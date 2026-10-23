@@ -84,6 +84,13 @@ test.beforeEach(async ({ page }) => {
   await page.goto('/');
   await expect.poll(() => page.evaluate(() => typeof window.__openTestPlace)).toBe('function');
 });
+async function screenshotWhenReady(page, options) {
+  const images = page.locator('img:visible');
+  await expect.poll(() => images.evaluateAll(items => items.every(img => img.complete && img.naturalWidth > 0)),
+    { message: 'Visible images must load before capturing verification evidence', timeout: 15000 }).toBe(true);
+  await images.evaluateAll(items => Promise.all(items.map(img => img.decode())));
+  await page.screenshot(options);
+}
 async function openVisit(page, name = visit.name) {
   await page.getByRole('button', { name: '地点列表', exact: true }).click();
   await page.locator('#placeList').getByRole('button', { name: new RegExp(name) }).click();
@@ -507,7 +514,7 @@ test.describe('map and maintenance interpret the same visit in Shanghai time', (
       }
       expect(JSON.parse(await page.locator('#output').inputValue()).places[0]).toEqual(record);
       if (label === 'unsupported photo') {
-        await page.screenshot({ path: '/tmp/playmap-37-invalid-photo-preview.png', fullPage: true });
+        await screenshotWhenReady(page, { path: '/tmp/playmap-37-invalid-photo-preview.png', fullPage: true });
       }
     });
   }
@@ -548,7 +555,7 @@ for (const [label, reflection, displayed] of [
     if (label === '80 characters' || label === 'short sentence' || label === 'absent') {
       await expect.poll(() => page.evaluate(() => innerWidth)).toBe(390);
       await expect.poll(async () => (await detail.boundingBox()).width).toBe(390);
-      await page.screenshot({ path: '/tmp/playmap-39-logs/synthetic-' + label.replaceAll(' ', '-') + '-390.png' });
+      await screenshotWhenReady(page, { path: '/tmp/playmap-39-logs/synthetic-' + label.replaceAll(' ', '-') + '-390.png' });
     }
     if (label === '80 characters') {
       await page.setViewportSize({ width: 320, height: 844 });
@@ -564,10 +571,10 @@ for (const [label, reflection, displayed] of [
       });
       expect(narrow.stampBottom).toBeLessThanOrEqual(narrow.photoTop);
       expect(narrow.navTop).toBeGreaterThanOrEqual(narrow.photoBottom);
-      await page.screenshot({ path: '/tmp/playmap-39-logs/synthetic-80-characters-320.png' });
+      await screenshotWhenReady(page, { path: '/tmp/playmap-39-logs/synthetic-80-characters-320.png' });
       await detail.getByRole('button', { name: '🧭 导航去这里', exact: true }).scrollIntoViewIfNeeded();
       await expect(detail.getByRole('button', { name: '🧭 导航去这里', exact: true })).toBeInViewport();
-      await page.screenshot({ path: '/tmp/playmap-39-logs/synthetic-80-characters-320-navigation.png' });
+      await screenshotWhenReady(page, { path: '/tmp/playmap-39-logs/synthetic-80-characters-320-navigation.png' });
     }
   });
 }
