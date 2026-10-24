@@ -26,7 +26,7 @@ GitHub shares one number space across issues and PRs, so a bare `#42` may be eit
 
 ## When a skill says "publish to the issue tracker"
 
-Create a GitHub issue.
+Search open and closed GitHub issues first. Reuse an issue covering the same scope and add any missing specification or acceptance evidence there; create a new issue only when no issue covers the request or the request adds scope.
 
 ## When a skill says "fetch the relevant ticket"
 
