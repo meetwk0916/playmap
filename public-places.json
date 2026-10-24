@@ -93,7 +93,9 @@
       "parent": {
         "level": "high",
         "reason": "位置方便，吃的地方也不难找，动线合理；唯一问题是停车场大部分是机械车位"
-      }
+      },
+      "visitedOn": "2026-05-24",
+      "photo": "assets/visits/yunshang-haiyangguan-20260524.jpg"
     },
     {
       "provider": "tencent",
@@ -183,6 +185,61 @@
       "lng": 121.541672,
       "visitedOn": "2026-07-05",
       "photo": "assets/visits/science-20260705.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "7659739315527819020",
+      "name": "耀雪冰雪世界",
+      "address": "上海市浦东新区银飞路与杞青路交叉路口往北约240米",
+      "category": "playground",
+      "lat": 30.917542,
+      "lng": 121.907081,
+      "visitedOn": "2026-06-27",
+      "photo": "assets/visits/yaoxue-bingxue-shijie-20260627.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "4339669379104096802",
+      "name": "启园",
+      "address": "江苏省苏州市吴中区启园路39号",
+      "category": "park",
+      "lat": 31.097548,
+      "lng": 120.413751,
+      "visitedOn": "2026-05-03",
+      "photo": "assets/visits/qiyuan-20260503.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "13371302678117514178",
+      "name": "东岸绿道",
+      "address": "上海市浦东新区",
+      "category": "park",
+      "lat": 31.159039,
+      "lng": 121.472133,
+      "visitedOn": "2026-05-01",
+      "photo": "assets/visits/dong-an-luda-20260501.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "2983640854697038939",
+      "name": "苏州太湖诺富特温泉酒店",
+      "address": "江苏省苏州市吴中区环太湖大道3888号",
+      "category": "hotel",
+      "lat": 31.195017,
+      "lng": 120.487697,
+      "visitedOn": "2026-05-02",
+      "photo": "assets/visits/taihu-novotel-20260502.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "3780385409077118119",
+      "name": "巨鹿花园",
+      "address": "上海市静安区巨鹿路889号(近常熟路)",
+      "category": "other",
+      "lat": 31.218211,
+      "lng": 121.44888,
+      "visitedOn": "2026-05-05",
+      "photo": "assets/visits/julu-huayuan-20260505.jpg"
     }
   ]
 }
