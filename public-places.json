@@ -138,6 +138,42 @@
       "visitedOn": "2026-09-27",
       "photo": "assets/visits/legoland-20260927.jpg",
       "score": 3.8
+    },
+    {
+      "provider": "tencent",
+      "poiId": "10229973357600169549",
+      "name": "开元寺景区",
+      "address": "福建省泉州市鲤城区西街176号",
+      "category": "other",
+      "lat": 24.914182,
+      "lng": 118.585451
+    },
+    {
+      "provider": "tencent",
+      "poiId": "3385875432822519315",
+      "name": "泉州蟳埔古村落",
+      "address": "福建省泉州市丰泽区浔埔路214号",
+      "category": "other",
+      "lat": 24.856361,
+      "lng": 118.654254
+    },
+    {
+      "provider": "tencent",
+      "poiId": "10166299063460789917",
+      "name": "少林禅寺",
+      "address": "福建省泉州市丰泽区清源山余脉东岳山下",
+      "category": "other",
+      "lat": 24.919281,
+      "lng": 118.614022
+    },
+    {
+      "provider": "tencent",
+      "poiId": "11951227536464849719",
+      "name": "上海科技馆",
+      "address": "上海市浦东新区花木街道世纪大道2000号",
+      "category": "science",
+      "lat": 31.218216,
+      "lng": 121.541672
     }
   ]
 }
