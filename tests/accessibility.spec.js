@@ -252,20 +252,24 @@ test('BFC full title fits two lines at 320px without colliding with the date sta
   await serveVisits(page, [{ ...visit, name: '上海BFC外滩金融中心南区商场', category: 'mall' }]);
   await page.reload(); await openVisit(page, '上海BFC外滩金融中心南区商场');
   const detail = page.getByRole('dialog', { name: '上海BFC外滩金融中心南区商场', exact: true });
-  const title = detail.locator('#detailTitle');
-  const metrics = await title.evaluate(el => {
-    const box = el.getBoundingClientRect(), style = getComputedStyle(el);
-    return { height: box.height, line: parseFloat(style.lineHeight), overflow: style.textOverflow, clamp: style.webkitLineClamp };
+  const photo = detail.locator('.visit-photo');
+  await expect.poll(() => photo.evaluate(el => el.complete && el.naturalWidth > 0)).toBe(true);
+  await photo.evaluate(el => el.decode());
+  await expect(photo).toHaveCSS('object-fit', 'contain');
+  await detail.evaluate(el => Promise.all(el.getAnimations({ subtree: true })
+    .filter(animation => Number.isFinite(animation.effect.getComputedTiming().endTime))
+    .map(animation => animation.finished)));
+  const metrics = await detail.evaluate(el => {
+    const title = el.querySelector('#detailTitle'), style = getComputedStyle(title);
+    const name = title.getBoundingClientRect(), stamp = el.querySelector('.visit-stamp').getBoundingClientRect();
+    const photo = el.querySelector('.visit-photo').getBoundingClientRect(), nav = el.querySelector('#btnNav').getBoundingClientRect();
+    return { height: name.height, line: parseFloat(style.lineHeight), overflow: style.textOverflow,
+      clamp: style.webkitLineClamp, nameRight: name.right, stampLeft: stamp.left, photoBottom: photo.bottom, navTop: nav.top };
   });
   expect(metrics.height).toBeLessThanOrEqual(metrics.line * 2 + 1);
   expect(metrics.overflow).not.toBe('ellipsis'); expect(metrics.clamp).toBe('none');
-  const nameBox = await title.boundingBox(), stamp = await detail.locator('.visit-stamp').boundingBox();
-  expect(nameBox.x + nameBox.width).toBeLessThanOrEqual(stamp.x + 4);
-  const photo = detail.locator('.visit-photo');
-  await expect.poll(() => photo.evaluate(el => el.complete && el.naturalWidth > 0)).toBe(true);
-  await expect(photo).toHaveCSS('object-fit', 'contain');
-  const box = await photo.boundingBox(), nav = await detail.getByRole('button', { name: '🧭 导航去这里', exact: true }).boundingBox();
-  expect(nav.y).toBeGreaterThanOrEqual(box.y + box.height);
+  expect(metrics.nameRight).toBeLessThanOrEqual(metrics.stampLeft + 4);
+  expect(metrics.navTop).toBeGreaterThanOrEqual(metrics.photoBottom);
 });
 
 test('visit detail keeps one photo, date and age in the corner, with navigation last and no personal actions', async ({ page }) => {
