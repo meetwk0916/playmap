@@ -108,6 +108,40 @@ test('only complete public visits appear in map and filtered list; personal data
   expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe(raw);
 });
 
+for (const width of [320, 375, 414, 768]) {
+  test(`city groups preserve counts, category filtering and detail access at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 812 });
+    await serveVisits(page, [
+      { ...visit, poiId: 'sh-1', name: '上海公园', address: '上海市浦东新区测试路1号' },
+      { ...visit, poiId: 'qz', name: '泉州公园', address: '福建省泉州市鲤城区测试路1号' },
+      { ...visit, poiId: 'sh-2', name: '上海商场', category: 'mall', address: '上海市黄浦区测试路2号' },
+      { ...visit, poiId: 'nn', name: '南宁公园', address: '广西壮族自治区南宁市青秀区测试路1号' },
+      { ...visit, poiId: 'unknown', name: '地址待补公园', address: '' },
+      { ...visit, poiId: 'incomplete', address: '浙江省杭州市西湖区', photo: undefined }
+    ]);
+    await page.goto('/');
+    await page.getByRole('button', { name: '地点列表', exact: true }).click();
+    const list = page.locator('#placeList');
+    await expect(list.locator('h3')).toHaveText(['上海市2处', '泉州市1处', '南宁市1处', '城市待补充1处']);
+    await expect(list.getByRole('region', { name: '上海市', exact: true }).getByRole('button')).toHaveText(['上海公园', '上海商场']);
+    expect(await list.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await list.getByRole('button', { name: '泉州公园', exact: true }).click();
+    await expect(page.locator('#drawerDetail')).toContainText('泉州公园');
+    await page.keyboard.press('Escape');
+    await page.locator('#mapCatStrip [data-cat="mall"]').click();
+    await page.getByRole('button', { name: '地点列表', exact: true }).click();
+    await expect(list.locator('h3')).toHaveText(['上海市1处']);
+    await expect(list.getByRole('button')).toHaveText(['上海商场']);
+    await page.keyboard.press('Escape');
+    await page.route('**/map.qq.com/api/gljs**', route => route.abort());
+    await page.reload();
+    await expect(page.locator('#mapFallback')).toBeVisible();
+    await expect(page.locator('#fallbackList h3')).toHaveText(['上海市2处', '泉州市1处', '南宁市1处', '城市待补充1处']);
+    await page.locator('#fallbackList').getByRole('button', { name: '泉州公园 · 11 去过', exact: true }).click();
+    await expect(page.locator('#drawerDetail')).toContainText('泉州公园');
+  });
+}
+
 test('visit detail keeps one photo, date and age in the corner, with navigation last and no personal actions', async ({ page }) => {
   await page.goto('/');
   await openVisit(page);

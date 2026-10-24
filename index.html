@@ -102,6 +102,12 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 }
 .map-fallback h2 { margin: 0 0 6px; font-size: 18px; }
 .fallback-list { display: grid; gap: 8px; margin-top: 14px; }
+/* Hallmark · component: city-grouped list · genre: playful · theme: existing spruce
+ * pre-emit critique: P5 H5 E4 S5 R5 V4 */
+.city-group + .city-group { margin-top: 12px; }
+.city-group-heading { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; font-size: 16px; font-style: normal; color: var(--primary-deep); }
+.city-group-count { font-size: 13px; font-weight: 400; color: var(--text-light); white-space: nowrap; }
+.city-place-list { display: grid; gap: 8px; min-width: 0; }
 .fallback-place {
   width: 100%;
   border: 1px solid var(--line);
@@ -1319,10 +1325,26 @@ function placesForActiveCategory() {
 
 function renderMapFallback() {
   var places = placesForActiveCategory();
-  $('fallbackList').innerHTML = places.length ? places.map(function (place) {
-    return '<button class="fallback-place" data-place-id="' + escapeHtml(place.id) + '">' +
-      escapeHtml(place.name) + (publicVisitFor(place) ? ' · 11 去过' : '') + '</button>';
-  }).join('') : '<div class="sub">这个类别暂无地点</div>';
+  $('fallbackList').innerHTML = places.length ? renderCityPlaceList(places, true) : '<div class="sub">这个类别暂无地点</div>';
+}
+
+function renderCityPlaceList(places, showVisited) {
+  var cities = new Map();
+  places.forEach(function (place) {
+    var match = place.address.trim().match(/^(?:.*?(?:省|自治区))?([^省市区县]+市)/);
+    var city = match ? match[1] : '城市待补充';
+    if (!cities.has(city)) cities.set(city, []);
+    cities.get(city).push(place);
+  });
+  return Array.from(cities, function (entry) {
+    var city = escapeHtml(entry[0]);
+    return '<section class="city-group" aria-label="' + city + '">' +
+      '<h3 class="city-group-heading">' + city + '<span class="city-group-count">' + entry[1].length + '处</span></h3>' +
+      '<div class="city-place-list">' + entry[1].map(function (place) {
+        return '<button class="fallback-place" data-place-id="' + escapeHtml(place.id) + '">' +
+          escapeHtml(place.name) + (showVisited ? ' · 11 去过' : '') + '</button>';
+      }).join('') + '</div></section>';
+  }).join('');
 }
 
 function focusPlace(place) {
@@ -1855,9 +1877,7 @@ function bindSearchEvents() {
 function bindEvents() {
   $('btnPlaceList').addEventListener('click', function () {
     var places = placesForActiveCategory();
-    $('placeList').innerHTML = places.length ? places.map(function (place) {
-      return '<button class="fallback-place" data-place-id="' + escapeHtml(place.id) + '">' + escapeHtml(place.name) + '</button>';
-    }).join('') : '<p class="sub sub-left">这个类别暂无完整的到访记录</p>';
+    $('placeList').innerHTML = places.length ? renderCityPlaceList(places, false) : '<p class="sub sub-left">这个类别暂无完整的到访记录</p>';
     openDrawer('drawerPlaces');
   });
   $('placeList').addEventListener('click', function (evt) {
