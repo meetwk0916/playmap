@@ -3,6 +3,7 @@ const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const tmapStub = `
   window.TMap = {
+    constants: { DEFAULT_CONTROL_ID: { ROTATION: 'rotation' } },
     LatLng: function (lat, lng) {
       this.lat = lat;
       this.lng = lng;
@@ -11,6 +12,18 @@ const tmapStub = `
     },
     Map: function (element, options) {
       window.__mapOptions = options;
+      const controls = document.createElement('div');
+      controls.style.cssText = 'position:absolute;top:0;right:0';
+      const rotation = document.createElement('div');
+      rotation.innerHTML = '<button aria-label="地图方向" style="display:block;width:100px;height:87px">方向</button>';
+      const zoom = document.createElement('button');
+      zoom.textContent = '地图缩放';
+      zoom.style.cssText = 'display:block;width:40px;height:80px;margin:10px 30px';
+      controls.append(rotation, zoom);
+      element.appendChild(controls);
+      this.getControl = function () {
+        return { setClassName: function (name) { rotation.className = name; } };
+      };
       this.getZoom = function () { return 12; };
       this.getCenter = function () { return new window.TMap.LatLng(31.23, 121.47); };
       this.getBounds = function () {
@@ -94,6 +107,21 @@ async function screenshotWhenReady(page, options) {
 async function openVisit(page, name = visit.name) {
   await page.getByRole('button', { name: '地点列表', exact: true }).click();
   await page.locator('#placeList').getByRole('button', { name: new RegExp(name) }).click();
+}
+for (const width of [320, 375, 414, 768, 1249]) {
+  test(`map SDK controls stay below the header and category strip at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 860 });
+    const metrics = await page.evaluate(() => {
+      const header = document.querySelector('#visitHeader').getBoundingClientRect();
+      const categories = document.querySelector('#mapCatStrip').getBoundingClientRect();
+      return { toolbarBottom: Math.max(header.bottom, categories.bottom), controls: Array.from(document.querySelectorAll('#map button')).map(el => el.getBoundingClientRect().toJSON()) };
+    });
+    expect(metrics.controls).toHaveLength(2);
+    for (const box of metrics.controls) expect(box.top).toBeGreaterThanOrEqual(metrics.toolbarBottom + 4);
+    expect(metrics.controls[1].top).toBeGreaterThanOrEqual(metrics.controls[0].bottom + 4);
+    await page.getByRole('button', { name: '地图方向', exact: true }).click();
+    await page.getByRole('button', { name: '地图缩放', exact: true }).click();
+  });
 }
 test('only complete public visits appear in map and filtered list; personal data remains byte-for-byte intact', async ({ page }) => {
   const raw = JSON.stringify({ version: 1, places: [{ ...visit, poiId: 'personal-only', name: '私人地点', visits: [{ note: '保留原始照片和评分' }] }] });

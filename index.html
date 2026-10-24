@@ -148,6 +148,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .map-cat-strip::-webkit-scrollbar { display: none; }
 .map-cat-strip.hidden { display: none; }
 .map-cat-strip .chip { min-height:44px; min-width:44px; flex-shrink:0; box-shadow:var(--shadow); }
+#map .map-orientation-control { padding-top: calc(128px + env(safe-area-inset-top, 0px)); }
 
 /* 用户主动触发的地图定位控件：不在页面加载时申请权限 */
 .location-control {
@@ -1249,6 +1250,7 @@ function initMap() {
       zoom: DEFAULT_ZOOM,
       baseMap: { type: 'vector', features: ['base', 'label'] }
     });
+    map.getControl(TMap.constants.DEFAULT_CONTROL_ID.ROTATION).setClassName('map-orientation-control');
 
     markerLayer = new TMap.MultiMarker({
       map: map,
