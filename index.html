@@ -98,8 +98,9 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   z-index: 5;
   overflow: auto;
   background: var(--bg);
-  padding: calc(118px + env(safe-area-inset-top, 0px)) 16px 90px;
+  padding: calc(128px + env(safe-area-inset-top, 0px)) 16px 90px;
 }
+.visit-empty { position:fixed; top:calc(128px + env(safe-area-inset-top, 0px)); left:16px; right:16px; z-index:15; padding:16px; border-radius:var(--radius); background:var(--card); box-shadow:var(--shadow); }
 .map-fallback h2 { margin: 0 0 6px; font-size: 18px; }
 .fallback-list { display: grid; gap: 8px; margin-top: 14px; }
 /* Hallmark · component: city-grouped list · genre: playful · theme: existing spruce
@@ -131,7 +132,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 /* 地图页类别筛选条 */
 .map-cat-strip {
   position: fixed;
-  top: calc(62px + env(safe-area-inset-top, 0px));
+  top: calc(66px + env(safe-area-inset-top, 0px));
   left: 0; right: 0;
   z-index: 15;
   display: flex;
@@ -146,7 +147,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 }
 .map-cat-strip::-webkit-scrollbar { display: none; }
 .map-cat-strip.hidden { display: none; }
-.map-cat-strip .chip { flex-shrink: 0; box-shadow: var(--shadow); }
+.map-cat-strip .chip { min-height:44px; min-width:44px; flex-shrink:0; box-shadow:var(--shadow); }
 
 /* 用户主动触发的地图定位控件：不在页面加载时申请权限 */
 .location-control {
@@ -313,6 +314,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 }
 
 .privacy-control {
+  min-height: 44px; min-width: 44px;
   position: fixed;
   left: 16px;
   bottom: calc(18px + env(safe-area-inset-bottom, 0px));
@@ -372,6 +374,10 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   padding: 6px 18px calc(20px + env(safe-area-inset-bottom, 0px));
 }
 .drawer.open { transform: translateY(0); }
+main[inert] .privacy-control, main[inert] .location-control { visibility: hidden; }
+.drawer-controls { display:grid; grid-template-columns:44px 1fr 44px; align-items:center; }
+.drawer-controls .grabber { grid-column:2; }
+.drawer-close { grid-column:3; width:44px; height:44px; border:0; border-radius:50%; background:var(--surface-muted); color:var(--text); font-size:20px; }
 .drawer .grabber {
   width: 42px;
   height: 5px;
@@ -522,7 +528,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   font-weight: 700;
 }
 /* 导航按钮（天空蓝系，语义=信息/行动） */
-.btn-nav { background: var(--sky-soft); color: var(--sky-ink); }
+.btn-nav { min-height:44px; min-width:44px; background: var(--sky-soft); color: var(--sky-ink); }
 .detail-actions .btn-nav { flex: 1; }
 /* 数据与隐私 */
 .settings-block { margin: 14px 0; }
@@ -616,7 +622,10 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   }
 }
 .visit-count { margin-left:auto; font-size:12px; color:var(--text-light); white-space:nowrap; }
-.place-list-button { border:0; border-left:1px solid var(--line); padding:0 0 0 12px; min-height:28px; color:var(--primary-deep); background:transparent; font-size:14px; font-weight:700; white-space:nowrap; }
+.place-list-button { border:0; border-left:1px solid var(--line); padding:0 0 0 12px; min-height:44px; color:var(--primary-deep); background:transparent; font-size:14px; font-weight:700; white-space:nowrap; }
+#visitHeader .search-input-wrap { display:grid; grid-template-columns:minmax(0, 1fr) auto; padding:4px 12px; column-gap:8px; }
+#visitHeader .visit-count { margin-left:0; }
+#btnPlaceList { grid-column:2; grid-row:1 / 3; }
 #visitHeader strong { font-size:15px; }
 #map { isolation:isolate; }
 /* A little warmth, while retaining the original drawer. */
@@ -634,6 +643,13 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .visit-stamp .stamp-title { display:block; position:relative; font-size:9px; font-weight:700; transform:rotate(-3deg); }
 .visit-stamp time { display:block; position:relative; margin:3px 0 2px; font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; }
 .visit-stamp .stamp-age { display:block; position:relative; font-size:9px; font-weight:600; }
+@media (max-width: 400px) {
+  .detail-head { gap:6px; padding-right:84px; min-height:100px; }
+  .detail-head .d-emoji { width:28px; height:28px; font-size:16px; }
+  .visit-stamp { width:80px; height:96px; padding:37px 3px 0; }
+  .visit-stamp .stamp-title, .visit-stamp .stamp-age { font-size:8px; }
+  .visit-stamp time { font-size:10px; }
+}
 #detailContent > .detail-actions { margin-top:18px; margin-bottom:0; }
 </style>
 
@@ -673,6 +689,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 
 <!-- 地图页类别筛选条 -->
 <div class="map-cat-strip" id="mapCatStrip"></div>
+<section class="visit-empty" id="visitEmpty" aria-label="到访记录状态" hidden></section>
 
 <!-- 右下角按需定位：用户点击后才请求浏览器位置权限 -->
 <button class="location-control" id="btnLocate" type="button" title="找到我的位置"
@@ -716,11 +733,11 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 </div>
 
 <div class="drawer" id="drawerPlaces" role="dialog" aria-modal="true" aria-labelledby="placeListTitle" aria-hidden="true" inert>
-  <div class="grabber" aria-hidden="true"></div><h2 id="placeListTitle">11 去过的地方</h2><div class="fallback-list" id="placeList"></div>
+  <div class="drawer-controls"><div class="grabber" aria-hidden="true"></div><button class="drawer-close" type="button" aria-label="关闭地点列表">×</button></div><h2 id="placeListTitle">11 去过的地方</h2><div class="fallback-list" id="placeList"></div>
 </div>
 <!-- 抽屉：地点详情 -->
 <div class="drawer" id="drawerDetail" role="dialog" aria-modal="true" aria-labelledby="detailTitle" aria-hidden="true" inert>
-  <div class="grabber" aria-hidden="true"></div>
+  <div class="drawer-controls"><div class="grabber" aria-hidden="true"></div><button class="drawer-close" type="button" aria-label="关闭地点详情">×</button></div>
   <div id="detailContent"></div>
 </div>
 
@@ -971,6 +988,7 @@ function activateFocusLayer(container, onEscape) {
     onEscape: onEscape
   };
   focusLayers.push(layer);
+  document.querySelector('main').setAttribute('inert', '');
   container.setAttribute('aria-hidden', 'false');
   container.removeAttribute('inert');
   var focusables = focusableElements(container);
@@ -986,6 +1004,7 @@ function deactivateFocusLayer(container, restoreFocus) {
   for (var i = focusLayers.length - 1; i >= 0; i--) {
     if (focusLayers[i].container !== container) continue;
     var layer = focusLayers.splice(i, 1)[0];
+    if (!focusLayers.length) document.querySelector('main').removeAttribute('inert');
     container.setAttribute('aria-hidden', 'true');
     if (restoreFocus !== false && layer.returnFocus && document.contains(layer.returnFocus)) {
       layer.returnFocus.focus();
@@ -1279,11 +1298,13 @@ function showMapFallback() {
   clearTimeout(mapLoadTimer);
   mapLoadTimer = null;
   $('mapFallback').hidden = false;
+  $('visitEmpty').hidden = true;
   renderMapFallback();
 }
 
 function retryMap() {
   $('mapFallback').hidden = true;
+  renderMapCatStrip();
   if (typeof TMap !== 'undefined') {
     initMap();
     return;
@@ -1323,9 +1344,14 @@ function placesForActiveCategory() {
   });
 }
 
+function emptyVisitsHtml() {
+  if (publicDataUnavailable) return '<p role="status">公开到访记录暂时无法读取，请刷新重试</p>';
+  return '<p role="status">暂无完整的到访记录</p><button class="btn-ghost" type="button" data-reset-filter>查看全部</button>';
+}
+
 function renderMapFallback() {
   var places = placesForActiveCategory();
-  $('fallbackList').innerHTML = places.length ? renderCityPlaceList(places, true) : '<div class="sub">这个类别暂无地点</div>';
+  $('fallbackList').innerHTML = places.length ? renderCityPlaceList(places, true) : emptyVisitsHtml();
 }
 
 function renderCityPlaceList(places, showVisited) {
@@ -1480,7 +1506,7 @@ function showNavigationFallback(place, url) {
 function openPoiPreview(poi) {
   if (!localMaintenance) return;
   state.currentDetailId = null;
-  $('detailContent').innerHTML = '<div class="grabber"></div><div class="detail-head">' +
+  $('detailContent').innerHTML = '<div class="detail-head">' +
     '<div class="detail-main"><div class="d-name" id="detailTitle">' + escapeHtml(poi.name) + '</div>' +
     '<div class="d-cat">' + escapeHtml(poi.address || '') + '</div></div></div>' +
     '<button class="btn-ghost" id="btnChoosePoi">选择类别并填写到访记录</button>';
@@ -1518,7 +1544,7 @@ function renderDetail() {
   if (!p) { closeAllDrawers(); return; }
   var focusSnapshot = captureFocus($('detailContent'));
   var cat = categoryOf(p.category);
-  $('detailContent').innerHTML = '<div class="grabber"></div><div class="detail-head">' +
+  $('detailContent').innerHTML = '<div class="detail-head">' +
     '<div class="d-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
     '<div class="detail-main"><div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' +
     '<div class="d-cat">' + cat.label + '</div></div>' + visitStampHtml(p.visit) + '</div>' + visitHtml(p) +
@@ -1534,12 +1560,23 @@ function getConfiguredTmapKey() {
 
 /* ---------- 地图页类别筛选条 ---------- */
 function renderMapCatStrip() {
-  var html = '<button class="chip' + (state.mapCatFilter === 'all' ? ' active' : '') + '" data-cat="all">✨ 全部</button>';
-  CATEGORIES.forEach(function (c) {
+  var snapshot = captureFocus($('mapCatStrip'));
+  var places = mapPlaces();
+  var categories = CATEGORIES.filter(function (category) {
+    return places.some(function (place) { return place.category === category.value; });
+  });
+  var html = '<button class="chip' + (state.mapCatFilter === 'all' ? ' active' : '') +
+    '" aria-pressed="' + (state.mapCatFilter === 'all') + '" data-cat="all">✨ 全部</button>';
+  categories.forEach(function (c) {
     html += '<button class="chip' + (state.mapCatFilter === c.value ? ' active' : '') +
-      '" data-cat="' + c.value + '">' + c.emoji + ' ' + c.label + '</button>';
+      '" aria-pressed="' + (state.mapCatFilter === c.value) + '" data-cat="' + c.value + '">' + c.emoji + ' ' + c.label + '</button>';
   });
   $('mapCatStrip').innerHTML = html;
+  $('visitCount').textContent = publicDataUnavailable ? '记录暂不可用' : (state.mapCatFilter === 'all' ? '' : categoryOf(state.mapCatFilter).label + ' · ') +
+    placesForActiveCategory().length + ' 个地点';
+  $('visitEmpty').innerHTML = emptyVisitsHtml();
+  $('visitEmpty').hidden = placesForActiveCategory().length > 0 || !$('mapFallback').hidden;
+  restoreFocus($('mapCatStrip'), snapshot);
 }
 
 /* ============================================================
@@ -1875,9 +1912,17 @@ function bindSearchEvents() {
    10. 事件绑定 & 启动
    ============================================================ */
 function bindEvents() {
+  document.addEventListener('click', function (event) {
+    if (!event.target.closest('[data-reset-filter]')) return;
+    closeAllDrawers();
+    state.mapCatFilter = 'all';
+    renderMapCatStrip();
+    renderMarkers();
+    $('mapCatStrip').querySelector('[data-cat="all"]').focus();
+  });
   $('btnPlaceList').addEventListener('click', function () {
     var places = placesForActiveCategory();
-    $('placeList').innerHTML = places.length ? renderCityPlaceList(places, false) : '<p class="sub sub-left">这个类别暂无完整的到访记录</p>';
+    $('placeList').innerHTML = places.length ? renderCityPlaceList(places, false) : emptyVisitsHtml();
     openDrawer('drawerPlaces');
   });
   $('placeList').addEventListener('click', function (evt) {
@@ -1888,6 +1933,10 @@ function bindEvents() {
   });
   // 地图右下角定位：由用户主动点击触发权限请求
   $('btnLocate').addEventListener('click', locateUser);
+
+  document.querySelectorAll('.drawer-close').forEach(function (button) {
+    button.addEventListener('click', closeAllDrawers);
+  });
 
   // 遮罩关闭抽屉
   $('mask').addEventListener('click', closeAllDrawers);
@@ -1950,9 +1999,8 @@ async function init() {
   if (localMaintenance) bindSearchEvents();
   $('searchBox').hidden = !localMaintenance;
   $('visitHeader').hidden = localMaintenance;
-  renderMapCatStrip();
   await loadPublicPlaces();
-  $('visitCount').textContent = mapPlaces().length + ' 个地点';
+  renderMapCatStrip();
   $('btnPlaceList').disabled = false;
   initMap();
   if (mapPlaces().length === 1) focusPlace(mapPlaces()[0]);
