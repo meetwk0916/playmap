@@ -125,7 +125,8 @@
       "category": "hotel",
       "lat": 24.931276,
       "lng": 118.559322,
-      "visitedOn": "2026-09-01"
+      "visitedOn": "2026-09-01",
+      "photo": "assets/visits/hotel-20260901.jpg"
     },
     {
       "provider": "tencent",
@@ -146,7 +147,9 @@
       "address": "福建省泉州市鲤城区西街176号",
       "category": "other",
       "lat": 24.914182,
-      "lng": 118.585451
+      "lng": 118.585451,
+      "visitedOn": "2026-08-30",
+      "photo": "assets/visits/kaiyuan-20260830.jpg"
     },
     {
       "provider": "tencent",
@@ -155,7 +158,9 @@
       "address": "福建省泉州市丰泽区浔埔路214号",
       "category": "other",
       "lat": 24.856361,
-      "lng": 118.654254
+      "lng": 118.654254,
+      "visitedOn": "2026-08-30",
+      "photo": "assets/visits/xunpu-20260830.jpg"
     },
     {
       "provider": "tencent",
@@ -164,7 +169,9 @@
       "address": "福建省泉州市丰泽区清源山余脉东岳山下",
       "category": "other",
       "lat": 24.919281,
-      "lng": 118.614022
+      "lng": 118.614022,
+      "visitedOn": "2026-08-29",
+      "photo": "assets/visits/shaolin-20260829.jpg"
     },
     {
       "provider": "tencent",
@@ -173,7 +180,9 @@
       "address": "上海市浦东新区花木街道世纪大道2000号",
       "category": "science",
       "lat": 31.218216,
-      "lng": 121.541672
+      "lng": 121.541672,
+      "visitedOn": "2026-07-05",
+      "photo": "assets/visits/science-20260705.jpg"
     }
   ]
 }
