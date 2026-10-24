@@ -1565,6 +1565,9 @@ function renderMapCatStrip() {
   var categories = CATEGORIES.filter(function (category) {
     return places.some(function (place) { return place.category === category.value; });
   });
+  if (state.mapCatFilter !== 'all' && !categories.some(function (category) { return category.value === state.mapCatFilter; })) {
+    state.mapCatFilter = 'all';
+  }
   var html = '<button class="chip' + (state.mapCatFilter === 'all' ? ' active' : '') +
     '" aria-pressed="' + (state.mapCatFilter === 'all') + '" data-cat="all">✨ 全部</button>';
   categories.forEach(function (c) {
