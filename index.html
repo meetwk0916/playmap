@@ -111,14 +111,15 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .city-group + .city-group { margin-top: 12px; }
 .city-group-heading { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; font-size: 16px; font-style: normal; color: var(--primary-deep); }
 .city-group-count { font-size: 13px; font-weight: 400; color: var(--text-light); white-space: nowrap; }
-.city-place-list { display: grid; gap: 8px; min-width: 0; }
+.city-place-list { display: grid; gap: 0; min-width: 0; }
 .fallback-place {
   width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--card);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
-  padding: 12px;
+  padding: 12px 0;
   text-align: left;
   font-size: 15px;
 }
@@ -396,6 +397,7 @@ main[inert] .privacy-control, main[inert] .location-control { visibility: hidden
   font-family: var(--font-display);
   font-weight: 400;
 }
+#placeListTitle { margin:0 0 22px; text-align:left; font-size:22px; font-weight:650; }
 .drawer .sub {
   text-align: center;
   color: var(--text-light);
@@ -531,8 +533,8 @@ main[inert] .privacy-control, main[inert] .location-control { visibility: hidden
   font-size: 15px;
   font-weight: 700;
 }
-/* 导航按钮（天空蓝系，语义=信息/行动） */
-.btn-nav { min-height:44px; min-width:44px; background: var(--sky-soft); color: var(--sky-ink); }
+/* 导航按钮 */
+.btn-nav { min-height:44px; min-width:44px; background: var(--action); color: var(--white); }
 .detail-actions .btn-nav { flex: 1; }
 /* 数据与隐私 */
 .settings-block { margin: 14px 0; }
