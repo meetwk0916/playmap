@@ -1359,6 +1359,7 @@ function renderMapFallback() {
 function renderCityPlaceList(places, showVisited) {
   var cities = new Map();
   places.forEach(function (place) {
+    // 与 scripts/check-public-places.mjs 使用同一条表达式；公开地址必须能匹配出「…市」。
     var match = place.address.trim().match(/^(?:.*?(?:省|自治区))?([^省市区县]+市)/);
     var city = match ? match[1] : '城市待补充';
     if (!cities.has(city)) cities.set(city, []);
