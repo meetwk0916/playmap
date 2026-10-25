@@ -53,7 +53,7 @@ const tmapStub = `
         window.__mapEvents[event] = callback;
         if (event === 'tilesloaded' && !window.__skipMapTilesLoaded) setTimeout(callback, 0);
       };
-      this.destroy = function () { window.__mapDestroyed = true; };
+      this.destroy = function () { window.__mapDestroyed = true; element.replaceChildren(); };
     },
     MarkerStyle: function (options) {
       window.__markerStyleOptions = window.__markerStyleOptions || [];
@@ -902,3 +902,39 @@ test('map gestures preserve selection and blank-map click clears its highlight',
   await expect(page.locator('#placeCard')).toBeHidden();
   await expect(page.locator('[data-map-pin="public:visit-1"]')).toHaveCSS('width','44px');
 });
+
+
+for (const viewingPhoto of [false, true]) {
+test(`map timeout clears selection before fallback details and retry (photo ${viewingPhoto})`, async ({page}) => {
+  await page.clock.install();
+  await page.addInitScript(() => { window.__skipMapTilesLoaded = true; });
+  await serveVisits(page, [visit, {...visit, poiId:'fallback-other', name:'另一个到访地点', lng:121.478}]);
+  await page.reload();
+  await page.locator('[data-map-pin="public:visit-1"]').click();
+  await expect(page.locator('#placeCard')).toContainText(visit.name);
+  await page.getByRole('button', {name:'到访照片', exact:true}).focus();
+  if (viewingPhoto) await page.keyboard.press('Enter');
+  await page.clock.runFor(8001);
+  await expect(page.locator('#mapFallback')).toBeVisible();
+  await expect(page.locator('#placeCard')).toBeHidden();
+  await expect(page.locator('[data-map-pin]')).toHaveCount(0);
+  if (viewingPhoto) {
+    await expect(page.getByRole('dialog', {name:visit.name, exact:true})).toBeVisible();
+    await page.keyboard.press('Escape');
+  }
+  await expect(page.getByRole('button', {name:'足迹', exact:true})).toBeFocused();
+  const fallbackPlace = page.locator('#fallbackList').getByRole('button', {name:'另一个到访地点 · 11 去过', exact:true});
+  await fallbackPlace.click();
+  await expect(page.getByRole('dialog', {name:'另一个到访地点', exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(fallbackPlace).toBeFocused();
+  await expect(page.locator('#placeCard')).toBeHidden();
+  await page.evaluate(() => { window.__skipMapTilesLoaded = false; });
+  await page.getByRole('button', {name:'重试地图', exact:true}).click();
+  await page.clock.runFor(1);
+  await expect(page.locator('#mapFallback')).toBeHidden();
+  await expect(page.locator('[data-map-pin]')).toHaveCount(2);
+  for (const pin of await page.locator('[data-map-pin]').all()) await expect(pin).toHaveCSS('width','44px');
+  await expect(page.locator('#placeCard')).toBeHidden();
+});
+}

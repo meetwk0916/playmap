@@ -1329,6 +1329,7 @@ function initMap() {
 function showMapFallback() {
   clearTimeout(mapLoadTimer);
   mapLoadTimer = null;
+  clearSelection();
   $('mapFallback').hidden = false;
   $('visitEmpty').hidden = true;
   renderMapFallback();
@@ -1392,6 +1393,9 @@ function renderCityFilter() {
 
 function clearSelection() {
   var needsFocus = $('placeCard').contains(document.activeElement);
+  focusLayers.forEach(function (layer) {
+    if ($('placeCard').contains(layer.returnFocus)) layer.returnFocus = $('btnPlaceList');
+  });
   state.selectedPlaceId = null;
   $('placeCard').hidden = true;
   renderMarkers();
