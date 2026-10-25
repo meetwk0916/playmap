@@ -254,14 +254,14 @@
     },
     {
       "provider": "tencent",
-      "poiId": "5986969313397499839",
-      "name": "南通森迪冰雪海洋乐园",
-      "address": "通刘路299号(南通森迪野生动物园内)",
-      "category": "playground",
-      "lat": 32.100301,
-      "lng": 120.832055,
+      "poiId": "15705775963106037396",
+      "name": "南通森迪酒店",
+      "address": "通刘路299号",
+      "category": "hotel",
+      "lat": 32.10079,
+      "lng": 120.833445,
       "visitedOn": "2026-01-24",
-      "photo": "assets/visits/nantong-sendi-20260124.jpg"
+      "photo": "assets/visits/nantong-sendi-hotel-20260124.jpg"
     },
     {
       "provider": "tencent",
@@ -353,14 +353,25 @@
     },
     {
       "provider": "tencent",
-      "poiId": "11146660019973093766",
-      "name": "厦门悦山观海酒店",
-      "address": "黄厝塔头433-2号",
+      "poiId": "9073948712781336710",
+      "name": "厦门海悦山庄酒店",
+      "address": "环岛南路3999号",
       "category": "hotel",
-      "lat": 24.437685,
-      "lng": 118.142483,
+      "lat": 24.435182,
+      "lng": 118.147948,
       "visitedOn": "2026-04-24",
-      "photo": "assets/visits/xiamen-yueshan-guanhai-20260424.jpg"
+      "photo": "assets/visits/xiamen-haiyue-shanzhuang-20260424.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "16639462158986023458",
+      "name": "黄厝沙滩",
+      "address": "观光旅游大道附近",
+      "category": "park",
+      "lat": 24.431087,
+      "lng": 118.147995,
+      "visitedOn": "2026-04-24",
+      "photo": "assets/visits/huangcuo-shatan-20260424.jpg"
     },
     {
       "provider": "tencent",
