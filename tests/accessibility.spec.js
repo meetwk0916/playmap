@@ -3,6 +3,7 @@ const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
 const tmapStub = `
   window.TMap = {
+    constants: { DEFAULT_CONTROL_ID: { ROTATION: 'rotation' } },
     LatLng: function (lat, lng) {
       this.lat = lat;
       this.lng = lng;
@@ -11,6 +12,18 @@ const tmapStub = `
     },
     Map: function (element, options) {
       window.__mapOptions = options;
+      const controls = document.createElement('div');
+      controls.style.cssText = 'position:absolute;top:0;right:0';
+      const rotation = document.createElement('div');
+      rotation.innerHTML = '<button aria-label="地图方向" style="display:block;width:100px;height:87px">方向</button>';
+      const zoom = document.createElement('button');
+      zoom.textContent = '地图缩放';
+      zoom.style.cssText = 'display:block;width:40px;height:80px;margin:10px 30px';
+      controls.append(rotation, zoom);
+      element.appendChild(controls);
+      this.getControl = function () {
+        return { setClassName: function (name) { rotation.className = name; } };
+      };
       this.getZoom = function () { return 12; };
       this.getCenter = function () { return new window.TMap.LatLng(31.23, 121.47); };
       this.getBounds = function () {
@@ -95,6 +108,21 @@ async function openVisit(page, name = visit.name) {
   await page.getByRole('button', { name: '地点列表', exact: true }).click();
   await page.locator('#placeList').getByRole('button', { name: new RegExp(name) }).click();
 }
+for (const width of [320, 375, 414, 768, 1249]) {
+  test(`map SDK controls stay below the header and category strip at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 860 });
+    const metrics = await page.evaluate(() => {
+      const header = document.querySelector('#visitHeader').getBoundingClientRect();
+      const categories = document.querySelector('#mapCatStrip').getBoundingClientRect();
+      return { toolbarBottom: Math.max(header.bottom, categories.bottom), controls: Array.from(document.querySelectorAll('#map button')).map(el => el.getBoundingClientRect().toJSON()) };
+    });
+    expect(metrics.controls).toHaveLength(2);
+    for (const box of metrics.controls) expect(box.top).toBeGreaterThanOrEqual(metrics.toolbarBottom + 4);
+    expect(metrics.controls[1].top).toBeGreaterThanOrEqual(metrics.controls[0].bottom + 4);
+    await page.getByRole('button', { name: '地图方向', exact: true }).click();
+    await page.getByRole('button', { name: '地图缩放', exact: true }).click();
+  });
+}
 test('only complete public visits appear in map and filtered list; personal data remains byte-for-byte intact', async ({ page }) => {
   const raw = JSON.stringify({ version: 1, places: [{ ...visit, poiId: 'personal-only', name: '私人地点', visits: [{ note: '保留原始照片和评分' }] }] });
   await page.addInitScript(raw => localStorage.setItem('baby_playmap_v1', raw), raw);
@@ -106,6 +134,170 @@ test('only complete public visits appear in map and filtered list; personal data
   await expect(page.locator('#placeList')).toContainText('未评分公园');
   expect(await page.evaluate(() => window.__markerLayers[0].geometries.length)).toBe(2);
   expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe(raw);
+});
+
+for (const width of [320, 375, 414, 768]) {
+  test(`city groups preserve counts, category filtering and detail access at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 812 });
+    await serveVisits(page, [
+      { ...visit, poiId: 'sh-1', name: '上海公园', address: '上海市浦东新区测试路1号' },
+      { ...visit, poiId: 'qz', name: '泉州公园', address: '福建省泉州市鲤城区测试路1号' },
+      { ...visit, poiId: 'sh-2', name: '上海商场', category: 'mall', address: '上海市黄浦区测试路2号' },
+      { ...visit, poiId: 'nn', name: '南宁公园', address: '广西壮族自治区南宁市青秀区测试路1号' },
+      { ...visit, poiId: 'unknown', name: '地址待补公园', address: '' },
+      { ...visit, poiId: 'incomplete', address: '浙江省杭州市西湖区', photo: undefined }
+    ]);
+    await page.goto('/');
+    await page.getByRole('button', { name: '地点列表', exact: true }).click();
+    const list = page.locator('#placeList');
+    await expect(list.locator('h3')).toHaveText(['上海市2处', '泉州市1处', '南宁市1处', '城市待补充1处']);
+    await expect(list.getByRole('region', { name: '上海市', exact: true }).getByRole('button')).toHaveText(['上海公园', '上海商场']);
+    expect(await list.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await list.getByRole('button', { name: '泉州公园', exact: true }).click();
+    await expect(page.locator('#drawerDetail')).toContainText('泉州公园');
+    await page.keyboard.press('Escape');
+    await page.locator('#mapCatStrip [data-cat="mall"]').click();
+    await page.getByRole('button', { name: '地点列表', exact: true }).click();
+    await expect(list.locator('h3')).toHaveText(['上海市1处']);
+    await expect(list.getByRole('button')).toHaveText(['上海商场']);
+    await page.keyboard.press('Escape');
+    await page.route('**/map.qq.com/api/gljs**', route => route.abort());
+    await page.reload();
+    await expect(page.locator('#mapFallback')).toBeVisible();
+    await expect(page.locator('#fallbackList h3')).toHaveText(['上海市2处', '泉州市1处', '南宁市1处', '城市待补充1处']);
+    await page.locator('#fallbackList').getByRole('button', { name: '泉州公园 · 11 去过', exact: true }).click();
+    await expect(page.locator('#drawerDetail')).toContainText('泉州公园');
+  });
+}
+
+for (const width of [320, 375, 414, 768]) {
+  test(`drawers expose close controls and isolate background at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 812 });
+    await serveVisits(page, [visit, ...Array.from({ length: 11 }, (_, i) => ({ ...visit, poiId: 'list-' + i, name: i === 10 ? '末项公园' : '到访公园' + i }))]);
+    await page.reload();
+    const opener = page.getByRole('button', { name: '地点列表', exact: true });
+    await opener.click();
+    const list = page.getByRole('dialog', { name: '11 去过的地方', exact: true });
+    const closeList = list.getByRole('button', { name: '关闭地点列表', exact: true });
+    await expect(closeList).toBeFocused();
+    for (const id of ['btnOpenPrivacy', 'btnLocate']) {
+      expect(await page.locator('#' + id).evaluate(el => {
+        el.focus();
+        return document.activeElement !== el && getComputedStyle(el).visibility === 'hidden';
+      })).toBe(true);
+    }
+    await list.getByRole('button', { name: '末项公园', exact: true }).click();
+    const detail = page.getByRole('dialog', { name: '末项公园', exact: true });
+    await expect(detail.locator('.grabber')).toHaveCount(1);
+    await expect(detail.locator('.grabber')).toHaveAttribute('aria-hidden', 'true');
+    const close = detail.getByRole('button', { name: '关闭地点详情', exact: true });
+    await expect(close).toBeFocused();
+    const nav = detail.getByRole('button', { name: '🧭 导航去这里', exact: true });
+    await nav.scrollIntoViewIfNeeded();
+    await page.evaluate(() => { window.open = () => null; });
+    await nav.click();
+    await expect(detail.getByRole('status')).toContainText('导航没有打开');
+    await close.click();
+    await expect(opener).toBeFocused();
+    await expect(page.getByRole('button', { name: '数据与隐私', exact: true })).toBeVisible();
+    await opener.click(); await closeList.click(); await expect(opener).toBeFocused();
+    await opener.click(); await page.locator('#mask').click({ position: { x: 8, y: 8 } });
+    await expect(opener).toBeFocused();
+    await page.getByRole('button', { name: '数据与隐私', exact: true }).click();
+    await expect(page.getByRole('dialog', { name: '数据与隐私', exact: true })).toBeVisible();
+  });
+}
+
+for (const width of [320, 375, 414, 768]) {
+  test(`primary controls have clear 44px targets at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 812 });
+    for (const button of await page.locator('#btnPlaceList, #mapCatStrip button, #btnOpenPrivacy').all()) {
+      const box = await button.boundingBox();
+      expect(box.width).toBeGreaterThanOrEqual(44); expect(box.height).toBeGreaterThanOrEqual(44);
+      await button.click({ trial: true });
+    }
+    const header = await page.locator('#visitHeader').boundingBox();
+    const strip = await page.locator('#mapCatStrip').boundingBox();
+    expect(header.y + header.height).toBeLessThanOrEqual(strip.y);
+    await openVisit(page);
+    for (const button of await page.locator('#drawerDetail button').all()) {
+      const box = await button.boundingBox();
+      expect(box.width).toBeGreaterThanOrEqual(44); expect(box.height).toBeGreaterThanOrEqual(44);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  });
+}
+
+for (const width of [320, 375, 414, 768]) {
+  test(`categories and counts describe only complete visits and retain keyboard selection at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 812 });
+    await serveVisits(page, [visit,
+      { ...visit, poiId: 'mall', name: '商场到访', category: 'mall', address: '上海市黄浦区' },
+      { ...visit, poiId: 'museum', category: 'museum', photo: undefined }]);
+    await page.reload();
+    const strip = page.locator('#mapCatStrip');
+    await expect(strip.getByRole('button')).toHaveText(['✨ 全部', '🌳 公园', '🛍️ 商场儿童区']);
+    await expect(page.locator('#visitCount')).toHaveText('2 个地点');
+    const mall = strip.getByRole('button', { name: '🛍️ 商场儿童区', exact: true });
+    await mall.focus(); await page.keyboard.press('Enter');
+    await expect(mall).toBeFocused(); await expect(mall).toHaveAttribute('aria-pressed', 'true');
+    await expect(strip.locator('[aria-pressed="true"]')).toHaveCount(1);
+    await expect(page.locator('#visitCount')).toHaveText('商场儿童区 · 1 个地点');
+    expect(await page.locator('#visitHeader').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    await page.getByRole('button', { name: '地点列表', exact: true }).click();
+    await expect(page.locator('#placeList h3')).toHaveText(['上海市1处']);
+    await expect(page.locator('#placeList').getByRole('button')).toHaveText(['商场到访']);
+    await page.keyboard.press('Escape');
+    await page.route('**/map.qq.com/api/gljs**', route => route.abort()); await page.reload();
+    await page.locator('#mapCatStrip').getByRole('button', { name: '🛍️ 商场儿童区', exact: true }).click();
+    await expect(page.locator('#visitCount')).toHaveText('商场儿童区 · 1 个地点');
+    await expect(page.locator('#fallbackList h3')).toHaveText(['上海市1处']);
+  });
+}
+
+test('an empty library offers all-category recovery and read failure stays distinct', async ({ page }) => {
+  await serveVisits(page, []); await page.reload();
+  await expect(page.locator('#mapCatStrip').getByRole('button')).toHaveText(['✨ 全部']);
+  await expect(page.getByText('暂无完整的到访记录', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: '查看全部', exact: true }).click();
+  await expect(page.locator('#mapCatStrip').getByRole('button')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#mapCatStrip').getByRole('button')).toBeFocused();
+  await page.getByRole('button', { name: '地点列表', exact: true }).click();
+  await page.getByRole('dialog').getByRole('button', { name: '查看全部', exact: true }).click();
+  await expect(page.locator('#mapCatStrip').getByRole('button')).toBeFocused();
+  await page.route('**/map.qq.com/api/gljs**', route => route.abort()); await page.reload();
+  await expect(page.locator('#fallbackList')).toContainText('暂无完整的到访记录');
+  await page.locator('#fallbackList').getByRole('button', { name: '查看全部', exact: true }).click();
+  await page.route('**/public-places.json', route => route.fulfill({ status: 503, body: 'unavailable' }));
+  await page.reload();
+  await expect(page.locator('#fallbackList')).toContainText('公开到访记录暂时无法读取，请刷新重试');
+  await expect(page.locator('#visitCount')).toHaveText('记录暂不可用');
+  await expect(page.getByText('暂无完整的到访记录', { exact: true })).toHaveCount(0);
+});
+
+test('BFC full title fits two lines at 320px without colliding with the date stamp', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 812 });
+  await serveVisits(page, [{ ...visit, name: '上海BFC外滩金融中心南区商场', category: 'mall' }]);
+  await page.reload(); await openVisit(page, '上海BFC外滩金融中心南区商场');
+  const detail = page.getByRole('dialog', { name: '上海BFC外滩金融中心南区商场', exact: true });
+  const photo = detail.locator('.visit-photo');
+  await expect.poll(() => photo.evaluate(el => el.complete && el.naturalWidth > 0)).toBe(true);
+  await photo.evaluate(el => el.decode());
+  await expect(photo).toHaveCSS('object-fit', 'contain');
+  await detail.evaluate(el => Promise.all(el.getAnimations({ subtree: true })
+    .filter(animation => Number.isFinite(animation.effect.getComputedTiming().endTime))
+    .map(animation => animation.finished)));
+  const metrics = await detail.evaluate(el => {
+    const title = el.querySelector('#detailTitle'), style = getComputedStyle(title);
+    const name = title.getBoundingClientRect(), stamp = el.querySelector('.visit-stamp').getBoundingClientRect();
+    const photo = el.querySelector('.visit-photo').getBoundingClientRect(), nav = el.querySelector('#btnNav').getBoundingClientRect();
+    return { height: name.height, line: parseFloat(style.lineHeight), overflow: style.textOverflow,
+      clamp: style.webkitLineClamp, nameRight: name.right, stampLeft: stamp.left, photoBottom: photo.bottom, navTop: nav.top };
+  });
+  expect(metrics.height).toBeLessThanOrEqual(metrics.line * 2 + 1);
+  expect(metrics.overflow).not.toBe('ellipsis'); expect(metrics.clamp).toBe('none');
+  expect(metrics.nameRight).toBeLessThanOrEqual(metrics.stampLeft + 4);
+  expect(metrics.navTop).toBeGreaterThanOrEqual(metrics.photoBottom);
 });
 
 test('visit detail keeps one photo, date and age in the corner, with navigation last and no personal actions', async ({ page }) => {
@@ -305,11 +497,11 @@ test('public map has no search or add controls and categories never fetch online
   await page.route('**/apis.map.qq.com/**', route => { requests += 1; return route.abort(); });
   await page.getByRole('button', { name: '🌳 公园', exact: true }).click();
   await page.evaluate(() => window.__mapEvents.idle?.());
-  await page.getByRole('button', { name: '🐠 水族馆', exact: true }).click();
+  await expect(page.getByRole('button', { name: '🐠 水族馆', exact: true })).toHaveCount(0);
   await page.getByRole('button', { name: '地点列表', exact: true }).click();
-  await expect(page.locator('#placeList')).toContainText('暂无完整');
+  await expect(page.locator('#placeList')).toContainText(visit.name);
   expect(requests).toBe(0);
-  expect(await page.evaluate(() => window.__markerLayers[0].geometries)).toEqual([]);
+  expect(await page.evaluate(() => window.__markerLayers[0].geometries.length)).toBe(1);
   expect(await page.evaluate(() => window.__mapOptions.baseMap.features)).toEqual(['base', 'label']);
 });
 
@@ -392,9 +584,11 @@ test('blocked navigation preserves the detail with retry and direct map link', a
 test('detail focus is trapped and Escape restores the list opener', async ({ page }) => {
   await openVisit(page);
   const nav = page.getByRole('button', { name: '🧭 导航去这里', exact: true });
-  await expect(nav).toBeFocused();
-  await page.keyboard.press('Tab'); await expect(nav).toBeFocused();
+  const close = page.getByRole('button', { name: '关闭地点详情', exact: true });
+  await expect(close).toBeFocused();
   await page.keyboard.press('Shift+Tab'); await expect(nav).toBeFocused();
+  await page.keyboard.press('Tab'); await expect(close).toBeFocused();
+  await page.keyboard.press('Tab'); await expect(nav).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
   await expect(page.getByRole('button', { name: '地点列表', exact: true })).toBeFocused();
@@ -494,9 +688,9 @@ test.describe('map and maintenance interpret the same visit in Shanghai time', (
       await serveVisits(page, [record]);
       await page.reload();
       await page.getByRole('button', { name: '地点列表', exact: true }).click();
-      await expect(page.locator('#placeList button')).toHaveCount(age === null ? 0 : 1);
+      await expect(page.locator('#placeList [data-place-id]')).toHaveCount(age === null ? 0 : 1);
       if (age !== null) {
-        await page.locator('#placeList button').click();
+        await page.locator('#placeList [data-place-id]').click();
         await expect(page.locator('.stamp-age')).toHaveText(age + '打卡');
       }
       await page.goto('/maintainer.html');
