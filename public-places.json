@@ -240,6 +240,149 @@
       "lng": 121.44888,
       "visitedOn": "2026-05-05",
       "photo": "assets/visits/julu-huayuan-20260505.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "5472117967478212968",
+      "name": "虹桥南丰城",
+      "address": "遵义路100号",
+      "category": "mall",
+      "lat": 31.207423,
+      "lng": 121.407688,
+      "visitedOn": "2026-01-03",
+      "photo": "assets/visits/hongqiao-nanfengcheng-20260103.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "15705775963106037396",
+      "name": "南通森迪酒店",
+      "address": "通刘路299号",
+      "category": "hotel",
+      "lat": 32.10079,
+      "lng": 120.833445,
+      "visitedOn": "2026-01-24",
+      "photo": "assets/visits/nantong-sendi-hotel-20260124.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "6496319426636451145",
+      "name": "日照森泊",
+      "address": "秦楼街道碧海路501号",
+      "category": "playground",
+      "lat": 35.42777,
+      "lng": 119.570358,
+      "visitedOn": "2026-02-11",
+      "photo": "assets/visits/rizhao-senbo-20260211.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "13084495366008615957",
+      "name": "虞美人广场",
+      "address": "黄海路街道枫林路24号正东方向200米",
+      "category": "other",
+      "lat": 37.511236,
+      "lng": 121.44772,
+      "visitedOn": "2026-02-19",
+      "photo": "assets/visits/yumeiren-guangchang-20260219.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "14249906955327921196",
+      "name": "晶耀前滩",
+      "address": "耀体路308号",
+      "category": "mall",
+      "lat": 31.15262,
+      "lng": 121.477815,
+      "visitedOn": "2026-03-01",
+      "photo": "assets/visits/jingyao-qiantan-20260301.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "12088912352933749335",
+      "name": "后滩公园",
+      "address": "上钢新村街道世博大道2200号",
+      "category": "park",
+      "lat": 31.182057,
+      "lng": 121.471002,
+      "visitedOn": "2026-03-14",
+      "photo": "assets/visits/houtan-gongyuan-20260314.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "4730370425597312423",
+      "name": "南浔古镇",
+      "address": "人瑞路51号",
+      "category": "other",
+      "lat": 30.876251,
+      "lng": 120.43105,
+      "visitedOn": "2026-03-27",
+      "photo": "assets/visits/nanxun-guzhen-20260327.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "7076041248740429608",
+      "name": "南浔金象湖公园",
+      "address": "向阳路(金象湖公园)",
+      "category": "park",
+      "lat": 30.852205,
+      "lng": 120.423624,
+      "visitedOn": "2026-03-29",
+      "photo": "assets/visits/nanxun-jinxianghu-20260329.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "6565845323852952734",
+      "name": "上海动物园",
+      "address": "虹桥路2381号",
+      "category": "other",
+      "lat": 31.192621,
+      "lng": 121.363464,
+      "visitedOn": "2026-04-19",
+      "photo": "assets/visits/shanghai-dongwuyuan-20260419.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "11149852328381416557",
+      "name": "厦门园林植物园",
+      "address": "虎园路25号",
+      "category": "park",
+      "lat": 24.448061,
+      "lng": 118.10914,
+      "visitedOn": "2026-04-24",
+      "photo": "assets/visits/xiamen-zhiwuyuan-20260424.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "9073948712781336710",
+      "name": "厦门海悦山庄酒店",
+      "address": "环岛南路3999号",
+      "category": "hotel",
+      "lat": 24.435182,
+      "lng": 118.147948,
+      "visitedOn": "2026-04-24",
+      "photo": "assets/visits/xiamen-haiyue-shanzhuang-20260424.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "16639462158986023458",
+      "name": "黄厝沙滩",
+      "address": "观光旅游大道附近",
+      "category": "park",
+      "lat": 24.431087,
+      "lng": 118.147995,
+      "visitedOn": "2026-04-24",
+      "photo": "assets/visits/huangcuo-shatan-20260424.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "16671592632518541507",
+      "name": "中骏广场",
+      "address": "申长路1588弄26号",
+      "category": "mall",
+      "lat": 31.211838,
+      "lng": 121.313983,
+      "visitedOn": "2026-04-30",
+      "photo": "assets/visits/zhongjun-guangchang-20260430.jpg"
     }
   ]
 }
