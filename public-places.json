@@ -471,6 +471,47 @@
       "lng": 121.497806,
       "visitedOn": "2025-12-06",
       "photo": "assets/visits/baiyulan-guangchang-20251206.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "184255261170706469",
+      "name": "千岛湖文渊狮城璞仕酒店",
+      "address": "浙江省杭州市淳安县姜家镇狮城路88号文渊狮城度假区五狮堂",
+      "category": "hotel",
+      "lat": 29.470487,
+      "lng": 118.669083,
+      "visitedOn": "2025-04-06"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "4353633665827204942",
+      "name": "岱山开元名庭大酒店",
+      "address": "浙江省舟山市岱山县高亭镇仙洲路80号",
+      "category": "hotel",
+      "lat": 30.237542,
+      "lng": 122.200703,
+      "visitedOn": "2025-08-08"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "15249409552402462414",
+      "name": "维也纳国际酒店(舟山岱山店)",
+      "address": "浙江省舟山市岱山县高亭镇人民路386号",
+      "category": "hotel",
+      "lat": 30.246806,
+      "lng": 122.220437,
+      "visitedOn": "2025-08-09"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "1500460597965244982",
+      "name": "杭州富春芳草地臻品之选度假酒店",
+      "address": "浙江省杭州市建德市梅城镇严东关路88号",
+      "category": "hotel",
+      "lat": 29.565212,
+      "lng": 119.562305,
+      "visitedOn": "2025-09-28",
+      "photo": "assets/visits/fuchun-fangcaodi-20250928.jpg"
     }
   ]
 }
