@@ -44,7 +44,7 @@ test('road-only and blank addresses fail the check', () => {
 
 test('a page without the city matcher fails closed', () => {
   assert.throws(
-    () => cityGroupPatternFromHtml('function renderCityPlaceList(places) { return places.length; }\n'),
+    () => cityGroupPatternFromHtml('function cityOf(place) { return place.address; }\n'),
     /city regex|regex literal/
   );
 });

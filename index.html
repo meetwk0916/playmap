@@ -10,6 +10,9 @@
    全局样式（移动优先 / 暖暖童趣配色：暖黄 + 橙 + 奶白）
    ============================================================ */
 :root {
+  --brand-sun: #FFD65B;
+  --selection: #F16A45;
+  --action: #13815E;
   --bg: #F7F5EE;            /* 暖纸白背景 */
   --primary: #4C8F6F;       /* 云杉绿·浅（仅用于图标/边框/装饰，不承载白字） */
   --primary-deep: #2F6B4F;  /* 云杉绿（强调文字/选中态） */
@@ -108,14 +111,15 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .city-group + .city-group { margin-top: 12px; }
 .city-group-heading { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; font-size: 16px; font-style: normal; color: var(--primary-deep); }
 .city-group-count { font-size: 13px; font-weight: 400; color: var(--text-light); white-space: nowrap; }
-.city-place-list { display: grid; gap: 8px; min-width: 0; }
+.city-place-list { display: grid; gap: 0; min-width: 0; }
 .fallback-place {
   width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--card);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
   color: var(--text);
-  padding: 12px;
+  padding: 12px 0;
   text-align: left;
   font-size: 15px;
 }
@@ -393,6 +397,7 @@ main[inert] .privacy-control, main[inert] .location-control { visibility: hidden
   font-family: var(--font-display);
   font-weight: 400;
 }
+#placeListTitle { margin:0 0 22px; text-align:left; font-size:22px; font-weight:650; }
 .drawer .sub {
   text-align: center;
   color: var(--text-light);
@@ -528,8 +533,8 @@ main[inert] .privacy-control, main[inert] .location-control { visibility: hidden
   font-size: 15px;
   font-weight: 700;
 }
-/* 导航按钮（天空蓝系，语义=信息/行动） */
-.btn-nav { min-height:44px; min-width:44px; background: var(--sky-soft); color: var(--sky-ink); }
+/* 导航按钮 */
+.btn-nav { min-height:44px; min-width:44px; background: var(--action); color: var(--white); }
 .detail-actions .btn-nav { flex: 1; }
 /* 数据与隐私 */
 .settings-block { margin: 14px 0; }
@@ -624,34 +629,49 @@ main[inert] .privacy-control, main[inert] .location-control { visibility: hidden
 }
 .visit-count { margin-left:auto; font-size:12px; color:var(--text-light); white-space:nowrap; }
 .place-list-button { border:0; border-left:1px solid var(--line); padding:0 0 0 12px; min-height:44px; color:var(--primary-deep); background:transparent; font-size:14px; font-weight:700; white-space:nowrap; }
-#visitHeader .search-input-wrap { display:grid; grid-template-columns:minmax(0, 1fr) auto; padding:4px 12px; column-gap:8px; }
+#visitHeader .search-input-wrap { display:flex; padding:4px 8px; gap:4px; border:1px solid var(--line); border-radius:18px; background:var(--card); }
 #visitHeader .visit-count { margin-left:0; }
 #btnPlaceList { grid-column:2; grid-row:1 / 3; }
-#visitHeader strong { font-size:15px; }
+#visitHeader strong { font-size:18px; }
 #map { isolation:isolate; }
 /* A little warmth, while retaining the original drawer. */
 .detail-head .d-emoji { transform:rotate(-7deg); border-radius:18px 22px 16px 22px; }
-.visit-heading { position:relative; padding:14px; border-radius:var(--radius); background:var(--sun-soft); }
+.visit-heading { position:relative; margin-top:16px; padding:14px; border-radius:var(--radius); background:var(--sun-soft); }
 .visit-heading::after { content:'✦'; position:absolute; top:8px; right:12px; color:var(--rating-ink); font-size:19px; transform:rotate(12deg); }
 .visit-avatar { border:2px solid var(--card); box-shadow:var(--shadow); }
 .visit-rating > strong { font-size:13px; color:var(--amber-ink); }
 .visit-photo-wrap { position:relative; margin-top:16px; }
 .visit-photo-wrap .visit-photo { margin-top:0; }
 #detailContent { position:relative; }
-.detail-head { padding-right:108px; min-height:110px; }
-.visit-stamp { position:absolute; z-index:1; top:-3px; right:0; width:100px; height:110px; margin:0; padding:43px 6px 0; color:var(--danger); text-align:center; transform:rotate(4deg); }
-.stamp-berry { position:absolute; inset:0; width:100%; height:100%; object-fit:contain; filter:saturate(.55); opacity:.82; pointer-events:none; }
-.visit-stamp .stamp-title { display:block; position:relative; font-size:9px; font-weight:700; transform:rotate(-3deg); }
-.visit-stamp time { display:block; position:relative; margin:3px 0 2px; font-size:11px; font-weight:700; font-variant-numeric:tabular-nums; }
-.visit-stamp .stamp-age { display:block; position:relative; font-size:9px; font-weight:600; }
-@media (max-width: 400px) {
-  .detail-head { gap:6px; padding-right:84px; min-height:100px; }
-  .detail-head .d-emoji { width:28px; height:28px; font-size:16px; }
-  .visit-stamp { width:80px; height:96px; padding:37px 3px 0; }
-  .visit-stamp .stamp-title, .visit-stamp .stamp-age { font-size:8px; }
-  .visit-stamp time { font-size:10px; }
-}
 #detailContent > .detail-actions { margin-top:18px; margin-bottom:0; }
+
+/* Map-first tools and temporary selection. */
+#visitHeader strong { display:flex; align-items:center; gap:3px; white-space:nowrap; }
+.brand-eleven { display:inline-grid; place-items:center; width:34px; height:34px; background:var(--brand-sun); border-radius:12px; font-size:22px; transform:rotate(-8deg); }
+#cityFilter { margin-left:auto; min-width:0; max-width:130px; min-height:44px; border:0; background:transparent; font-size:13px; }
+#btnPlaceList { min-width:48px; min-height:44px; padding:0 10px; border:0; border-radius:999px; background:var(--action); color:var(--white); }
+.map-cat-strip .chip.active { background:var(--brand-sun); border-color:var(--brand-sun); color:var(--text); }
+#placeCard { position:fixed; z-index:17; left:max(12px, env(safe-area-inset-left)); right:max(12px, env(safe-area-inset-right)); bottom:calc(82px + env(safe-area-inset-bottom)); display:flex; align-items:center; gap:12px; padding:12px; border:2px solid var(--selection); border-radius:20px; background:var(--card); box-shadow:var(--shadow); max-height:min(calc(50dvh - 36px), calc(100dvh - 310px)); overflow:auto; }
+#placeCard > img { width:72px; height:84px; object-fit:cover; border-radius:12px; flex-shrink:0; }
+.place-card-main { min-width:0; flex:1; }
+.place-card-main strong { font-size:16px; overflow-wrap:anywhere; }
+.place-card-main p { margin:5px 0 0; font-size:12px; color:var(--text-light); }
+#placeCard button { min-width:44px; min-height:44px; border:0; background:transparent; color:var(--primary-strong); padding:0; font-weight:600; }
+#btnDismissPlace { align-self:flex-start; font-size:22px; }
+.fallback-place { display:flex; align-items:center; gap:12px; min-height:68px; }
+.fallback-place img { width:56px; height:56px; object-fit:cover; border-radius:10px; }
+.fallback-place span { min-width:0; overflow-wrap:anywhere; }
+.fallback-place strong { display:block; font-weight:600; }
+.fallback-place time { display:block; margin-top:6px; font-size:12px; color:var(--text-light); }
+.detail-head { position:relative; padding-right:42px; min-height:0; }
+.detail-head .d-emoji { display:none; }
+.detail-main .d-name { font-size:22px; line-height:1.4; }
+.visit-date { margin:8px 0 0; font-size:14px; font-variant-numeric:tabular-nums; color:var(--text-light); }
+.detail-berry { position:absolute; right:0; top:0; width:36px; height:44px; object-fit:contain; }
+@media (min-width:768px) {
+  #visitHeader { right:auto; width:360px; }
+  #placeCard { right:auto; width:370px; }
+}
 </style>
 
 <!-- 腾讯地图 GL JS 密钥代理配置（占位符由运行时代理替换） -->
@@ -678,7 +698,7 @@ main[inert] .privacy-control, main[inert] .location-control { visibility: hidden
 </section>
 
 <!-- 顶部地点搜索框 -->
-<div class="search-box" id="visitHeader"><div class="search-input-wrap"><strong>11 去过的地方</strong><span id="visitCount" class="visit-count"></span><button type="button" id="btnPlaceList" class="place-list-button" disabled>地点列表</button></div></div>
+<div class="search-box" id="visitHeader"><div class="search-input-wrap"><strong><span class="brand-eleven">11</span>去哪玩</strong><select id="cityFilter" aria-label="选择城市"><option value="all">全部城市</option></select><span id="visitCount" class="visit-count" hidden></span><button type="button" id="btnPlaceList" class="place-list-button" disabled>足迹</button></div></div>
 <div class="search-box" id="searchBox" hidden>
   <div class="search-input-wrap">
     <span class="s-icon" aria-hidden="true">🔍</span>
@@ -703,6 +723,8 @@ main[inert] .privacy-control, main[inert] .location-control { visibility: hidden
 </button>
 
 <button class="privacy-control" id="btnOpenPrivacy" type="button">数据与隐私</button>
+
+<section id="placeCard" aria-label="选中地点" hidden></section>
 
 <!-- Toast -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -828,6 +850,10 @@ function buildMarkerStyles() {
     // 分类像小发饰贴在外圈上沿，保持额头可见；头像缺失时仍保留分类。
     svg += '<g transform="rotate(-6 22 9)"><text x="22" y="13" font-size="18" text-anchor="middle" ' +
       'fill="' + white + '" stroke="' + white + '" stroke-width="2" stroke-linejoin="round" paint-order="stroke fill">' + c.emoji + '</text></g></svg>';
+    var selectedSvg = svg.replace('<path ', '<circle cx="22" cy="29" r="22" fill="' + cssToken('--selection') + '"/><path ');
+    styles['selected-' + c.value] = new TMap.MarkerStyle({
+      width: 60, height: 74, anchor: { x: 30, y: 74 }, src: svgToDataUri(selectedSvg)
+    });
     styles['public-' + c.value] = new TMap.MarkerStyle({
       width: 44, height: 54, anchor: { x: 22, y: 54 }, src: svgToDataUri(svg)
     });
@@ -846,6 +872,8 @@ var state = {
   protectionMode: false,
   mapCatFilter: 'all', // all | 各类别 value
   currentDetailId: null,
+  selectedPlaceId: null,
+  cityFilter: 'all',
   addForm: { name: '', address: '', poiId: '', lat: 0, lng: 0, category: 'park', source: null }
 };
 
@@ -1016,7 +1044,10 @@ function deactivateFocusLayer(container, restoreFocus) {
 }
 
 document.addEventListener('keydown', function (evt) {
-  if (!focusLayers.length) return;
+  if (!focusLayers.length) {
+    if (evt.key === 'Escape' && state.selectedPlaceId) clearSelection();
+    return;
+  }
   var layer = focusLayers[focusLayers.length - 1];
   if (evt.key === 'Escape') {
     evt.preventDefault();
@@ -1264,7 +1295,7 @@ function initMap() {
       var geo = evt.geometry;
       var props = geo && geo.properties;
       if (props && props.placeId) {
-        openDetail(props.placeId);
+        selectPlace(props.placeId);
         return;
       }
     });
@@ -1272,6 +1303,7 @@ function initMap() {
     map.on('click', function () {
       if (Date.now() - lastMarkerClickAt < 400) return;
       hideSearchResults();
+      clearSelection();
     });
     var currentMap = map;
     map.on('tilesloaded', function () {
@@ -1299,6 +1331,7 @@ function initMap() {
 function showMapFallback() {
   clearTimeout(mapLoadTimer);
   mapLoadTimer = null;
+  clearSelection();
   $('mapFallback').hidden = false;
   $('visitEmpty').hidden = true;
   renderMapFallback();
@@ -1332,7 +1365,8 @@ function renderMarkers() {
   var geometries = placesForActiveCategory().map(function (p) {
     return {
       id: p.id,
-      styleId: (publicVisitFor(p) ? 'public-' : '') + categoryOf(p.category).value,
+      styleId: (state.selectedPlaceId === p.id ? 'selected-' : (publicVisitFor(p) ? 'public-' : '')) + categoryOf(p.category).value,
+      rank: state.selectedPlaceId === p.id ? 100 : 0,
       position: new TMap.LatLng(p.lat, p.lng),
       properties: { placeId: p.id }
     };
@@ -1342,8 +1376,50 @@ function renderMarkers() {
 
 function placesForActiveCategory() {
   return mapPlaces().filter(function (place) {
-    return state.mapCatFilter === 'all' || place.category === state.mapCatFilter;
+    return (state.mapCatFilter === 'all' || place.category === state.mapCatFilter) &&
+      (state.cityFilter === 'all' || cityOf(place) === state.cityFilter);
   });
+}
+
+function cityOf(place) {
+  var match = place.address.trim().match(/^(?:.*?(?:省|自治区))?([^省市区县]+市)/);
+  return match ? match[1] : '城市待补充';
+}
+
+function renderCityFilter() {
+  $('cityFilter').innerHTML = '<option value="all">全部城市</option>' +
+    Array.from(new Set(mapPlaces().map(cityOf))).map(function (city) {
+      return '<option value="' + escapeHtml(city) + '">' + escapeHtml(city) + '</option>';
+    }).join('');
+}
+
+function clearSelection() {
+  var needsFocus = $('placeCard').contains(document.activeElement);
+  focusLayers.forEach(function (layer) {
+    if ($('placeCard').contains(layer.returnFocus)) layer.returnFocus = $('btnPlaceList');
+  });
+  state.selectedPlaceId = null;
+  $('placeCard').hidden = true;
+  renderMarkers();
+  if (needsFocus) $('btnPlaceList').focus();
+}
+
+function selectPlace(placeId, moveFocus) {
+  var place = findPlace(placeId);
+  if (!place) return;
+  closeAllDrawers();
+  state.selectedPlaceId = placeId;
+  var cat = categoryOf(place.category);
+  $('placeCard').innerHTML = '<img src="' + escapeHtml(place.visit.photo) + '" alt="">' +
+    '<div class="place-card-main"><strong>' + escapeHtml(place.name) + '</strong><p><time datetime="' + place.visit.visitedOn + '">' +
+    place.visit.visitedOn.replace(/-/g, '.') + '</time> · ' + cat.label + '</p><button id="btnVisitPhoto" type="button">到访照片 <span aria-hidden="true">↗</span></button></div>' +
+    '<button id="btnDismissPlace" type="button" aria-label="收起地点">×</button>';
+  $('placeCard').hidden = false;
+  $('btnVisitPhoto').addEventListener('click', function () { openDetail(placeId); });
+  $('btnDismissPlace').addEventListener('click', clearSelection);
+  renderMarkers();
+  focusPlace(place);
+  if (moveFocus) $('btnVisitPhoto').focus({ preventScroll: true });
 }
 
 function emptyVisitsHtml() {
@@ -1360,8 +1436,7 @@ function renderCityPlaceList(places, showVisited) {
   var cities = new Map();
   places.forEach(function (place) {
     // 与 scripts/check-public-places.mjs 使用同一条表达式；公开地址必须能匹配出「…市」。
-    var match = place.address.trim().match(/^(?:.*?(?:省|自治区))?([^省市区县]+市)/);
-    var city = match ? match[1] : '城市待补充';
+    var city = cityOf(place);
     if (!cities.has(city)) cities.set(city, []);
     cities.get(city).push(place);
   });
@@ -1370,18 +1445,25 @@ function renderCityPlaceList(places, showVisited) {
     return '<section class="city-group" aria-label="' + city + '">' +
       '<h3 class="city-group-heading">' + city + '<span class="city-group-count">' + entry[1].length + '处</span></h3>' +
       '<div class="city-place-list">' + entry[1].map(function (place) {
-        return '<button class="fallback-place" data-place-id="' + escapeHtml(place.id) + '">' +
-          escapeHtml(place.name) + (showVisited ? ' · 11 去过' : '') + '</button>';
+        return '<button class="fallback-place" aria-label="' + escapeHtml(place.name) + (showVisited ? ' · 11 去过' : '') + '" data-place-id="' + escapeHtml(place.id) + '">' +
+          '<img src="' + escapeHtml(place.visit.photo) + '" alt=""><span><strong>' + escapeHtml(place.name) + '</strong><time datetime="' + place.visit.visitedOn + '">' + place.visit.visitedOn.replace(/-/g, '.') + '</time></span>' + '</button>';
       }).join('') + '</div></section>';
   }).join('');
 }
 
 function focusPlace(place) {
   if (!map) return;
-  map.easeTo({
-    center: new TMap.LatLng(place.lat, place.lng),
-    zoom: Math.max(map.getZoom(), 15),
-    duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 500
+  var position = new TMap.LatLng(place.lat, place.lng);
+  var center = position;
+  if (state.selectedPlaceId === place.id) {
+    var top = $('mapCatStrip').getBoundingClientRect().bottom + 86;
+    var bottom = $('placeCard').getBoundingClientRect().top - 12;
+    var targetY = Math.max(top, Math.min(innerHeight / 2, bottom));
+    var point = map.projectToContainer(position);
+    center = map.unprojectFromContainer(new TMap.Point(point.x, point.y + innerHeight / 2 - targetY));
+  }
+  map.easeTo({ center: center }, {
+    duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 300
   });
 }
 
@@ -1528,18 +1610,14 @@ function visitHtml(place) {
     (publicAvatar ? '<img class="visit-avatar" src="' + publicAvatar + '" alt="11 的头像">' :
       '<span class="visit-avatar" aria-hidden="true">11</span>') +
     '<div class="visit-rating"><strong>11’s 玩后感</strong><p class="visit-reflection">' + escapeHtml(rules.reflection) + '</p></div></div>' : '';
-  return '<section aria-label="11 的到访记录">' + reflection + '<div class="visit-photo-wrap">' + photo + '</div></section>';
+  return '<section aria-label="11 的到访记录"><div class="visit-photo-wrap">' + photo + '</div>' + reflection + '</section>';
 }
 
-function visitStampHtml(visit) {
+function visitDateHtml(visit) {
   var months = VisitRules.inspect(visit).ageMonths;
   if (months < 0) return '';
-  var date = visit.visitedOn;
-  var parts = date.split('-').map(Number);
-  return '<p class="visit-stamp"><img class="stamp-berry" src="assets/strawberry-stamp.png" alt="">' +
-    '<span class="stamp-title">11 到此一游！</span><time datetime="' + date + '" aria-label="' +
-    parts[0] + '年' + parts[1] + '月' + parts[2] + '日">' + date.replace(/-/g, '.') + '</time>' +
-    '<span class="stamp-age">' + Math.floor(months / 12) + '岁' + months % 12 + '个月打卡</span></p>';
+  return '<p class="visit-date"><time datetime="' + visit.visitedOn + '">' + visit.visitedOn.replace(/-/g, '.') +
+    '</time> · <span class="stamp-age">' + Math.floor(months / 12) + '岁' + months % 12 + '个月打卡</span></p>';
 }
 
 function renderDetail() {
@@ -1549,8 +1627,7 @@ function renderDetail() {
   var cat = categoryOf(p.category);
   $('detailContent').innerHTML = '<div class="detail-head">' +
     '<div class="d-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
-    '<div class="detail-main"><div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' +
-    '<div class="d-cat">' + cat.label + '</div></div>' + visitStampHtml(p.visit) + '</div>' + visitHtml(p) +
+    '<div class="detail-main"><div class="d-cat">' + cat.label + '</div><div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' + visitDateHtml(p.visit) + '</div><img class="detail-berry" src="assets/strawberry-stamp.png" alt=""></div>' + visitHtml(p) +
     '<div class="detail-actions"><button class="btn-nav" id="btnNav">🧭 导航去这里</button></div>';
   restoreFocus($('detailContent'), focusSnapshot);
   $('btnNav').addEventListener('click', function () { openNavigation(p); });
@@ -1855,7 +1932,6 @@ function selectSearchResult(idx) {
   $('searchInput').blur();
   if (map) map.easeTo({
     center: new TMap.LatLng(lat, lng),
-    zoom: Math.max(map.getZoom(), 15),
     duration: 500
   });
   openPoiPreview({
@@ -1918,10 +1994,21 @@ function bindSearchEvents() {
    10. 事件绑定 & 启动
    ============================================================ */
 function bindEvents() {
+  $('cityFilter').addEventListener('change', function () {
+    clearSelection();
+    state.cityFilter = this.value;
+    renderMapCatStrip();
+    renderMarkers();
+    var place = placesForActiveCategory()[0];
+    if (place) focusPlace(place);
+  });
   document.addEventListener('click', function (event) {
     if (!event.target.closest('[data-reset-filter]')) return;
     closeAllDrawers();
     state.mapCatFilter = 'all';
+    state.cityFilter = 'all';
+    $('cityFilter').value = 'all';
+    clearSelection();
     renderMapCatStrip();
     renderMarkers();
     $('mapCatStrip').querySelector('[data-cat="all"]').focus();
@@ -1935,7 +2022,7 @@ function bindEvents() {
     var button = evt.target.closest('[data-place-id]');
     if (!button) return;
     var place = findPlace(button.getAttribute('data-place-id'));
-    if (place) { focusPlace(place); openDetail(place.id); }
+    if (place) selectPlace(place.id, true);
   });
   // 地图右下角定位：由用户主动点击触发权限请求
   $('btnLocate').addEventListener('click', locateUser);
@@ -1961,6 +2048,7 @@ function bindEvents() {
   $('mapCatStrip').addEventListener('click', function (evt) {
     var chip = evt.target.closest('.chip');
     if (!chip) return;
+    clearSelection();
     state.mapCatFilter = chip.getAttribute('data-cat');
     renderMapCatStrip();
     renderMarkers();
@@ -2006,6 +2094,7 @@ async function init() {
   $('searchBox').hidden = !localMaintenance;
   $('visitHeader').hidden = localMaintenance;
   await loadPublicPlaces();
+  renderCityFilter();
   renderMapCatStrip();
   $('btnPlaceList').disabled = false;
   initMap();

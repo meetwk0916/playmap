@@ -1,5 +1,5 @@
 /**
- * Public place addresses must match the city regex in index.html renderCityPlaceList.
+ * Public place addresses must match the city regex in index.html cityOf.
  * The pattern is read from that function so the list and this check stay on one expression.
  */
 import { readFileSync } from 'node:fs';
@@ -41,10 +41,10 @@ export function parseRegexLiteral(literal) {
 }
 
 export function cityGroupPatternFromHtml(html) {
-  const source = functionSource(html, 'renderCityPlaceList');
+  const source = functionSource(html, 'cityOf');
   const marker = 'place.address.trim().match(';
   const at = source.indexOf(marker);
-  if (at < 0) throw new Error('renderCityPlaceList must match place.address.trim() with the city regex');
+  if (at < 0) throw new Error('cityOf must match place.address.trim() with the city regex');
   const after = source.slice(at + marker.length);
   const slash = after.search(/\//);
   if (slash < 0 || after.slice(0, slash).trim() !== '') throw new Error('city group matcher must be a regex literal');
@@ -67,7 +67,7 @@ function main() {
     if (!data || !Array.isArray(data.places)) throw new Error('public-places.json has no places array');
     const missing = placesWithoutCity(data.places, cityGroupPatternFromHtml(html));
     if (missing.length) {
-      console.error(`公开地点地址无法解析出城市（${missing.length}，规则与 index.html renderCityPlaceList 相同）：`);
+      console.error(`公开地点地址无法解析出城市（${missing.length}，规则与 index.html cityOf 相同）：`);
       for (const place of missing) {
         const name = (place && (place.name || place.poiId)) || '未命名地点';
         console.error(`- ${name}：${JSON.stringify(place && place.address)}`);
