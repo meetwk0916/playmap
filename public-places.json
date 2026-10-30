@@ -383,6 +383,94 @@
       "lng": 121.313983,
       "visitedOn": "2026-04-30",
       "photo": "assets/visits/zhongjun-guangchang-20260430.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "6977450044719703799",
+      "name": "千岛湖文渊狮城度假区",
+      "address": "浙江省杭州市淳安县姜家镇狮城路1号",
+      "category": "other",
+      "lat": 29.471412,
+      "lng": 118.668984,
+      "visitedOn": "2025-04-06",
+      "photo": "assets/visits/wenyuan-shicheng-20250406.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "8927214594380840320",
+      "name": "九子沙滩",
+      "address": "浙江省舟山市岱山县秀山乡",
+      "category": "water",
+      "lat": 30.174265,
+      "lng": 122.191971,
+      "visitedOn": "2025-08-10",
+      "photo": "assets/visits/jiuzi-shatan-20250810.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "18301292315708231829",
+      "name": "严州古城",
+      "address": "浙江省杭州市建德市梅城镇",
+      "category": "other",
+      "lat": 29.540862,
+      "lng": 119.504221,
+      "visitedOn": "2025-09-28",
+      "photo": "assets/visits/yanzhou-gucheng-20250928.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "5015731668736320912",
+      "name": "鳌阳镇",
+      "address": "福建省宁德市寿宁县",
+      "category": "other",
+      "lat": 27.457444,
+      "lng": 119.505609,
+      "visitedOn": "2025-10-01",
+      "photo": "assets/visits/aoyang-zhen-20251001.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "13385304910002799762",
+      "name": "长白山万达喜来登度假酒店",
+      "address": "吉林省白山市抚松县长白山保护开发区池西区特殊乡镇长白山国际度假区白云路369号(近长白山西景区)",
+      "category": "hotel",
+      "lat": 42.100518,
+      "lng": 127.509679,
+      "visitedOn": "2025-12-27",
+      "photo": "assets/visits/changbaishan-sheraton-20251227.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "5958097338050643135",
+      "name": "上海朱家角古镇旅游区",
+      "address": "上海市青浦区朱家角课植园路555号",
+      "category": "other",
+      "lat": 31.109711,
+      "lng": 121.05391,
+      "visitedOn": "2025-07-25",
+      "photo": "assets/visits/zhujiajiao-20250725.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "7440194880654570571",
+      "name": "蟠龙新天地",
+      "address": "上海市青浦区潘鼎路123弄8号上海蟠龙天地F1",
+      "category": "mall",
+      "lat": 31.187996,
+      "lng": 121.275674,
+      "visitedOn": "2025-07-20",
+      "photo": "assets/visits/panlong-xintiandi-20250720.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "7630867812668209853",
+      "name": "SMP上海白玉兰广场",
+      "address": "上海市虹口区东长治路588号",
+      "category": "mall",
+      "lat": 31.249025,
+      "lng": 121.497806,
+      "visitedOn": "2025-12-06",
+      "photo": "assets/visits/baiyulan-guangchang-20251206.jpg"
     }
   ]
 }
