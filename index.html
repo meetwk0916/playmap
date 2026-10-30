@@ -152,13 +152,20 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .map-cat-strip::-webkit-scrollbar { display: none; }
 .map-cat-strip.hidden { display: none; }
 .map-cat-strip .chip { min-height:44px; min-width:44px; flex-shrink:0; box-shadow:var(--shadow); }
-#map .map-orientation-control { padding-top: calc(128px + env(safe-area-inset-top, 0px)); }
+#map .map-orientation-control { position:fixed; top:calc(128px + env(safe-area-inset-top, 0px)); right:calc(8px + env(safe-area-inset-right, 0px)); width:108px; height:108px; }
+#map .map-orientation-control .rotate-circle { padding:0; margin:9px; transform:scale(1.5); transform-origin:top left; }
+#map .map-zoom-control { position:fixed; top:calc(248px + env(safe-area-inset-top, 0px)); right:calc(40px + env(safe-area-inset-right, 0px)); margin:0; width:44px; }
+#map .map-zoom-control .tmap-zoom-control { width:44px; height:88px; margin:0; }
+#map .map-zoom-control .tmap-zoom-in, #map .map-zoom-control .tmap-zoom-out { left:0; width:44px; height:44px; display:grid; place-items:center; }
+#map .map-zoom-control .tmap-zoom-in { top:0; }
+#map .map-zoom-control .tmap-zoom-out { top:44px; }
+#map .map-zoom-control .tmap-zoom-spliter { width:44px; }
 
 /* 用户主动触发的地图定位控件：不在页面加载时申请权限 */
 .location-control {
   position: fixed;
-  right: calc(16px + env(safe-area-inset-right, 0px));
-  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  right: calc(38px + env(safe-area-inset-right, 0px));
+  top: calc(348px + env(safe-area-inset-top, 0px));
   z-index: 16;
   width: 48px;
   height: 48px;
@@ -318,21 +325,15 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   line-height: 1.5;
 }
 
-.privacy-control {
-  min-height: 44px; min-width: 44px;
+.more-controls {
   position: fixed;
-  left: 16px;
+  left: max(16px, env(safe-area-inset-left, 0px));
   bottom: calc(18px + env(safe-area-inset-bottom, 0px));
-  z-index: 60;
-  border: none;
-  border-radius: 999px;
-  background: var(--surface-glass);
-  color: var(--text);
-  box-shadow: var(--shadow);
-  padding: 10px 14px;
-  font-size: 13px;
-  font-weight: 700;
+  z-index: 18;
 }
+.more-controls button { min-height:44px; min-width:44px; border:1px solid var(--line); border-radius:999px; background:var(--surface-glass); color:var(--text); box-shadow:var(--shadow); padding:10px 14px; font-size:13px; font-weight:700; }
+#moreMenu { position:absolute; left:0; bottom:calc(100% + 8px); padding:6px; border:1px solid var(--line); border-radius:16px; background:var(--card); box-shadow:var(--shadow); white-space:nowrap; }
+#moreMenu button { border:0; border-radius:10px; box-shadow:none; background:var(--card); }
 .chip {
   border: 1.5px solid var(--line);
   background: var(--card);
@@ -379,7 +380,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   padding: 6px 18px calc(20px + env(safe-area-inset-bottom, 0px));
 }
 .drawer.open { transform: translateY(0); }
-main[inert] .privacy-control, main[inert] .location-control { visibility: hidden; }
+main[inert] .more-controls, main[inert] .location-control { visibility: hidden; }
 .drawer-controls { display:grid; grid-template-columns:44px 1fr 44px; align-items:center; }
 .drawer-controls .grabber { grid-column:2; }
 .drawer-close { grid-column:3; width:44px; height:44px; border:0; border-radius:50%; background:var(--surface-muted); color:var(--text); font-size:20px; }
@@ -653,6 +654,7 @@ main[inert] .privacy-control, main[inert] .location-control { visibility: hidden
 .map-cat-strip .chip.active { background:var(--brand-sun); border-color:var(--brand-sun); color:var(--text); }
 #placeCard { position:fixed; z-index:17; left:max(12px, env(safe-area-inset-left)); right:max(12px, env(safe-area-inset-right)); bottom:calc(82px + env(safe-area-inset-bottom)); display:flex; align-items:center; gap:12px; padding:12px; border:2px solid var(--selection); border-radius:20px; background:var(--card); box-shadow:var(--shadow); max-height:min(calc(50dvh - 36px), calc(100dvh - 310px)); overflow:auto; }
 #placeCard > img { width:72px; height:84px; object-fit:cover; border-radius:12px; flex-shrink:0; }
+@media (max-height:600px) { #placeCard { right:calc(124px + env(safe-area-inset-right, 0px)); width:auto; } }
 .place-card-main { min-width:0; flex:1; }
 .place-card-main strong { font-size:16px; overflow-wrap:anywhere; }
 .place-card-main p { margin:5px 0 0; font-size:12px; color:var(--text-light); }
@@ -712,7 +714,7 @@ main[inert] .privacy-control, main[inert] .location-control { visibility: hidden
 <div class="map-cat-strip" id="mapCatStrip"></div>
 <section class="visit-empty" id="visitEmpty" aria-label="到访记录状态" hidden></section>
 
-<!-- 右下角按需定位：用户点击后才请求浏览器位置权限 -->
+<!-- 右侧工具组按需定位：用户点击后才请求浏览器位置权限 -->
 <button class="location-control" id="btnLocate" type="button" title="找到我的位置"
   aria-label="找到我的位置" aria-busy="false" aria-pressed="false">
   <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -722,7 +724,10 @@ main[inert] .privacy-control, main[inert] .location-control { visibility: hidden
   </svg>
 </button>
 
-<button class="privacy-control" id="btnOpenPrivacy" type="button">数据与隐私</button>
+<div class="more-controls">
+  <button id="btnMore" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="moreMenu">更多</button>
+  <div id="moreMenu" role="menu" aria-label="更多" hidden><button id="btnOpenPrivacy" type="button" role="menuitem">数据与隐私</button></div>
+</div>
 
 <section id="placeCard" aria-label="选中地点" hidden></section>
 
@@ -1044,6 +1049,15 @@ function deactivateFocusLayer(container, restoreFocus) {
 }
 
 document.addEventListener('keydown', function (evt) {
+  if (!$('moreMenu').hidden) {
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End'].indexOf(evt.key) !== -1) {
+      evt.preventDefault();
+      $('btnOpenPrivacy').focus();
+      return;
+    }
+    if (evt.key === 'Escape') { evt.preventDefault(); closeMoreMenu(true); return; }
+    if (evt.key === 'Tab') closeMoreMenu(true);
+  }
   if (!focusLayers.length) {
     if (evt.key === 'Escape' && state.selectedPlaceId) clearSelection();
     return;
@@ -1281,7 +1295,12 @@ function initMap() {
       zoom: DEFAULT_ZOOM,
       baseMap: { type: 'vector', features: ['base', 'label'] }
     });
-    map.getControl(TMap.constants.DEFAULT_CONTROL_ID.ROTATION).setClassName('map-orientation-control');
+    var rotationControl = map.getControl(TMap.constants.DEFAULT_CONTROL_ID.ROTATION);
+    var zoomControl = map.getControl(TMap.constants.DEFAULT_CONTROL_ID.ZOOM);
+    rotationControl.setPosition(TMap.constants.CONTROL_POSITION.TOP_RIGHT);
+    zoomControl.setPosition(TMap.constants.CONTROL_POSITION.TOP_RIGHT);
+    rotationControl.setClassName('map-orientation-control');
+    zoomControl.setClassName('map-zoom-control');
 
     markerLayer = new TMap.MultiMarker({
       map: map,
@@ -1470,13 +1489,32 @@ function focusPlace(place) {
 /* ============================================================
    6. 抽屉控制（添加 / 详情 / 数据与隐私）
    ============================================================ */
+function closeMoreMenu(restoreFocus) {
+  if ($('moreMenu').hidden) return;
+  $('moreMenu').hidden = true;
+  $('btnMore').setAttribute('aria-expanded', 'false');
+  if (restoreFocus) $('btnMore').focus({ preventScroll: true });
+}
+
 var DRAWERS = ['drawerAdd', 'drawerDetail', 'drawerPrivacy', 'drawerPlaces'];
+var detailListReturn = null;
 
 function anyDrawerOpen() {
   return DRAWERS.some(function (id) { return $(id).classList.contains('open'); });
 }
 
+function closeCurrentDrawer() {
+  var listReturn = $('drawerDetail').classList.contains('open') && detailListReturn;
+  closeAllDrawers();
+  if (listReturn) {
+    openDrawer('drawerPlaces');
+    $('drawerPlaces').scrollTop = listReturn.scrollTop;
+    listReturn.button.focus({ preventScroll: true });
+  }
+}
+
 function closeAllDrawers() {
+  detailListReturn = null;
   DRAWERS.forEach(function (id) {
     var drawer = $(id);
     if (!drawer.classList.contains('open')) return;
@@ -1488,11 +1526,12 @@ function closeAllDrawers() {
 }
 
 function openDrawer(id) {
+  closeMoreMenu(true);
   closeAllDrawers();
   var drawer = $(id);
   drawer.classList.add('open');
   $('mask').classList.add('show');
-  activateFocusLayer(drawer, closeAllDrawers);
+  activateFocusLayer(drawer, closeCurrentDrawer);
 }
 
 /* ---------- 添加地点表单 ---------- */
@@ -1551,12 +1590,15 @@ function submitAdd() {
 }
 
 /* ---------- 地点详情 ---------- */
-function openDetail(placeId) {
+function openDetail(placeId, listButton) {
   var p = findPlace(placeId);
   if (!p) return;
+  var listReturn = listButton ? { button: listButton, scrollTop: $('drawerPlaces').scrollTop } : null;
+  if (listReturn) clearSelection();
   state.currentDetailId = placeId;
   renderDetail();
   openDrawer('drawerDetail');
+  detailListReturn = listReturn;
 }
 
 function openNavigation(place) {
@@ -2022,17 +2064,17 @@ function bindEvents() {
     var button = evt.target.closest('[data-place-id]');
     if (!button) return;
     var place = findPlace(button.getAttribute('data-place-id'));
-    if (place) selectPlace(place.id, true);
+    if (place) openDetail(place.id, button);
   });
-  // 地图右下角定位：由用户主动点击触发权限请求
+  // 地图工具组定位：由用户主动点击触发权限请求
   $('btnLocate').addEventListener('click', locateUser);
 
   document.querySelectorAll('.drawer-close').forEach(function (button) {
-    button.addEventListener('click', closeAllDrawers);
+    button.addEventListener('click', closeCurrentDrawer);
   });
 
   // 遮罩关闭抽屉
-  $('mask').addEventListener('click', closeAllDrawers);
+  $('mask').addEventListener('click', closeCurrentDrawer);
 
   // 添加表单
   $('catGrid').addEventListener('click', function (evt) {
@@ -2062,6 +2104,15 @@ function bindEvents() {
     retryMap();
   });
 
+  $('btnMore').addEventListener('click', function () {
+    if (!$('moreMenu').hidden) { closeMoreMenu(true); return; }
+    $('moreMenu').hidden = false;
+    $('btnMore').setAttribute('aria-expanded', 'true');
+    $('btnOpenPrivacy').focus();
+  });
+  document.addEventListener('click', function (evt) {
+    if (!evt.target.closest('.more-controls')) closeMoreMenu(false);
+  });
   $('btnOpenPrivacy').addEventListener('click', function () { openDrawer('drawerPrivacy'); });
   $('btnClosePrivacy').addEventListener('click', closeAllDrawers);
   $('btnClear').addEventListener('click', async function () {
