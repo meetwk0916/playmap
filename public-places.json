@@ -419,14 +419,14 @@
     },
     {
       "provider": "tencent",
-      "poiId": "5015731668736320912",
-      "name": "鳌阳镇",
-      "address": "福建省宁德市寿宁县",
+      "poiId": "6994709931829179067",
+      "name": "雾隐咖啡·露营地(韶托店)",
+      "address": "福建省宁德市寿宁县清源镇小托村37号",
       "category": "other",
-      "lat": 27.457444,
-      "lng": 119.505609,
-      "visitedOn": "2025-10-01",
-      "photo": "assets/visits/aoyang-zhen-20251001.jpg"
+      "lat": 27.45057,
+      "lng": 119.460335,
+      "visitedOn": "2025-10-05",
+      "photo": "assets/visits/wuyin-luyingdi-20251005.jpg"
     },
     {
       "provider": "tencent",
