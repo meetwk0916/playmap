@@ -209,12 +209,15 @@ test('opening footprints from an open More menu returns focus to footprints', as
   await expect(page.getByRole('button', { name: '更多', exact: true })).toHaveAttribute('aria-expanded', 'false');
 });
 
-test('footprint rows open details directly and each exit restores list position and item focus', async ({ page }) => {
+for (const [width, height] of [[375, 812], [390, 844]]) {
+test(`footprint rows select their map pin above details and restore list context at ${width}x${height}`, async ({ page }) => {
+  await page.setViewportSize({ width, height });
   const places = [visit, ...Array.from({ length: 14 }, (_, i) => ({ ...visit, poiId: 'return-' + i,
-    name: '连续到访' + i, photo: i === 13 ? 'assets/visits/bfc-20260919.jpg' : visit.photo }))];
+    name: '连续到访' + i, lat:visit.lat + (i + 1) * 0.004, lng:visit.lng + (i + 1) * 0.004,
+    photo: i === 13 ? 'assets/visits/bfc-20260919.jpg' : visit.photo }))];
   await serveVisits(page, places);
   await page.reload();
-  await page.locator('[data-map-pin="public:return-13"]').click();
+  await page.locator('[data-map-pin="public:visit-1"]').click();
   await page.getByRole('button', { name: '足迹', exact: true }).click();
   const list = page.getByRole('dialog', { name: '11 去过的地方', exact: true });
   for (const exit of ['close', 'escape', 'mask']) {
@@ -226,7 +229,20 @@ test('footprint rows open details directly and each exit restores list position 
     await expect(detail).toHaveClass(/open/);
     await expect(detail.locator('.visit-photo')).toHaveAttribute('src', exit === 'escape' ? visit.photo : places[14].photo);
     await expect(page.locator('#placeCard')).toBeHidden();
-    await expect(page.locator('[data-map-pin="public:visit-1"]')).toHaveCSS('width', '44px');
+    const selectedId = exit === 'escape' ? 'public:return-12' : 'public:return-13';
+    const pin = page.locator('[data-map-pin="' + selectedId + '"]');
+    await expect(pin).toHaveCSS('width', '60px');
+    for (const other of await page.locator('[data-map-pin]:not([data-map-pin="' + selectedId + '"])').all()) {
+      await expect(other).toHaveCSS('width', '44px');
+    }
+    await expect.poll(() => detail.locator('.visit-photo').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+    await detail.locator('.visit-photo').evaluate(img => img.decode());
+    await detail.evaluate(el => Promise.all(el.getAnimations({ subtree: true }).map(animation => animation.finished)));
+    const pinBox = await pin.boundingBox(), detailBox = await detail.boundingBox();
+    const categories = await page.locator('#mapCatStrip').boundingBox();
+    expect(pinBox.y).toBeGreaterThanOrEqual(categories.y + categories.height + 4);
+    expect(pinBox.y + pinBox.height).toBeLessThanOrEqual(detailBox.y - 4);
+    expect(pinBox.x + pinBox.width / 2).toBeCloseTo(width / 2, 1);
     if (exit === 'close') await detail.getByRole('button', { name: '关闭地点详情', exact: true }).click();
     if (exit === 'escape') await page.keyboard.press('Escape');
     if (exit === 'mask') await page.locator('#mask').click({ position: { x: 8, y: 8 } });
@@ -235,6 +251,8 @@ test('footprint rows open details directly and each exit restores list position 
     expect(await list.evaluate(el => el.scrollTop)).toBe(scroll);
   }
 });
+
+}
 
 for (const [width, height] of [[320, 860], [375, 860], [414, 860], [768, 860], [1249, 860], [768, 375], [375, 430], [320, 375]]) {
   test(`native map tools fit and remain clear of selected cards at ${width}x${height}`, async ({ page }) => {

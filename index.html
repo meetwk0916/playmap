@@ -1478,14 +1478,14 @@ function renderCityPlaceList(places, showVisited) {
   }).join('');
 }
 
-function focusPlace(place) {
+function focusPlace(place, panelTop) {
   if (!map) return;
   var position = new TMap.LatLng(place.lat, place.lng);
   var center = position;
   if (state.selectedPlaceId === place.id) {
     var top = $('mapCatStrip').getBoundingClientRect().bottom + 86;
-    var bottom = $('placeCard').getBoundingClientRect().top - 12;
-    var targetY = Math.max(top, Math.min(innerHeight / 2, bottom));
+    var bottom = panelTop === undefined ? $('placeCard').getBoundingClientRect().top - 12 : panelTop - 4;
+    var targetY = Math.min(bottom, Math.max(top, innerHeight / 2));
     var point = map.projectToContainer(position);
     center = map.unprojectFromContainer(new TMap.Point(point.x, point.y + innerHeight / 2 - targetY));
   }
@@ -1602,11 +1602,16 @@ function openDetail(placeId, listButton) {
   var p = findPlace(placeId);
   if (!p) return;
   var listReturn = listButton ? { button: listButton, scrollTop: $('drawerPlaces').scrollTop } : null;
-  if (listReturn) clearSelection();
+  if (listReturn) {
+    clearSelection();
+    state.selectedPlaceId = placeId;
+    renderMarkers();
+  }
   state.currentDetailId = placeId;
   renderDetail();
   openDrawer('drawerDetail');
   detailListReturn = listReturn;
+  if (listReturn) focusPlace(p, $('drawerDetail').offsetTop);
 }
 
 function openNavigation(place) {
