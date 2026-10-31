@@ -554,7 +554,8 @@
       "category": "hotel",
       "lat": 30.21129,
       "lng": 120.21692,
-      "visitedOn": "2024-09-29"
+      "visitedOn": "2024-09-29",
+      "photo": "assets/visits/hangzhou-binjiang-atour-20240929.jpg"
     }
   ]
 }
