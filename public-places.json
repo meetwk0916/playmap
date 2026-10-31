@@ -512,6 +512,17 @@
       "lng": 119.562305,
       "visitedOn": "2025-09-28",
       "photo": "assets/visits/fuchun-fangcaodi-20250928.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "11200070049300313709",
+      "name": "前滩休闲公园-粉色沙滩",
+      "address": "上海市浦东新区前滩大道前滩休闲公园内",
+      "category": "water",
+      "lat": 31.149004,
+      "lng": 121.463357,
+      "visitedOn": "2025-01-12",
+      "photo": "assets/visits/qiantan-pink-sand-20250112.jpg"
     }
   ]
 }
