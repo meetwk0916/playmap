@@ -254,6 +254,69 @@ test(`footprint rows select their map pin above details and restore list context
 
 }
 
+test('a cold footprint photo refits the selected pin above the final detail layout', async ({ page }) => {
+  const coldVisit = { ...visit, poiId:'cold-photo', name:'慢速照片地点', lat:31.28, lng:121.52, photo:'assets/visits/bfc-20260919.jpg' };
+  let releasePhoto;
+  const heldPhoto = new Promise(resolve => { releasePhoto = resolve; });
+  await page.route('**/assets/visits/bfc-20260919.jpg', async route => {
+    await heldPhoto;
+    await route.fulfill({ path:join(__dirname, '../assets/visits/bfc-20260919.jpg') });
+  });
+  await serveVisits(page, [visit, coldVisit]);
+  await page.reload();
+  await page.getByRole('button', { name:'足迹', exact:true }).click();
+  await page.locator('#placeList').getByRole('button', { name:coldVisit.name, exact:true }).click();
+  const detail = page.getByRole('dialog', { name:coldVisit.name, exact:true });
+  const photo = detail.locator('.visit-photo');
+  const pin = page.locator('[data-map-pin="public:cold-photo"]');
+  await expect(detail).toHaveClass(/open/);
+  await expect(photo).toHaveJSProperty('complete', false);
+  await expect(pin).toHaveCSS('width', '60px');
+  releasePhoto();
+  await expect.poll(() => photo.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+  await photo.evaluate(img => img.decode());
+  await detail.evaluate(el => Promise.all(el.getAnimations({ subtree:true }).map(animation => animation.finished)));
+  const pinBox = await pin.boundingBox(), detailBox = await detail.boundingBox();
+  const categories = await page.locator('#mapCatStrip').boundingBox();
+  expect(pinBox.y).toBeGreaterThanOrEqual(categories.y + categories.height + 4);
+  expect(pinBox.y + pinBox.height).toBeLessThanOrEqual(detailBox.y - 4);
+});
+
+for (const destination of ['list', 'another detail']) {
+  test(`a late footprint photo cannot move the map after returning to ${destination}`, async ({ page }) => {
+    const coldVisit = { ...visit, poiId:'late-photo', name:'尚未加载照片的地点', lat:31.28, lng:121.52, photo:'assets/visits/bfc-20260919.jpg' };
+    let releasePhoto;
+    const heldPhoto = new Promise(resolve => { releasePhoto = resolve; });
+    await page.route('**/assets/visits/bfc-20260919.jpg', async route => {
+      await heldPhoto;
+      await route.fulfill({ path:join(__dirname, '../assets/visits/bfc-20260919.jpg') });
+    });
+    await serveVisits(page, [visit, coldVisit]);
+    await page.reload();
+    await page.getByRole('button', { name:'足迹', exact:true }).click();
+    await page.locator('#placeList').getByRole('button', { name:coldVisit.name, exact:true }).click();
+    const oldPhoto = await page.locator('#drawerDetail .visit-photo').elementHandle();
+    await expect(page.locator('#drawerDetail .visit-photo')).toHaveJSProperty('complete', false);
+    await page.keyboard.press('Escape');
+    if (destination === 'another detail') {
+      await page.locator('#placeList').getByRole('button', { name:visit.name, exact:true }).click();
+      await expect.poll(() => page.locator('#drawerDetail .visit-photo').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+    }
+    const selectedId = destination === 'list' ? 'public:late-photo' : 'public:visit-1';
+    const pin = page.locator('[data-map-pin="' + selectedId + '"]');
+    const before = await pin.boundingBox();
+    releasePhoto();
+    await expect.poll(() => oldPhoto.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+    await oldPhoto.evaluate(img => img.decode());
+    await expect(pin).toHaveCSS('width', '60px');
+    const after = await pin.boundingBox();
+    expect(after.x).toBeCloseTo(before.x, 1); expect(after.y).toBeCloseTo(before.y, 1);
+    if (destination === 'list') await expect(page.getByRole('dialog', { name:'11 去过的地方', exact:true })).toBeVisible();
+    else await expect(page.getByRole('dialog', { name:visit.name, exact:true })).toBeVisible();
+    await expect(page.locator('#placeCard')).toBeHidden();
+  });
+}
+
 for (const [width, height] of [[320, 860], [375, 860], [414, 860], [768, 860], [1249, 860], [768, 375], [375, 430], [320, 375]]) {
   test(`native map tools fit and remain clear of selected cards at ${width}x${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });

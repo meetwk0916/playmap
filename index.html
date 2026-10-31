@@ -1611,7 +1611,19 @@ function openDetail(placeId, listButton) {
   renderDetail();
   openDrawer('drawerDetail');
   detailListReturn = listReturn;
-  if (listReturn) focusPlace(p, $('drawerDetail').offsetTop);
+  if (listReturn) {
+    var photo = $('drawerDetail').querySelector('.visit-photo');
+    var refitPhoto = function () {
+      if (detailListReturn === listReturn && state.selectedPlaceId === placeId && photo && photo.isConnected) {
+        focusPlace(p, $('drawerDetail').offsetTop);
+      }
+    };
+    refitPhoto();
+    if (photo && !photo.complete) {
+      photo.addEventListener('load', refitPhoto, { once:true });
+      photo.addEventListener('error', refitPhoto, { once:true });
+    }
+  }
 }
 
 function openNavigation(place) {
