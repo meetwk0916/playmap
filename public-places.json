@@ -523,6 +523,39 @@
       "lng": 121.463357,
       "visitedOn": "2025-01-12",
       "photo": "assets/visits/qiantan-pink-sand-20250112.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "14279795294986916653",
+      "name": "良渚古城遗址公园",
+      "address": "浙江省杭州市余杭区瓶窑镇104国道",
+      "category": "park",
+      "lat": 30.390626,
+      "lng": 119.991218,
+      "visitedOn": "2024-09-29",
+      "photo": "assets/visits/liangzhu-20240929.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "2023658761143850855",
+      "name": "杭州西湖",
+      "address": "浙江省杭州市西湖区龙井路1号",
+      "category": "park",
+      "lat": 30.221378,
+      "lng": 120.121431,
+      "visitedOn": "2024-09-30",
+      "photo": "assets/visits/hangzhou-xihu-20240930.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "11121508869308158273",
+      "name": "杭州滨江奥体亚朵酒店",
+      "address": "浙江省杭州市滨江区江陵路1916号(星耀城二期3幢)",
+      "category": "hotel",
+      "lat": 30.21129,
+      "lng": 120.21692,
+      "visitedOn": "2024-09-29",
+      "photo": "assets/visits/hangzhou-binjiang-atour-20240929.jpg"
     }
   ]
 }
