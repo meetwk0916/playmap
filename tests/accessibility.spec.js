@@ -1,6 +1,26 @@
 const { test, expect } = require('@playwright/test');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
+// Layout-bearing defaults from Tencent GL JS; app CSS must enlarge the native targets.
+const tmapControlCss = `
+  .rotate-circle { position:relative; width:60px; height:60px; padding:20px 20px 7px; box-sizing:content-box; }
+  .rotate-circle * { box-sizing:content-box; }
+  .rotate-panel { position:relative; left:0; top:-60px; }
+  .rotate-left, .rotate-top, .rotate-right, .rotate-bottom { position:absolute; width:30px; height:30px; }
+  .rotate-left { top:15px; left:-6px; transform:rotate(-45deg); }
+  .rotate-top { top:-6px; left:15px; transform:rotate(45deg); }
+  .rotate-right { top:15px; left:36px; transform:rotate(45deg); }
+  .rotate-bottom { top:36px; left:15px; transform:rotate(45deg); }
+  .compass-circle, .compass-circle-background { position:relative; width:28px; height:28px; border:1px solid transparent; left:15px; }
+  .compass-circle { top:-15px; z-index:100; }
+  .compass-circle-background { top:15px; }
+  .compass-img { height:28px; position:relative; left:30%; }
+  .tmap-zoom-control { display:flex; flex-direction:column; justify-content:center; align-items:center; position:relative; width:40px; height:80px; margin:10px 30px 20px; }
+  .tmap-zoom-content { flex:auto; order:1; flex-grow:0; margin:8px 0; }
+  .tmap-zoom-in, .tmap-zoom-out { position:absolute; width:24px; height:24px; left:8px; }
+  .tmap-zoom-in { top:8px; } .tmap-zoom-out { top:48px; }
+  .tmap-zoom-spliter { width:40px; }
+`;
 const tmapStub = `
   window.TMap = {
     constants: { DEFAULT_CONTROL_ID: { ROTATION: 'rotation', ZOOM: 'zoom' }, CONTROL_POSITION: { TOP_RIGHT: 'topRight' } },
@@ -22,17 +42,22 @@ const tmapStub = `
       this.unprojectFromContainer = function (point) { return new window.TMap.LatLng(center.lat-(point.y-innerHeight/2)/10000, center.lng+(point.x-innerWidth/2)/10000); };
       window.__testMap = this;
       controls.style.cssText = 'position:absolute;top:0;right:0';
+      const style = document.createElement('style');
+      style.textContent = ${JSON.stringify(tmapControlCss)};
+      document.head.append(style);
       const rotation = document.createElement('div');
-      rotation.innerHTML = '<button aria-label="地图方向" style="display:block;width:108px;height:108px">方向</button>';
+      rotation.innerHTML = '<div class="rotate-circle"><div class="compass-circle-background"></div><div class="compass-circle"><img class="compass-img"></div><div class="rotate-panel"><div class="rotate-left clickable-rotate-left"></div><div class="rotate-top clickable-rotate-top"></div><div class="rotate-right clickable-rotate-right"></div><div class="rotate-bottom clickable-rotate-bottom"></div></div></div>';
       const zoom = document.createElement('div');
-      zoom.innerHTML = '<button aria-label="放大地图" style="display:block;width:44px;height:44px">＋</button><button aria-label="缩小地图" style="display:block;width:44px;height:44px">−</button>';
-      zoom.style.cssText = 'display:block;width:44px;height:88px;margin:10px 30px';
+      zoom.innerHTML = '<div class="tmap-zoom-control"><div class="tmap-zoom-content"><div class="tmap-zoom-in"></div><div class="tmap-zoom-number" style="display:none"></div><div class="tmap-zoom-spliter"></div><div class="tmap-zoom-out"></div></div></div>';
+      rotation.querySelector('img').src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="28"><path d="M6 0L12 28H0Z"/></svg>';
+      zoom.querySelector('.tmap-zoom-in').onclick = () => { zoomLevel++; };
+      zoom.querySelector('.tmap-zoom-out').onclick = () => { zoomLevel--; };
       controls.append(rotation, zoom);
       element.appendChild(controls);
       this.getControl = function (id) {
         const control = id === 'rotation' ? rotation : zoom;
         return {
-          setClassName: function (name) { control.className = name; if (id === 'zoom') control.style.margin = '0'; },
+          setClassName: function (name) { control.className = name; },
           setPosition: function () {}
         };
       };
@@ -174,6 +199,16 @@ test('More exposes privacy with keyboard, restores focus and remains available w
   }
 });
 
+test('opening footprints from an open More menu returns focus to footprints', async ({ page }) => {
+  await page.getByRole('button', { name: '更多', exact: true }).click();
+  const footprints = page.getByRole('button', { name: '足迹', exact: true });
+  await footprints.click();
+  await expect(page.getByRole('dialog', { name: '11 去过的地方', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(footprints).toBeFocused();
+  await expect(page.getByRole('button', { name: '更多', exact: true })).toHaveAttribute('aria-expanded', 'false');
+});
+
 test('footprint rows open details directly and each exit restores list position and item focus', async ({ page }) => {
   const places = [visit, ...Array.from({ length: 14 }, (_, i) => ({ ...visit, poiId: 'return-' + i,
     name: '连续到访' + i, photo: i === 13 ? 'assets/visits/bfc-20260919.jpg' : visit.photo }))];
@@ -201,28 +236,50 @@ test('footprint rows open details directly and each exit restores list position 
   }
 });
 
-for (const width of [320, 375, 414, 768, 1249]) {
-  test(`map SDK controls stay below the header and category strip at ${width}px`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 860 });
+for (const [width, height] of [[320, 860], [375, 860], [414, 860], [768, 860], [1249, 860], [768, 375], [375, 430], [320, 375]]) {
+  test(`native map tools fit and remain clear of selected cards at ${width}x${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    const targets = page.locator('[data-sdk-controls] .compass-circle, [data-sdk-controls] .rotate-panel > div, [data-sdk-controls] .tmap-zoom-in, [data-sdk-controls] .tmap-zoom-out, #btnLocate');
     const metrics = await page.evaluate(() => {
-      const header = document.querySelector('#visitHeader').getBoundingClientRect();
-      const categories = document.querySelector('#mapCatStrip').getBoundingClientRect();
-      return { toolbarBottom: Math.max(header.bottom, categories.bottom),
-        controls: [...document.querySelectorAll('[data-sdk-controls] button'), document.querySelector('#btnLocate')].map(el => el.getBoundingClientRect().toJSON()) };
+      const rect = el => el.getBoundingClientRect().toJSON();
+      const strip = rect(document.querySelector('#mapCatStrip'));
+      return { header:rect(document.querySelector('#visitHeader')),
+        categories:[...document.querySelectorAll('#mapCatStrip button')].map(el => {
+          const box = rect(el), x = Math.max(box.x, strip.x);
+          return { ...box, x, width:Math.max(0, Math.min(box.right, strip.right) - x) };
+        }),
+        groups:['.map-orientation-control', '.map-zoom-control', '#btnLocate'].map(selector => rect(document.querySelector(selector))) };
     });
-    expect(metrics.controls).toHaveLength(4);
-    for (const box of metrics.controls) {
-      expect(box.top).toBeGreaterThanOrEqual(metrics.toolbarBottom + 4);
+    const overlaps = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+    await expect(targets).toHaveCount(8);
+    for (const target of await targets.all()) {
+      const box = await target.boundingBox();
       expect(box.width).toBeGreaterThanOrEqual(44); expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x).toBeGreaterThanOrEqual(0); expect(box.y).toBeGreaterThanOrEqual(metrics.header.y + metrics.header.height + 4);
+      expect(box.x + box.width).toBeLessThanOrEqual(width); expect(box.y + box.height).toBeLessThanOrEqual(height - 24);
+      for (const chip of metrics.categories.filter(box => box.width)) expect(overlaps(box, chip)).toBe(false);
+      await target.click({ trial: true });
     }
-    const centers = metrics.controls.map(box => box.x + box.width / 2);
+    const centers = metrics.groups.map(box => box.x + box.width / 2);
     expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(1);
-    expect(metrics.controls[1].top).toBeGreaterThanOrEqual(metrics.controls[0].bottom + 8);
-    expect(metrics.controls[3].top).toBeGreaterThanOrEqual(metrics.controls[2].bottom + 8);
-    expect(metrics.controls[3].top - metrics.controls[2].bottom).toBeLessThanOrEqual(16);
-    await page.getByRole('button', { name: '地图方向', exact: true }).click();
-    await page.getByRole('button', { name: '放大地图', exact: true }).click();
-    await page.getByRole('button', { name: '缩小地图', exact: true }).click();
+    for (let i = 1; i < metrics.groups.length; i++) {
+      const gap = metrics.groups[i].y - metrics.groups[i - 1].y - metrics.groups[i - 1].height;
+      expect(gap).toBeGreaterThanOrEqual(4); expect(gap).toBeLessThanOrEqual(16);
+    }
+    const originalZoom = await page.evaluate(() => window.__testMap.getZoom());
+    await page.locator('.tmap-zoom-in').click();
+    expect(await page.evaluate(() => window.__testMap.getZoom())).toBe(originalZoom + 1);
+    await page.locator('.tmap-zoom-out').click();
+    expect(await page.evaluate(() => window.__testMap.getZoom())).toBe(originalZoom);
+    await page.locator('[data-map-pin="public:visit-1"]').click();
+    const card = page.locator('#placeCard');
+    await expect(card).toBeVisible();
+    const cardBox = await card.boundingBox();
+    for (const target of await targets.all()) expect(overlaps(await target.boundingBox(), cardBox)).toBe(false);
+    for (const button of await card.getByRole('button').all()) {
+      await button.scrollIntoViewIfNeeded();
+      await button.click({ trial: true });
+    }
   });
 }
 test('only complete public visits appear in map and filtered list; personal data remains byte-for-byte intact', async ({ page }) => {

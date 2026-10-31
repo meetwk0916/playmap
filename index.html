@@ -10,6 +10,8 @@
    全局样式（移动优先 / 暖暖童趣配色：暖黄 + 橙 + 奶白）
    ============================================================ */
 :root {
+  --map-tools-gap: clamp(4px, calc((100dvh - 416px) / 2), 12px);
+  --map-tools-top: clamp(calc(72px + env(safe-area-inset-top, 0px)), calc(100dvh - 264px - var(--map-tools-gap) - var(--map-tools-gap) - 24px - env(safe-area-inset-bottom, 0px)), calc(128px + env(safe-area-inset-top, 0px)));
   --brand-sun: #FFD65B;
   --selection: #F16A45;
   --action: #13815E;
@@ -152,9 +154,9 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .map-cat-strip::-webkit-scrollbar { display: none; }
 .map-cat-strip.hidden { display: none; }
 .map-cat-strip .chip { min-height:44px; min-width:44px; flex-shrink:0; box-shadow:var(--shadow); }
-#map .map-orientation-control { position:fixed; top:calc(128px + env(safe-area-inset-top, 0px)); right:calc(8px + env(safe-area-inset-right, 0px)); width:108px; height:108px; }
-#map .map-orientation-control .rotate-circle { padding:0; margin:9px; transform:scale(1.5); transform-origin:top left; }
-#map .map-zoom-control { position:fixed; top:calc(248px + env(safe-area-inset-top, 0px)); right:calc(40px + env(safe-area-inset-right, 0px)); margin:0; width:44px; }
+#map .map-orientation-control { position:fixed; top:var(--map-tools-top); right:calc(8px + env(safe-area-inset-right, 0px)); width:128px; height:128px; }
+#map .map-orientation-control .rotate-circle { padding:0; margin:19px; transform:scale(1.5); transform-origin:top left; }
+#map .map-zoom-control { position:fixed; top:calc(var(--map-tools-top) + 128px + var(--map-tools-gap)); right:calc(50px + env(safe-area-inset-right, 0px)); margin:0; width:44px; }
 #map .map-zoom-control .tmap-zoom-control { width:44px; height:88px; margin:0; }
 #map .map-zoom-control .tmap-zoom-in, #map .map-zoom-control .tmap-zoom-out { left:0; width:44px; height:44px; display:grid; place-items:center; }
 #map .map-zoom-control .tmap-zoom-in { top:0; }
@@ -164,8 +166,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 /* 用户主动触发的地图定位控件：不在页面加载时申请权限 */
 .location-control {
   position: fixed;
-  right: calc(38px + env(safe-area-inset-right, 0px));
-  top: calc(348px + env(safe-area-inset-top, 0px));
+  right: calc(48px + env(safe-area-inset-right, 0px));
+  top: calc(var(--map-tools-top) + 216px + var(--map-tools-gap) + var(--map-tools-gap));
   z-index: 16;
   width: 48px;
   height: 48px;
@@ -184,6 +186,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
               color var(--dur-base) var(--ease-out),
               opacity var(--dur-base) var(--ease-out);
 }
+@media (max-height:425px) { .map-cat-strip { right:calc(144px + env(safe-area-inset-right, 0px)); } }
 .location-control svg { width: 24px; height: 24px; }
 .location-control.is-locating { opacity: 0.62; cursor: wait; }
 .location-control.is-located {
@@ -654,7 +657,11 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 .map-cat-strip .chip.active { background:var(--brand-sun); border-color:var(--brand-sun); color:var(--text); }
 #placeCard { position:fixed; z-index:17; left:max(12px, env(safe-area-inset-left)); right:max(12px, env(safe-area-inset-right)); bottom:calc(82px + env(safe-area-inset-bottom)); display:flex; align-items:center; gap:12px; padding:12px; border:2px solid var(--selection); border-radius:20px; background:var(--card); box-shadow:var(--shadow); max-height:min(calc(50dvh - 36px), calc(100dvh - 310px)); overflow:auto; }
 #placeCard > img { width:72px; height:84px; object-fit:cover; border-radius:12px; flex-shrink:0; }
-@media (max-height:600px) { #placeCard { right:calc(124px + env(safe-area-inset-right, 0px)); width:auto; } }
+@media (max-height:600px) { #placeCard { right:calc(144px + env(safe-area-inset-right, 0px)); width:auto; } }
+@media (max-height:600px) and (max-width:414px) {
+  #placeCard { gap:8px; padding:8px; }
+  #placeCard > img { width:40px; height:48px; }
+}
 .place-card-main { min-width:0; flex:1; }
 .place-card-main strong { font-size:16px; overflow-wrap:anywhere; }
 .place-card-main p { margin:5px 0 0; font-size:12px; color:var(--text-light); }
@@ -1526,7 +1533,7 @@ function closeAllDrawers() {
 }
 
 function openDrawer(id) {
-  closeMoreMenu(true);
+  closeMoreMenu($('moreMenu').contains(document.activeElement));
   closeAllDrawers();
   var drawer = $(id);
   drawer.classList.add('open');
