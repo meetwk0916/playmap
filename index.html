@@ -1300,6 +1300,7 @@ function initMap() {
     map = new TMap.Map($('map'), {
       center: new TMap.LatLng(DEFAULT_CENTER.lat, DEFAULT_CENTER.lng),
       zoom: DEFAULT_ZOOM,
+      mapStyleId: 'style1',
       baseMap: { type: 'vector', features: ['base', 'label'] }
     });
     var rotationControl = map.getControl(TMap.constants.DEFAULT_CONTROL_ID.ROTATION);
