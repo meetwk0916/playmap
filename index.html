@@ -1490,7 +1490,7 @@ function focusPlace(place, panelTop) {
     center = map.unprojectFromContainer(new TMap.Point(point.x, point.y + innerHeight / 2 - targetY));
   }
   map.easeTo({ center: center }, {
-    duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 300
+    duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600
   });
 }
 

@@ -267,6 +267,23 @@ test('one map click from footprint details returns to the same selected pin and 
   await expect(page.locator('main')).not.toHaveAttribute('inert');
 });
 
+test('map pins, footprint rows and map return share a gentle camera transition with reduced-motion support', async ({ page }) => {
+  for (const [reducedMotion, duration] of [['no-preference', 600], ['reduce', 0]]) {
+    await page.emulateMedia({ reducedMotion });
+    await page.evaluate(() => { window.__mapEaseToCalls = []; });
+    await page.locator('[data-map-pin="public:visit-1"]').click();
+    await expect.poll(() => page.evaluate(() => window.__mapEaseToCalls.at(-1)?.duration)).toBe(duration);
+    await page.getByRole('button', { name:'足迹', exact:true }).click();
+    await page.evaluate(() => { window.__mapEaseToCalls = []; });
+    await page.locator('#placeList').getByRole('button', { name:visit.name, exact:true }).click();
+    await expect.poll(() => page.evaluate(() => window.__mapEaseToCalls.at(-1)?.duration)).toBe(duration);
+    await page.evaluate(() => { window.__mapEaseToCalls = []; });
+    await page.locator('#mask').click({ position:{ x:8, y:8 } });
+    await expect(page.locator('#placeCard')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.__mapEaseToCalls.at(-1)?.duration)).toBe(duration);
+  }
+});
+
 test('a cold footprint photo refits the selected pin above the final detail layout', async ({ page }) => {
   const coldVisit = { ...visit, poiId:'cold-photo', name:'慢速照片地点', lat:31.28, lng:121.52, photo:'assets/visits/bfc-20260919.jpg' };
   let releasePhoto;
