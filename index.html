@@ -383,6 +383,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   padding: 6px 18px calc(20px + env(safe-area-inset-bottom, 0px));
 }
 .drawer.open { transform: translateY(0); }
+#drawerPlaces:has(+ #drawerDetail.open) { visibility: hidden; }
 main[inert] .more-controls, main[inert] .location-control { visibility: hidden; }
 .drawer-controls { display:grid; grid-template-columns:44px 1fr 44px; align-items:center; }
 .drawer-controls .grabber { grid-column:2; }

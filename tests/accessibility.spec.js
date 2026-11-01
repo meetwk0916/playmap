@@ -284,6 +284,36 @@ test('map pins, footprint rows and map return share a gentle camera transition w
   }
 });
 
+test('footprint details reveal the map without the outgoing list during the drawer transition', async ({ page }) => {
+  await page.getByRole('button', { name:'足迹', exact:true }).click();
+  const list = page.locator('#drawerPlaces');
+  const detail = page.locator('#drawerDetail');
+  const row = list.getByRole('button', { name:visit.name, exact:true });
+  for (const exit of ['close', 'escape']) {
+    await list.evaluate(el => Promise.all(el.getAnimations().map(animation => animation.finished)));
+    await row.click();
+    const progress = await page.evaluate(async () => {
+      const list = document.querySelector('#drawerPlaces');
+      const detail = document.querySelector('#drawerDetail');
+      const entering = detail.getAnimations()[0];
+      for (const animation of [...list.getAnimations(), ...detail.getAnimations()]) {
+        animation.pause();
+        animation.currentTime = animation.effect.getTiming().duration / 4;
+      }
+      await new Promise(requestAnimationFrame);
+      return entering?.effect.getComputedTiming().progress;
+    });
+    expect(progress).toBeGreaterThan(0);
+    expect(progress).toBeLessThan(1);
+    await expect(detail).toBeVisible();
+    await expect(list).toBeHidden();
+    if (exit === 'close') await detail.getByRole('button', { name:'关闭地点详情', exact:true }).click();
+    else await page.keyboard.press('Escape');
+    await expect(list).toBeVisible();
+    await expect(row).toBeFocused();
+  }
+});
+
 test('a cold footprint photo refits the selected pin above the final detail layout', async ({ page }) => {
   const coldVisit = { ...visit, poiId:'cold-photo', name:'慢速照片地点', lat:31.28, lng:121.52, photo:'assets/visits/bfc-20260919.jpg' };
   let releasePhoto;
