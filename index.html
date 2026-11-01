@@ -2099,7 +2099,11 @@ function bindEvents() {
   });
 
   // 遮罩关闭抽屉
-  $('mask').addEventListener('click', closeCurrentDrawer);
+  $('mask').addEventListener('click', function () {
+    if (map && $('drawerDetail').classList.contains('open') && detailListReturn) {
+      selectPlace(state.currentDetailId, true);
+    } else closeCurrentDrawer();
+  });
 
   // 添加表单
   $('catGrid').addEventListener('click', function (evt) {

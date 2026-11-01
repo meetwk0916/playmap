@@ -220,7 +220,7 @@ test(`footprint rows select their map pin above details and restore list context
   await page.locator('[data-map-pin="public:visit-1"]').click();
   await page.getByRole('button', { name: '足迹', exact: true }).click();
   const list = page.getByRole('dialog', { name: '11 去过的地方', exact: true });
-  for (const exit of ['close', 'escape', 'mask']) {
+  for (const exit of ['close', 'escape']) {
     const row = list.getByRole('button', { name: exit === 'escape' ? '连续到访12' : '连续到访13', exact: true });
     await row.scrollIntoViewIfNeeded();
     const scroll = await list.evaluate(el => el.scrollTop);
@@ -245,7 +245,6 @@ test(`footprint rows select their map pin above details and restore list context
     expect(pinBox.x + pinBox.width / 2).toBeCloseTo(width / 2, 1);
     if (exit === 'close') await detail.getByRole('button', { name: '关闭地点详情', exact: true }).click();
     if (exit === 'escape') await page.keyboard.press('Escape');
-    if (exit === 'mask') await page.locator('#mask').click({ position: { x: 8, y: 8 } });
     await expect(list).toHaveClass(/open/);
     await expect(row).toBeFocused();
     expect(await list.evaluate(el => el.scrollTop)).toBe(scroll);
@@ -253,6 +252,20 @@ test(`footprint rows select their map pin above details and restore list context
 });
 
 }
+
+test('one map click from footprint details returns to the same selected pin and compact photo card', async ({ page }) => {
+  await page.getByRole('button', { name:'足迹', exact:true }).click();
+  await page.locator('#placeList').getByRole('button', { name:visit.name, exact:true }).click();
+  await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
+  await page.locator('#mask').click({ position:{ x:8, y:8 } });
+  await expect(page.locator('#placeCard')).toBeVisible();
+  await expect(page.locator('#placeCard')).toContainText(visit.name);
+  await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
+  await expect(page.locator('#drawerPlaces')).not.toHaveClass(/open/);
+  await expect(page.locator('[data-map-pin="public:visit-1"]')).toHaveCSS('width', '60px');
+  await expect(page.getByRole('button', { name:'到访照片', exact:true })).toBeFocused();
+  await expect(page.locator('main')).not.toHaveAttribute('inert');
+});
 
 test('a cold footprint photo refits the selected pin above the final detail layout', async ({ page }) => {
   const coldVisit = { ...visit, poiId:'cold-photo', name:'慢速照片地点', lat:31.28, lng:121.52, photo:'assets/visits/bfc-20260919.jpg' };
@@ -804,6 +817,14 @@ test('map failure keeps complete public visits filterable and allows explicit ma
   await page.locator('#fallbackList').getByRole('button', { name: visit.name + ' · 11 去过', exact: true }).click();
   await expect(page.locator('#drawerDetail')).toContainText('2岁3个月');
   await page.keyboard.press('Escape');
+  await page.getByRole('button', { name:'足迹', exact:true }).click();
+  const row = page.locator('#placeList').getByRole('button', { name:visit.name, exact:true });
+  await row.click();
+  await page.locator('#mask').click({ position:{ x:8, y:8 } });
+  await expect(page.locator('#drawerPlaces')).toHaveClass(/open/);
+  await expect(row).toBeFocused();
+  await expect(page.locator('#placeCard')).toBeHidden();
+  await page.keyboard.press('Escape');
   await page.route('**/map.qq.com/api/gljs**', route => route.fulfill({ contentType: 'application/javascript', body: tmapStub }));
   await page.getByRole('button', { name: '重试地图', exact: true }).click();
   await expect(page.locator('#mapFallback')).toBeHidden();
@@ -1028,6 +1049,11 @@ test('map selection opens a compact card and details return to the same selectio
   await page.getByRole('button', {name:'到访照片', exact:true}).click();
   await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
   await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', {name:'到访照片', exact:true})).toBeFocused();
+  await page.getByRole('button', {name:'到访照片', exact:true}).click();
+  await page.locator('#mask').click({ position:{ x:8, y:8 } });
+  await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
+  await expect(page.locator('#placeCard')).toBeVisible();
   await expect(page.getByRole('button', {name:'到访照片', exact:true})).toBeFocused();
   await page.getByRole('button', {name:'收起地点', exact:true}).click();
   await expect(page.locator('#placeCard')).toBeHidden();
