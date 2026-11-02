@@ -1,9 +1,29 @@
 const { test, expect } = require('@playwright/test');
 const { readFileSync } = require('node:fs');
 const { join } = require('node:path');
+// Layout-bearing defaults from Tencent GL JS; app CSS must enlarge the native targets.
+const tmapControlCss = `
+  .rotate-circle { position:relative; width:60px; height:60px; padding:20px 20px 7px; box-sizing:content-box; }
+  .rotate-circle * { box-sizing:content-box; }
+  .rotate-panel { position:relative; left:0; top:-60px; }
+  .rotate-left, .rotate-top, .rotate-right, .rotate-bottom { position:absolute; width:30px; height:30px; }
+  .rotate-left { top:15px; left:-6px; transform:rotate(-45deg); }
+  .rotate-top { top:-6px; left:15px; transform:rotate(45deg); }
+  .rotate-right { top:15px; left:36px; transform:rotate(45deg); }
+  .rotate-bottom { top:36px; left:15px; transform:rotate(45deg); }
+  .compass-circle, .compass-circle-background { position:relative; width:28px; height:28px; border:1px solid transparent; left:15px; }
+  .compass-circle { top:-15px; z-index:100; }
+  .compass-circle-background { top:15px; }
+  .compass-img { height:28px; position:relative; left:30%; }
+  .tmap-zoom-control { display:flex; flex-direction:column; justify-content:center; align-items:center; position:relative; width:40px; height:80px; margin:10px 30px 20px; }
+  .tmap-zoom-content { flex:auto; order:1; flex-grow:0; margin:8px 0; }
+  .tmap-zoom-in, .tmap-zoom-out { position:absolute; width:24px; height:24px; left:8px; }
+  .tmap-zoom-in { top:8px; } .tmap-zoom-out { top:48px; }
+  .tmap-zoom-spliter { width:40px; }
+`;
 const tmapStub = `
   window.TMap = {
-    constants: { DEFAULT_CONTROL_ID: { ROTATION: 'rotation' } },
+    constants: { DEFAULT_CONTROL_ID: { ROTATION: 'rotation', ZOOM: 'zoom' }, CONTROL_POSITION: { TOP_RIGHT: 'topRight' } },
     Point: function (x, y) { this.x = x; this.y = y; },
     LatLng: function (lat, lng) {
       this.lat = lat;
@@ -22,15 +42,24 @@ const tmapStub = `
       this.unprojectFromContainer = function (point) { return new window.TMap.LatLng(center.lat-(point.y-innerHeight/2)/10000, center.lng+(point.x-innerWidth/2)/10000); };
       window.__testMap = this;
       controls.style.cssText = 'position:absolute;top:0;right:0';
+      const style = document.createElement('style');
+      style.textContent = ${JSON.stringify(tmapControlCss)};
+      document.head.append(style);
       const rotation = document.createElement('div');
-      rotation.innerHTML = '<button aria-label="地图方向" style="display:block;width:100px;height:87px">方向</button>';
-      const zoom = document.createElement('button');
-      zoom.textContent = '地图缩放';
-      zoom.style.cssText = 'display:block;width:40px;height:80px;margin:10px 30px';
+      rotation.innerHTML = '<div class="rotate-circle"><div class="compass-circle-background"></div><div class="compass-circle"><img class="compass-img"></div><div class="rotate-panel"><div class="rotate-left clickable-rotate-left"></div><div class="rotate-top clickable-rotate-top"></div><div class="rotate-right clickable-rotate-right"></div><div class="rotate-bottom clickable-rotate-bottom"></div></div></div>';
+      const zoom = document.createElement('div');
+      zoom.innerHTML = '<div class="tmap-zoom-control"><div class="tmap-zoom-content"><div class="tmap-zoom-in"></div><div class="tmap-zoom-number" style="display:none"></div><div class="tmap-zoom-spliter"></div><div class="tmap-zoom-out"></div></div></div>';
+      rotation.querySelector('img').src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="28"><path d="M6 0L12 28H0Z"/></svg>';
+      zoom.querySelector('.tmap-zoom-in').onclick = () => { zoomLevel++; };
+      zoom.querySelector('.tmap-zoom-out').onclick = () => { zoomLevel--; };
       controls.append(rotation, zoom);
       element.appendChild(controls);
-      this.getControl = function () {
-        return { setClassName: function (name) { rotation.className = name; } };
+      this.getControl = function (id) {
+        const control = id === 'rotation' ? rotation : zoom;
+        return {
+          setClassName: function (name) { control.className = name; },
+          setPosition: function () {}
+        };
       };
       this.getZoom = function () { return zoomLevel; };
       this.setZoom = function (zoom) { zoomLevel = zoom; };
@@ -138,21 +167,260 @@ async function screenshotWhenReady(page, options) {
 async function openVisit(page, name = visit.name) {
   await page.getByRole('button', { name: '足迹', exact: true }).click();
   await page.locator('#placeList').getByRole('button', { name: new RegExp(name) }).click();
-  await page.getByRole('button', { name: '到访照片', exact: true }).click();
 }
-for (const width of [320, 375, 414, 768, 1249]) {
-  test(`map SDK controls stay below the header and category strip at ${width}px`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 860 });
-    const metrics = await page.evaluate(() => {
-      const header = document.querySelector('#visitHeader').getBoundingClientRect();
-      const categories = document.querySelector('#mapCatStrip').getBoundingClientRect();
-      return { toolbarBottom: Math.max(header.bottom, categories.bottom), controls: Array.from(document.querySelectorAll('[data-sdk-controls] button')).map(el => el.getBoundingClientRect().toJSON()) };
+test('More exposes privacy with keyboard, restores focus and remains available without the map', async ({ page }) => {
+  await page.addInitScript(() => {
+    window.locationRequests = 0;
+    Object.defineProperty(navigator, 'geolocation', { value: { getCurrentPosition() { window.locationRequests++; } } });
+  });
+  await page.evaluate(() => localStorage.setItem('baby_playmap_v1', '{private archive'));
+  await page.reload();
+  for (const mapAvailable of [true, false]) {
+    if (!mapAvailable) {
+      await page.route('**/map.qq.com/api/gljs**', route => route.abort());
+      await page.reload();
+      await expect(page.locator('#mapFallback')).toBeVisible();
+    }
+    const more = page.getByRole('button', { name: '更多', exact: true });
+    await expect(page.getByRole('menuitem', { name: '数据与隐私', exact: true })).toBeHidden();
+    await more.focus(); await page.keyboard.press('Enter');
+    await expect(more).toHaveAttribute('aria-expanded', 'true');
+    const privacy = page.getByRole('menuitem', { name: '数据与隐私', exact: true });
+    await expect(privacy).toBeFocused();
+    await page.keyboard.press('ArrowDown'); await expect(privacy).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(more).toBeFocused(); await expect(more).toHaveAttribute('aria-expanded', 'false');
+    await more.click(); await privacy.click();
+    await expect(page.getByRole('dialog', { name: '数据与隐私', exact: true })).toBeVisible();
+    expect(await page.locator('main').evaluate(el => el.inert)).toBe(true);
+    await page.keyboard.press('Escape'); await expect(more).toBeFocused();
+    expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe('{private archive');
+    expect(await page.evaluate(() => window.locationRequests)).toBe(0);
+  }
+});
+
+test('opening footprints from an open More menu returns focus to footprints', async ({ page }) => {
+  await page.getByRole('button', { name: '更多', exact: true }).click();
+  const footprints = page.getByRole('button', { name: '足迹', exact: true });
+  await footprints.click();
+  await expect(page.getByRole('dialog', { name: '11 去过的地方', exact: true })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(footprints).toBeFocused();
+  await expect(page.getByRole('button', { name: '更多', exact: true })).toHaveAttribute('aria-expanded', 'false');
+});
+
+for (const [width, height] of [[375, 812], [390, 844]]) {
+test(`footprint rows select their map pin above details and restore list context at ${width}x${height}`, async ({ page }) => {
+  await page.setViewportSize({ width, height });
+  const places = [visit, ...Array.from({ length: 14 }, (_, i) => ({ ...visit, poiId: 'return-' + i,
+    name: '连续到访' + i, lat:visit.lat + (i + 1) * 0.004, lng:visit.lng + (i + 1) * 0.004,
+    photo: i === 13 ? 'assets/visits/bfc-20260919.jpg' : visit.photo }))];
+  await serveVisits(page, places);
+  await page.reload();
+  await page.locator('[data-map-pin="public:visit-1"]').click();
+  await page.getByRole('button', { name: '足迹', exact: true }).click();
+  const list = page.getByRole('dialog', { name: '11 去过的地方', exact: true });
+  for (const exit of ['close', 'escape']) {
+    const row = list.getByRole('button', { name: exit === 'escape' ? '连续到访12' : '连续到访13', exact: true });
+    await row.scrollIntoViewIfNeeded();
+    const scroll = await list.evaluate(el => el.scrollTop);
+    await row.click();
+    const detail = page.getByRole('dialog', { name: exit === 'escape' ? '连续到访12' : '连续到访13', exact: true });
+    await expect(detail).toHaveClass(/open/);
+    await expect(detail.locator('.visit-photo')).toHaveAttribute('src', exit === 'escape' ? visit.photo : places[14].photo);
+    await expect(page.locator('#placeCard')).toBeHidden();
+    const selectedId = exit === 'escape' ? 'public:return-12' : 'public:return-13';
+    const pin = page.locator('[data-map-pin="' + selectedId + '"]');
+    await expect(pin).toHaveCSS('width', '60px');
+    for (const other of await page.locator('[data-map-pin]:not([data-map-pin="' + selectedId + '"])').all()) {
+      await expect(other).toHaveCSS('width', '44px');
+    }
+    await expect.poll(() => detail.locator('.visit-photo').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+    await detail.locator('.visit-photo').evaluate(img => img.decode());
+    await detail.evaluate(el => Promise.all(el.getAnimations({ subtree: true }).map(animation => animation.finished)));
+    const pinBox = await pin.boundingBox(), detailBox = await detail.boundingBox();
+    const categories = await page.locator('#mapCatStrip').boundingBox();
+    expect(pinBox.y).toBeGreaterThanOrEqual(categories.y + categories.height + 4);
+    expect(pinBox.y + pinBox.height).toBeLessThanOrEqual(detailBox.y - 4);
+    expect(pinBox.x + pinBox.width / 2).toBeCloseTo(width / 2, 1);
+    if (exit === 'close') await detail.getByRole('button', { name: '关闭地点详情', exact: true }).click();
+    if (exit === 'escape') await page.keyboard.press('Escape');
+    await expect(list).toHaveClass(/open/);
+    await expect(row).toBeFocused();
+    expect(await list.evaluate(el => el.scrollTop)).toBe(scroll);
+  }
+});
+
+}
+
+test('one map click from footprint details returns to the same selected pin and compact photo card', async ({ page }) => {
+  await page.getByRole('button', { name:'足迹', exact:true }).click();
+  await page.locator('#placeList').getByRole('button', { name:visit.name, exact:true }).click();
+  await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
+  await page.locator('#mask').click({ position:{ x:8, y:8 } });
+  await expect(page.locator('#placeCard')).toBeVisible();
+  await expect(page.locator('#placeCard')).toContainText(visit.name);
+  await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
+  await expect(page.locator('#drawerPlaces')).not.toHaveClass(/open/);
+  await expect(page.locator('[data-map-pin="public:visit-1"]')).toHaveCSS('width', '60px');
+  await expect(page.getByRole('button', { name:'到访照片', exact:true })).toBeFocused();
+  await expect(page.locator('main')).not.toHaveAttribute('inert');
+});
+
+test('map pins, footprint rows and map return share a gentle camera transition with reduced-motion support', async ({ page }) => {
+  for (const [reducedMotion, duration] of [['no-preference', 600], ['reduce', 0]]) {
+    await page.emulateMedia({ reducedMotion });
+    await page.evaluate(() => { window.__mapEaseToCalls = []; });
+    await page.locator('[data-map-pin="public:visit-1"]').click();
+    await expect.poll(() => page.evaluate(() => window.__mapEaseToCalls.at(-1)?.duration)).toBe(duration);
+    await page.getByRole('button', { name:'足迹', exact:true }).click();
+    await page.evaluate(() => { window.__mapEaseToCalls = []; });
+    await page.locator('#placeList').getByRole('button', { name:visit.name, exact:true }).click();
+    await expect.poll(() => page.evaluate(() => window.__mapEaseToCalls.at(-1)?.duration)).toBe(duration);
+    await page.evaluate(() => { window.__mapEaseToCalls = []; });
+    await page.locator('#mask').click({ position:{ x:8, y:8 } });
+    await expect(page.locator('#placeCard')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.__mapEaseToCalls.at(-1)?.duration)).toBe(duration);
+  }
+});
+
+test('footprint details reveal the map without the outgoing list during the drawer transition', async ({ page }) => {
+  await page.getByRole('button', { name:'足迹', exact:true }).click();
+  const list = page.locator('#drawerPlaces');
+  const detail = page.locator('#drawerDetail');
+  const row = list.getByRole('button', { name:visit.name, exact:true });
+  for (const exit of ['close', 'escape']) {
+    await list.evaluate(el => Promise.all(el.getAnimations().map(animation => animation.finished)));
+    await row.click();
+    const progress = await page.evaluate(async () => {
+      const list = document.querySelector('#drawerPlaces');
+      const detail = document.querySelector('#drawerDetail');
+      const entering = detail.getAnimations()[0];
+      for (const animation of [...list.getAnimations(), ...detail.getAnimations()]) {
+        animation.pause();
+        animation.currentTime = animation.effect.getTiming().duration / 4;
+      }
+      await new Promise(requestAnimationFrame);
+      return entering?.effect.getComputedTiming().progress;
     });
-    expect(metrics.controls).toHaveLength(2);
-    for (const box of metrics.controls) expect(box.top).toBeGreaterThanOrEqual(metrics.toolbarBottom + 4);
-    expect(metrics.controls[1].top).toBeGreaterThanOrEqual(metrics.controls[0].bottom + 4);
-    await page.getByRole('button', { name: '地图方向', exact: true }).click();
-    await page.getByRole('button', { name: '地图缩放', exact: true }).click();
+    expect(progress).toBeGreaterThan(0);
+    expect(progress).toBeLessThan(1);
+    await expect(detail).toBeVisible();
+    await expect(list).toBeHidden();
+    if (exit === 'close') await detail.getByRole('button', { name:'关闭地点详情', exact:true }).click();
+    else await page.keyboard.press('Escape');
+    await expect(list).toBeVisible();
+    await expect(row).toBeFocused();
+  }
+});
+
+test('a cold footprint photo refits the selected pin above the final detail layout', async ({ page }) => {
+  const coldVisit = { ...visit, poiId:'cold-photo', name:'慢速照片地点', lat:31.28, lng:121.52, photo:'assets/visits/bfc-20260919.jpg' };
+  let releasePhoto;
+  const heldPhoto = new Promise(resolve => { releasePhoto = resolve; });
+  await page.route('**/assets/visits/bfc-20260919.jpg', async route => {
+    await heldPhoto;
+    await route.fulfill({ path:join(__dirname, '../assets/visits/bfc-20260919.jpg') });
+  });
+  await serveVisits(page, [visit, coldVisit]);
+  await page.reload();
+  await page.getByRole('button', { name:'足迹', exact:true }).click();
+  await page.locator('#placeList').getByRole('button', { name:coldVisit.name, exact:true }).click();
+  const detail = page.getByRole('dialog', { name:coldVisit.name, exact:true });
+  const photo = detail.locator('.visit-photo');
+  const pin = page.locator('[data-map-pin="public:cold-photo"]');
+  await expect(detail).toHaveClass(/open/);
+  await expect(photo).toHaveJSProperty('complete', false);
+  await expect(pin).toHaveCSS('width', '60px');
+  releasePhoto();
+  await expect.poll(() => photo.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+  await photo.evaluate(img => img.decode());
+  await detail.evaluate(el => Promise.all(el.getAnimations({ subtree:true }).map(animation => animation.finished)));
+  const pinBox = await pin.boundingBox(), detailBox = await detail.boundingBox();
+  const categories = await page.locator('#mapCatStrip').boundingBox();
+  expect(pinBox.y).toBeGreaterThanOrEqual(categories.y + categories.height + 4);
+  expect(pinBox.y + pinBox.height).toBeLessThanOrEqual(detailBox.y - 4);
+});
+
+for (const destination of ['list', 'another detail']) {
+  test(`a late footprint photo cannot move the map after returning to ${destination}`, async ({ page }) => {
+    const coldVisit = { ...visit, poiId:'late-photo', name:'尚未加载照片的地点', lat:31.28, lng:121.52, photo:'assets/visits/bfc-20260919.jpg' };
+    let releasePhoto;
+    const heldPhoto = new Promise(resolve => { releasePhoto = resolve; });
+    await page.route('**/assets/visits/bfc-20260919.jpg', async route => {
+      await heldPhoto;
+      await route.fulfill({ path:join(__dirname, '../assets/visits/bfc-20260919.jpg') });
+    });
+    await serveVisits(page, [visit, coldVisit]);
+    await page.reload();
+    await page.getByRole('button', { name:'足迹', exact:true }).click();
+    await page.locator('#placeList').getByRole('button', { name:coldVisit.name, exact:true }).click();
+    const oldPhoto = await page.locator('#drawerDetail .visit-photo').elementHandle();
+    await expect(page.locator('#drawerDetail .visit-photo')).toHaveJSProperty('complete', false);
+    await page.keyboard.press('Escape');
+    if (destination === 'another detail') {
+      await page.locator('#placeList').getByRole('button', { name:visit.name, exact:true }).click();
+      await expect.poll(() => page.locator('#drawerDetail .visit-photo').evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+    }
+    const selectedId = destination === 'list' ? 'public:late-photo' : 'public:visit-1';
+    const pin = page.locator('[data-map-pin="' + selectedId + '"]');
+    const before = await pin.boundingBox();
+    releasePhoto();
+    await expect.poll(() => oldPhoto.evaluate(img => img.complete && img.naturalWidth > 0)).toBe(true);
+    await oldPhoto.evaluate(img => img.decode());
+    await expect(pin).toHaveCSS('width', '60px');
+    const after = await pin.boundingBox();
+    expect(after.x).toBeCloseTo(before.x, 1); expect(after.y).toBeCloseTo(before.y, 1);
+    if (destination === 'list') await expect(page.getByRole('dialog', { name:'11 去过的地方', exact:true })).toBeVisible();
+    else await expect(page.getByRole('dialog', { name:visit.name, exact:true })).toBeVisible();
+    await expect(page.locator('#placeCard')).toBeHidden();
+  });
+}
+
+for (const [width, height] of [[320, 860], [375, 860], [414, 860], [768, 860], [1249, 860], [768, 375], [375, 430], [320, 375]]) {
+  test(`native map tools fit and remain clear of selected cards at ${width}x${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    const targets = page.locator('[data-sdk-controls] .compass-circle, [data-sdk-controls] .rotate-panel > div, [data-sdk-controls] .tmap-zoom-in, [data-sdk-controls] .tmap-zoom-out, #btnLocate');
+    const metrics = await page.evaluate(() => {
+      const rect = el => el.getBoundingClientRect().toJSON();
+      const strip = rect(document.querySelector('#mapCatStrip'));
+      return { header:rect(document.querySelector('#visitHeader')),
+        categories:[...document.querySelectorAll('#mapCatStrip button')].map(el => {
+          const box = rect(el), x = Math.max(box.x, strip.x);
+          return { ...box, x, width:Math.max(0, Math.min(box.right, strip.right) - x) };
+        }),
+        groups:['.map-orientation-control', '.map-zoom-control', '#btnLocate'].map(selector => rect(document.querySelector(selector))) };
+    });
+    const overlaps = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
+    await expect(targets).toHaveCount(8);
+    for (const target of await targets.all()) {
+      const box = await target.boundingBox();
+      expect(box.width).toBeGreaterThanOrEqual(44); expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(box.x).toBeGreaterThanOrEqual(0); expect(box.y).toBeGreaterThanOrEqual(metrics.header.y + metrics.header.height + 4);
+      expect(box.x + box.width).toBeLessThanOrEqual(width); expect(box.y + box.height).toBeLessThanOrEqual(height - 24);
+      for (const chip of metrics.categories.filter(box => box.width)) expect(overlaps(box, chip)).toBe(false);
+      await target.click({ trial: true });
+    }
+    const centers = metrics.groups.map(box => box.x + box.width / 2);
+    expect(Math.max(...centers) - Math.min(...centers)).toBeLessThanOrEqual(1);
+    for (let i = 1; i < metrics.groups.length; i++) {
+      const gap = metrics.groups[i].y - metrics.groups[i - 1].y - metrics.groups[i - 1].height;
+      expect(gap).toBeGreaterThanOrEqual(4); expect(gap).toBeLessThanOrEqual(16);
+    }
+    const originalZoom = await page.evaluate(() => window.__testMap.getZoom());
+    await page.locator('.tmap-zoom-in').click();
+    expect(await page.evaluate(() => window.__testMap.getZoom())).toBe(originalZoom + 1);
+    await page.locator('.tmap-zoom-out').click();
+    expect(await page.evaluate(() => window.__testMap.getZoom())).toBe(originalZoom);
+    await page.locator('[data-map-pin="public:visit-1"]').click();
+    const card = page.locator('#placeCard');
+    await expect(card).toBeVisible();
+    const cardBox = await card.boundingBox();
+    for (const target of await targets.all()) expect(overlaps(await target.boundingBox(), cardBox)).toBe(false);
+    for (const button of await card.getByRole('button').all()) {
+      await button.scrollIntoViewIfNeeded();
+      await button.click({ trial: true });
+    }
   });
 }
 test('only complete public visits appear in map and filtered list; personal data remains byte-for-byte intact', async ({ page }) => {
@@ -186,8 +454,8 @@ for (const width of [320, 375, 414, 768]) {
     await expect(list.getByRole('region', { name: '上海市', exact: true }).locator('button strong')).toHaveText(['上海公园', '上海商场']);
     expect(await list.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     await list.getByRole('button', { name: '泉州公园', exact: true }).click();
-    await page.getByRole('button', {name:'到访照片', exact:true}).click();
     await expect(page.locator('#drawerDetail')).toContainText('泉州公园');
+    await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
     await page.locator('#mapCatStrip [data-cat="mall"]').click();
     await page.getByRole('button', { name: '足迹', exact: true }).click();
@@ -213,15 +481,13 @@ for (const width of [320, 375, 414, 768]) {
     const list = page.getByRole('dialog', { name: '11 去过的地方', exact: true });
     const closeList = list.getByRole('button', { name: '关闭地点列表', exact: true });
     await expect(closeList).toBeFocused();
-    for (const id of ['btnOpenPrivacy', 'btnLocate']) {
+    for (const id of ['btnMore', 'btnLocate']) {
       expect(await page.locator('#' + id).evaluate(el => {
         el.focus();
         return document.activeElement !== el && getComputedStyle(el).visibility === 'hidden';
       })).toBe(true);
     }
     await list.getByRole('button', { name: '末项公园', exact: true }).click();
-    await expect(page.getByRole('button', {name:'到访照片', exact:true})).toBeFocused();
-    await page.keyboard.press('Enter');
     const detail = page.getByRole('dialog', { name: '末项公园', exact: true });
     await expect(detail.locator('.grabber')).toHaveCount(1);
     await expect(detail.locator('.grabber')).toHaveAttribute('aria-hidden', 'true');
@@ -233,14 +499,15 @@ for (const width of [320, 375, 414, 768]) {
     await nav.click();
     await expect(detail.getByRole('status')).toContainText('导航没有打开');
     await close.click();
-    await expect(page.getByRole('button', {name:'到访照片', exact:true})).toBeFocused();
-    await page.getByRole('button', {name:'收起地点', exact:true}).click();
+    await expect(list.getByRole('button', { name: '末项公园', exact: true })).toBeFocused();
+    await closeList.click();
     await expect(opener).toBeFocused();
-    await expect(page.getByRole('button', { name: '数据与隐私', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '更多', exact: true })).toBeVisible();
     await opener.click(); await closeList.click(); await expect(opener).toBeFocused();
     await opener.click(); await page.locator('#mask').click({ position: { x: 8, y: 8 } });
     await expect(opener).toBeFocused();
-    await page.getByRole('button', { name: '数据与隐私', exact: true }).click();
+    await page.getByRole('button', { name: '更多', exact: true }).click();
+    await page.getByRole('menuitem', { name: '数据与隐私', exact: true }).click();
     await expect(page.getByRole('dialog', { name: '数据与隐私', exact: true })).toBeVisible();
   });
 }
@@ -248,7 +515,7 @@ for (const width of [320, 375, 414, 768]) {
 for (const width of [320, 375, 414, 768]) {
   test(`primary controls have clear 44px targets at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 812 });
-    for (const button of await page.locator('#btnPlaceList, #mapCatStrip button, #btnOpenPrivacy').all()) {
+    for (const button of await page.locator('#btnPlaceList, #mapCatStrip button, #btnMore, #btnLocate').all()) {
       const box = await button.boundingBox();
       expect(box.width).toBeGreaterThanOrEqual(44); expect(box.height).toBeGreaterThanOrEqual(44);
       await button.click({ trial: true });
@@ -578,7 +845,8 @@ for (const raw of ['{broken json', JSON.stringify({ version: 999, places: [{ pri
 test('only explicit double confirmation clears old private data while keeping public visits', async ({ page }) => {
   await page.evaluate(() => localStorage.setItem('baby_playmap_v1', '{private archive'));
   await page.reload();
-  await page.getByRole('button', { name: '数据与隐私', exact: true }).click();
+  await page.getByRole('button', { name: '更多', exact: true }).click();
+  await page.getByRole('menuitem', { name: '数据与隐私', exact: true }).click();
   await page.getByRole('button', { name: '清空我的地点', exact: true }).click();
   await page.keyboard.press('Escape');
   expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBe('{private archive');
@@ -595,6 +863,14 @@ test('map failure keeps complete public visits filterable and allows explicit ma
   await expect(page.locator('#mapFallback')).toBeVisible();
   await page.locator('#fallbackList').getByRole('button', { name: visit.name + ' · 11 去过', exact: true }).click();
   await expect(page.locator('#drawerDetail')).toContainText('2岁3个月');
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name:'足迹', exact:true }).click();
+  const row = page.locator('#placeList').getByRole('button', { name:visit.name, exact:true });
+  await row.click();
+  await page.locator('#mask').click({ position:{ x:8, y:8 } });
+  await expect(page.locator('#drawerPlaces')).toHaveClass(/open/);
+  await expect(row).toBeFocused();
+  await expect(page.locator('#placeCard')).toBeHidden();
   await page.keyboard.press('Escape');
   await page.route('**/map.qq.com/api/gljs**', route => route.fulfill({ contentType: 'application/javascript', body: tmapStub }));
   await page.getByRole('button', { name: '重试地图', exact: true }).click();
@@ -619,7 +895,8 @@ test('blocked navigation preserves the detail with retry and direct map link', a
 });
 
 test('detail focus is trapped and Escape restores the photo action', async ({ page }) => {
-  await openVisit(page);
+  await page.locator('[data-map-pin="public:visit-1"]').click();
+  await page.getByRole('button', { name: '到访照片', exact: true }).click();
   const nav = page.getByRole('button', { name: '🧭 导航去这里', exact: true });
   const close = page.getByRole('button', { name: '关闭地点详情', exact: true });
   await expect(close).toBeFocused();
@@ -728,7 +1005,6 @@ test.describe('map and maintenance interpret the same visit in Shanghai time', (
       await expect(page.locator('#placeList [data-place-id]')).toHaveCount(age === null ? 0 : 1);
       if (age !== null) {
         await page.locator('#placeList [data-place-id]').click();
-        await page.getByRole('button', {name:'到访照片', exact:true}).click();
         await expect(page.locator('.stamp-age')).toHaveText(age + '打卡');
       }
       await page.goto('/maintainer.html');
@@ -821,6 +1097,11 @@ test('map selection opens a compact card and details return to the same selectio
   await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('button', {name:'到访照片', exact:true})).toBeFocused();
+  await page.getByRole('button', {name:'到访照片', exact:true}).click();
+  await page.locator('#mask').click({ position:{ x:8, y:8 } });
+  await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
+  await expect(page.locator('#placeCard')).toBeVisible();
+  await expect(page.getByRole('button', {name:'到访照片', exact:true})).toBeFocused();
   await page.getByRole('button', {name:'收起地点', exact:true}).click();
   await expect(page.locator('#placeCard')).toBeHidden();
 });
@@ -884,7 +1165,9 @@ test('city and category filters share results and clear selected markers, with u
   await expect(page.locator('#placeList h3')).toHaveText(['城市待补充1处']);
   await expect(page.locator('#placeList time')).toHaveText(['2026.09.12']);
   await page.locator('#placeList').getByRole('button',{name:'待补城市',exact:true}).click();
-  await expect(page.getByRole('button',{name:'到访照片',exact:true})).toBeFocused();
+  await expect(page.getByRole('dialog', {name:'待补城市',exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#placeList').getByRole('button', {name:'待补城市',exact:true})).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(page.locator('#placeCard')).toBeHidden();
   await expect(page.getByRole('button',{name:'足迹',exact:true})).toBeFocused();
