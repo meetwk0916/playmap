@@ -633,6 +633,17 @@
       "lng": 121.517268,
       "visitedOn": "2025-12-06",
       "photo": "assets/visits/xibei-zijing-20251206.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "2646338776705272996",
+      "name": "绍兴大禹陵",
+      "address": "绍兴市越城区二环南路与南镇路交叉口东南角（会稽山大禹陵景区）",
+      "category": "park",
+      "lat": 29.95591,
+      "lng": 120.60985,
+      "visitedOn": "2026-10-10",
+      "photo": "assets/visits/dayuling-shaoxing-20261010.jpg"
     }
   ]
 }
