@@ -556,6 +556,83 @@
       "lng": 120.21692,
       "visitedOn": "2024-09-29",
       "photo": "assets/visits/hangzhou-binjiang-atour-20240929.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "10464529145968098571",
+      "name": "爪爪喵星球（新达汇·三林）",
+      "address": "上海市浦东新区永泰路1058弄新达汇·三林",
+      "category": "other",
+      "lat": 31.141451,
+      "lng": 121.52585,
+      "visitedOn": "2025-12-31",
+      "photo": "assets/visits/zhuazhuamiao-sanlin-20251231.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "17887137034469213619",
+      "name": "宜家家居（上海北蔡）",
+      "address": "上海市浦东新区临御路550号",
+      "category": "mall",
+      "lat": 31.159783,
+      "lng": 121.56225,
+      "visitedOn": "2025-11-09",
+      "photo": "assets/visits/ikea-beicai-20251109.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "7091796656339399901",
+      "name": "金匠寿司（正大广场店）",
+      "address": "上海市浦东新区陆家嘴西路168号正大广场5楼32号",
+      "category": "other",
+      "lat": 31.237241,
+      "lng": 121.499334,
+      "visitedOn": "2025-11-30",
+      "photo": "assets/visits/kinsho-zhengda-20251130.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "5752248200584576594",
+      "name": "大润发（三林店）",
+      "address": "上海市浦东新区长清路1200弄1号",
+      "category": "mall",
+      "lat": 31.149711,
+      "lng": 121.49175,
+      "visitedOn": "2025-01-23",
+      "photo": "assets/visits/rtmart-sanlin-20250123.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "12665370707136552850",
+      "name": "迪卡侬（世博源店）",
+      "address": "上海市浦东新区世博大道1368号世博源5区B1层11-14号",
+      "category": "mall",
+      "lat": 31.180068,
+      "lng": 121.493577,
+      "visitedOn": "2025-10-15",
+      "photo": "assets/visits/decathlon-shiboyuan-20251015.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "11700393997548963887",
+      "name": "东明公园",
+      "address": "上海市浦东新区东明路街道三林路1337号",
+      "category": "park",
+      "lat": 31.146308,
+      "lng": 121.519347,
+      "visitedOn": "2025-05-01",
+      "photo": "assets/visits/dongming-gongyuan-20250501.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "5488868825679785751",
+      "name": "西贝莜面村（紫荆广场店）",
+      "address": "上海市杨浦区控江路1628号紫荆广场",
+      "category": "other",
+      "lat": 31.275244,
+      "lng": 121.517268,
+      "visitedOn": "2025-12-06",
+      "photo": "assets/visits/xibei-zijing-20251206.jpg"
     }
   ]
 }
