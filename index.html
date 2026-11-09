@@ -71,6 +71,11 @@
   --dur-slow: 260ms;
   --ease-out: cubic-bezier(.22, 1, .36, 1);
   --font-display: "PingFang SC", -apple-system, sans-serif;
+  /* 足迹胶卷：片基用深云杉阶，画格是奶油纸，日期压印与选中态复用品牌黄与珊瑚色 */
+  --film-base: #2B4235;
+  --film-base-deep: #1F3229;
+  --film-frame: #F1EADA;
+  --film-height: 184px;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 html, body { margin: 0; padding: 0; height: 100%; overflow: clip; }
@@ -656,18 +661,54 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 #cityFilter { margin-left:auto; min-width:0; max-width:130px; min-height:44px; border:0; background:transparent; font-size:13px; }
 #btnPlaceList { min-width:48px; min-height:44px; padding:0 10px; border:0; border-radius:999px; background:var(--action); color:var(--white); }
 .map-cat-strip .chip.active { background:var(--brand-sun); border-color:var(--brand-sun); color:var(--text); }
-#placeCard { position:fixed; z-index:17; left:max(12px, env(safe-area-inset-left)); right:max(12px, env(safe-area-inset-right)); bottom:calc(82px + env(safe-area-inset-bottom)); display:flex; align-items:center; gap:12px; padding:12px; border:2px solid var(--selection); border-radius:20px; background:var(--card); box-shadow:var(--shadow); max-height:min(calc(50dvh - 36px), calc(100dvh - 310px)); overflow:auto; }
-#placeCard > img { width:72px; height:84px; object-fit:cover; border-radius:12px; flex-shrink:0; }
-@media (max-height:600px) { #placeCard { right:calc(144px + env(safe-area-inset-right, 0px)); width:auto; } }
-@media (max-height:600px) and (max-width:414px) {
-  #placeCard { gap:8px; padding:8px; }
-  #placeCard > img { width:40px; height:48px; }
+/* Footprint filmstrip: the default browse and selection surface for 11's visit record book. */
+#filmstrip { position:fixed; z-index:17; left:max(12px, env(safe-area-inset-left)); right:max(12px, env(safe-area-inset-right)); bottom:calc(30px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; height:var(--film-height); padding:18px 12px; border:1px solid var(--film-base-deep); border-radius:14px; background:linear-gradient(180deg, var(--film-base), var(--film-base-deep)); box-shadow:var(--shadow); overflow:hidden; }
+#filmstrip::before, #filmstrip::after { content:''; position:absolute; left:7px; right:7px; height:8px; background-image:radial-gradient(ellipse 5px 3px at 7px 50%, var(--bg) 0 70%, transparent 73%); background-size:22px 8px; background-repeat:repeat-x; opacity:.9; pointer-events:none; }
+#filmstrip::before { top:5px; }
+#filmstrip::after { bottom:5px; }
+#filmstripHead { display:flex; flex:none; align-items:center; gap:8px; height:28px; margin-bottom:6px; padding:0 4px; }
+#filmstripHead::before { content:''; width:7px; height:14px; flex:none; border-radius:2px; background:var(--brand-sun); box-shadow:11px 0 0 -1px var(--selection); margin-right:12px; }
+#filmstripTitle { min-width:0; flex:1; color:var(--card); font-size:13px; font-weight:700; letter-spacing:.08em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#btnVisitPhoto { position:relative; flex:none; min-width:44px; min-height:32px; border:0; border-radius:999px; background:var(--brand-sun); color:var(--text); padding:0 12px; font-size:12px; font-weight:800; }
+/* 视觉上是一枚小药丸，热区靠上溢到片头的留白里撑满 44px，不侵占地上的画格。 */
+#btnVisitPhoto::after { content:''; position:absolute; inset:-12px -4px 0; }
+#btnVisitPhoto[hidden] { display:none; }
+#filmstripItems { position:relative; display:flex; flex:1; min-height:0; gap:8px; overflow-x:auto; overflow-y:hidden; padding:2px 3px 6px; scroll-snap-type:x proximity; scrollbar-width:thin; scrollbar-color:var(--brand-sun) var(--film-base); }
+#filmstripItems::-webkit-scrollbar { height:4px; }
+#filmstripItems::-webkit-scrollbar-track { background:var(--film-base); border-radius:2px; }
+#filmstripItems::-webkit-scrollbar-thumb { background:var(--brand-sun); border-radius:2px; }
+.film-frame { --photo-h:64px; position:relative; flex:0 0 138px; min-width:44px; padding:3px 3px 5px; border:3px solid var(--card); border-radius:6px; background:var(--film-frame); color:var(--text); text-align:left; overflow:hidden; scroll-snap-align:start; box-shadow:inset 0 0 0 1px var(--line-strong); transition:transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
+.film-frame img { display:block; width:100%; height:var(--photo-h); object-fit:cover; border-radius:2px; background:var(--spruce-soft); }
+.film-number { position:absolute; top:6px; left:6px; padding:2px 5px; border-radius:3px; background:var(--film-base-deep); color:var(--card); font-size:9px; font-weight:700; font-style:normal; letter-spacing:.08em; }
+.film-frame time { position:absolute; top:calc(var(--photo-h) - 14px); right:6px; display:block; padding:1px 4px; border-radius:2px; background:var(--film-base-deep); color:var(--brand-sun); font-size:9px; font-weight:700; line-height:12px; letter-spacing:.04em; white-space:nowrap; }
+.film-name { display:block; padding:5px 4px 0; font-size:12px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.film-frame.is-current { border-color:var(--selection); box-shadow:0 0 0 2px var(--film-frame), inset 0 0 0 1px var(--line-strong); transform:translateY(-2px); }
+.film-frame:focus-visible { outline:3px solid var(--brand-sun); outline-offset:-3px; }
+#filmstrip[hidden] { display:none; }
+/* 极短视口（横屏手机）留给地图的高度不足半个胶卷，退回「足迹」入口 + 城市分组列表。 */
+@media (max-height:519px) { #filmstrip { display:none; } }
+body:has(.mask.show) #filmstrip { visibility:hidden; }
+@media (max-height:600px) {
+  :root { --film-height:148px; }
+  #filmstrip { padding:16px 10px; }
+  #filmstripHead { height:20px; margin-bottom:2px; }
+  .film-frame { --photo-h:48px; flex-basis:124px; }
 }
-.place-card-main { min-width:0; flex:1; }
-.place-card-main strong { font-size:16px; overflow-wrap:anywhere; }
-.place-card-main p { margin:5px 0 0; font-size:12px; color:var(--text-light); }
-#placeCard button { min-width:44px; min-height:44px; border:0; background:transparent; color:var(--primary-strong); padding:0; font-weight:600; }
-#btnDismissPlace { align-self:flex-start; font-size:22px; }
+/* 短屏但胶卷仍在：工具组整体上移并收紧间距，给底部胶卷让出净空。
+   罗盘保持 128px 外框与 1.5 倍缩放——四个方向箭头的热区正是靠这个缩放撑到 64px，
+   收小外框会让 30px 的箭头既掉到 44px 以下、又溢出到屏幕外。 */
+@media (max-height:660px) and (min-height:520px) {
+  :root {
+    --map-tools-gap: 4px;
+    --map-tools-top: clamp(calc(68px + env(safe-area-inset-top, 0px)), calc(100dvh - 322px - var(--film-height)), calc(128px + env(safe-area-inset-top, 0px)));
+  }
+}
+/* 「更多」原本贴在左下角；有胶卷时上移到片基之上，避免被覆盖。 */
+@media (min-height:520px) {
+  body:has(#filmstrip:not([hidden])) .more-controls { bottom:calc(42px + env(safe-area-inset-bottom, 0px) + var(--film-height)); }
+}
+/* 比例尺与胶卷同处左下角，只会露出一条竖缝；隐藏比例尺，保留地图 logo、版权与审图号。 */
+body:has(#filmstrip:not([hidden])) #map .tmap-scale-control { display:none; }
 .fallback-place { display:flex; align-items:center; gap:12px; min-height:68px; }
 .fallback-place img { width:56px; height:56px; object-fit:cover; border-radius:10px; }
 .fallback-place span { min-width:0; overflow-wrap:anywhere; }
@@ -679,8 +720,10 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 .visit-date { margin:8px 0 0; font-size:14px; font-variant-numeric:tabular-nums; color:var(--text-light); }
 .detail-berry { position:absolute; right:0; top:0; width:36px; height:44px; object-fit:contain; }
 @media (min-width:768px) {
+  :root { --film-height:188px; }
   #visitHeader { right:auto; width:360px; }
-  #placeCard { right:auto; width:370px; }
+  #filmstrip { left:24px; right:auto; width:560px; }
+  .film-frame { --photo-h:68px; flex-basis:148px; }
 }
 </style>
 
@@ -737,7 +780,10 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
   <div id="moreMenu" role="menu" aria-label="更多" hidden><button id="btnOpenPrivacy" type="button" role="menuitem">数据与隐私</button></div>
 </div>
 
-<section id="placeCard" aria-label="选中地点" hidden></section>
+<section id="filmstrip" aria-label="11 的足迹胶卷" hidden>
+  <div id="filmstripHead"><strong id="filmstripTitle">11 的足迹胶卷</strong><button id="btnVisitPhoto" type="button" hidden>看照片</button></div>
+  <div id="filmstripItems" role="group" aria-label="按到访日期排列的记录，可用左右方向键逐格移动"></div>
+</section>
 
 <!-- Toast -->
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -1049,7 +1095,8 @@ function deactivateFocusLayer(container, restoreFocus) {
     if (!focusLayers.length) document.querySelector('main').removeAttribute('inert');
     container.setAttribute('aria-hidden', 'true');
     if (restoreFocus !== false && layer.returnFocus && document.contains(layer.returnFocus)) {
-      layer.returnFocus.focus();
+      // 还焦点时不要顺带滚动：抽屉正在收起的动画里，滚动会把列表的滚动位置带跑。
+      layer.returnFocus.focus({ preventScroll: true });
     }
     return;
   }
@@ -1409,6 +1456,15 @@ function placesForActiveCategory() {
   });
 }
 
+/* 类别条只列当前城市能产生的类别，所以换城市后原类别可能整条消失；
+   此时把筛选回落到「全部」，不让访客留着一条看不见、也取消不掉的条件。 */
+function cityHasCategory(category) {
+  return mapPlaces().some(function (place) {
+    return place.category === category &&
+      (state.cityFilter === 'all' || cityOf(place) === state.cityFilter);
+  });
+}
+
 function cityOf(place) {
   var match = place.address.trim().match(/^(?:.*?(?:省|自治区))?([^省市区县]+市)/);
   return match ? match[1] : '城市待补充';
@@ -1421,15 +1477,106 @@ function renderCityFilter() {
     }).join('');
 }
 
+/* ---------- 足迹胶卷：默认浏览与选中面 ---------- */
+var filmTabIndex = 0;
+var filmSignature = '';
+
+function sortVisits(places) {
+  return places.slice().sort(function (a, b) {
+    return (b.visit.visitedOn || '').localeCompare(a.visit.visitedOn || '') ||
+      a.name.localeCompare(b.name, 'zh-CN') ||
+      (a.id || '').localeCompare(b.id || '');
+  });
+}
+
+function filmstripPlaces() {
+  return sortVisits(placesForActiveCategory());
+}
+
+function setFilmTabStop(index) {
+  var frames = $('filmstripItems').querySelectorAll('.film-frame');
+  if (!frames.length) return;
+  filmTabIndex = Math.max(0, Math.min(index, frames.length - 1));
+  Array.prototype.forEach.call(frames, function (frame, i) {
+    frame.tabIndex = i === filmTabIndex ? 0 : -1;
+  });
+}
+
+function revealFrame(frame) {
+  var items = $('filmstripItems');
+  var max = Math.max(0, items.scrollWidth - items.clientWidth);
+  var next = Math.max(0, Math.min(frame.offsetLeft - (items.clientWidth - frame.offsetWidth) / 2, max));
+  if (Math.abs(next - items.scrollLeft) < 2) return;
+  items.scrollTo({ left: next, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+
+function syncFilmstripSelection() {
+  var frames = $('filmstripItems').querySelectorAll('.film-frame');
+  var current = -1;
+  Array.prototype.forEach.call(frames, function (frame, i) {
+    var isCurrent = frame.getAttribute('data-place-id') === state.selectedPlaceId;
+    frame.classList.toggle('is-current', isCurrent);
+    if (isCurrent) {
+      frame.setAttribute('aria-current', 'true');
+      current = i;
+    } else frame.removeAttribute('aria-current');
+  });
+  $('btnVisitPhoto').hidden = current < 0;
+  setFilmTabStop(current >= 0 ? current : filmTabIndex);
+  if (current >= 0) revealFrame(frames[current]);
+}
+
+function renderFilmstrip() {
+  var places = filmstripPlaces();
+  $('filmstrip').hidden = places.length === 0;
+  // 记录集没变就不重建，避免筛选或选中时整条胶卷闪一下、图片重新解码。
+  var signature = places.map(function (place) { return place.id; }).join('|');
+  if (signature !== filmSignature) {
+    filmSignature = signature;
+    $('filmstripItems').innerHTML = places.map(function (place, index) {
+      return '<button class="film-frame" type="button" data-place-id="' + escapeHtml(place.id) + '" aria-label="' +
+        escapeHtml(place.name) + '，' + place.visit.visitedOn.replace(/-/g, '.') + ' 到访，在地图上选中">' +
+        '<img src="' + escapeHtml(place.visit.photo) + '" alt="" loading="lazy" decoding="async">' +
+        '<em class="film-number" aria-hidden="true">' + String(index + 1).padStart(2, '0') + '</em>' +
+        '<time datetime="' + escapeHtml(place.visit.visitedOn) + '">' + place.visit.visitedOn.replace(/-/g, '.') + '</time>' +
+        '<span class="film-name">' + escapeHtml(place.name) + '</span></button>';
+    }).join('');
+    filmTabIndex = 0;
+    $('filmstripItems').scrollLeft = 0;
+  }
+  syncFilmstripSelection();
+}
+
+function fitPlaces(places) {
+  if (!map || !places.length) return;
+  if (places.length === 1 || typeof TMap.LatLngBounds !== 'function' || typeof map.fitBounds !== 'function') {
+    focusPlace(places[0]);
+    return;
+  }
+  var bounds = new TMap.LatLngBounds();
+  places.forEach(function (place) { bounds.extend(new TMap.LatLng(place.lat, place.lng)); });
+  var strip = $('filmstrip');
+  var top = Math.round($('mapCatStrip').getBoundingClientRect().bottom + 20);
+  var bottom = Math.round(strip.hidden ? 40 : innerHeight - strip.getBoundingClientRect().top + 16);
+  try {
+    map.fitBounds(bounds, { padding: { top: top, bottom: bottom, left: 32, right: 32 } });
+  } catch (e) {
+    focusPlace(places[0]);
+  }
+}
+
 function clearSelection() {
-  var needsFocus = $('placeCard').contains(document.activeElement);
+  // 焦点可能正落在胶卷里（画格或「看照片」）：取消选中后这两处会隐藏或失去意义，
+  // 与其让焦点掉回 body，不如交给「足迹」入口接管。
+  var surface = $('filmstrip');
+  var needsFocus = surface.contains(document.activeElement);
   focusLayers.forEach(function (layer) {
-    if ($('placeCard').contains(layer.returnFocus)) layer.returnFocus = $('btnPlaceList');
+    if (surface.contains(layer.returnFocus)) layer.returnFocus = $('btnPlaceList');
   });
   state.selectedPlaceId = null;
-  $('placeCard').hidden = true;
   renderMarkers();
-  if (needsFocus) $('btnPlaceList').focus();
+  syncFilmstripSelection();
+  if (needsFocus) $('btnPlaceList').focus({ preventScroll: true });
 }
 
 function selectPlace(placeId, moveFocus) {
@@ -1437,17 +1584,13 @@ function selectPlace(placeId, moveFocus) {
   if (!place) return;
   closeAllDrawers();
   state.selectedPlaceId = placeId;
-  var cat = categoryOf(place.category);
-  $('placeCard').innerHTML = '<img src="' + escapeHtml(place.visit.photo) + '" alt="">' +
-    '<div class="place-card-main"><strong>' + escapeHtml(place.name) + '</strong><p><time datetime="' + place.visit.visitedOn + '">' +
-    place.visit.visitedOn.replace(/-/g, '.') + '</time> · ' + cat.label + '</p><button id="btnVisitPhoto" type="button">到访照片 <span aria-hidden="true">↗</span></button></div>' +
-    '<button id="btnDismissPlace" type="button" aria-label="收起地点">×</button>';
-  $('placeCard').hidden = false;
-  $('btnVisitPhoto').addEventListener('click', function () { openDetail(placeId); });
-  $('btnDismissPlace').addEventListener('click', clearSelection);
   renderMarkers();
+  syncFilmstripSelection();
   focusPlace(place);
-  if (moveFocus) $('btnVisitPhoto').focus({ preventScroll: true });
+  if (moveFocus) {
+    var frame = $('filmstripItems').querySelector('.film-frame.is-current');
+    if (frame) frame.focus({ preventScroll: true });
+  }
 }
 
 function emptyVisitsHtml() {
@@ -1462,13 +1605,20 @@ function renderMapFallback() {
 
 function renderCityPlaceList(places, showVisited) {
   var cities = new Map();
-  places.forEach(function (place) {
+  sortVisits(places).forEach(function (place) {
     // 与 scripts/check-public-places.mjs 使用同一条表达式；公开地址必须能匹配出「…市」。
     var city = cityOf(place);
     if (!cities.has(city)) cities.set(city, []);
     cities.get(city).push(place);
   });
-  return Array.from(cities, function (entry) {
+  var groups = Array.from(cities);
+  groups.sort(function (a, b) {
+    // 「城市待补充」固定置底；其余城市按该城市最近一次到访倒序，日期相同用城市名稳定排序。
+    if ((a[0] === '城市待补充') !== (b[0] === '城市待补充')) return a[0] === '城市待补充' ? 1 : -1;
+    return (b[1][0].visit.visitedOn || '').localeCompare(a[1][0].visit.visitedOn || '') ||
+      a[0].localeCompare(b[0], 'zh-CN');
+  });
+  return groups.map(function (entry) {
     var city = escapeHtml(entry[0]);
     return '<section class="city-group" aria-label="' + city + '">' +
       '<h3 class="city-group-heading">' + city + '<span class="city-group-count">' + entry[1].length + '处</span></h3>' +
@@ -1485,7 +1635,9 @@ function focusPlace(place, panelTop) {
   var center = position;
   if (state.selectedPlaceId === place.id) {
     var top = $('mapCatStrip').getBoundingClientRect().bottom + 86;
-    var bottom = panelTop === undefined ? $('placeCard').getBoundingClientRect().top - 12 : panelTop - 4;
+    var strip = $('filmstrip');
+    var bottom = panelTop !== undefined ? panelTop - 4
+      : (strip.hidden ? innerHeight - 60 : strip.getBoundingClientRect().top - 12);
     var targetY = Math.min(bottom, Math.max(top, innerHeight / 2));
     var point = map.projectToContainer(position);
     center = map.unprojectFromContainer(new TMap.Point(point.x, point.y + innerHeight / 2 - targetY));
@@ -1507,23 +1659,41 @@ function closeMoreMenu(restoreFocus) {
 
 var DRAWERS = ['drawerAdd', 'drawerDetail', 'drawerPrivacy', 'drawerPlaces'];
 var detailListReturn = null;
+var detailFilmReturn = false;
 
 function anyDrawerOpen() {
   return DRAWERS.some(function (id) { return $(id).classList.contains('open'); });
 }
 
+/* 从胶卷打开详情后，关闭时把键盘焦点送回同一画格：胶卷只有单一 Tab 落点，
+   回到画格才能继续用方向键换地点，而不是被丢回片头。 */
+function focusSelectedFrame() {
+  var frames = Array.prototype.slice.call($('filmstripItems').querySelectorAll('.film-frame'));
+  var index = frames.findIndex(function (frame) {
+    return frame.getAttribute('data-place-id') === state.selectedPlaceId;
+  });
+  if (index < 0) return false;
+  setFilmTabStop(index);
+  frames[index].focus({ preventScroll: true });
+  revealFrame(frames[index]);
+  return true;
+}
+
 function closeCurrentDrawer() {
-  var listReturn = $('drawerDetail').classList.contains('open') && detailListReturn;
+  var detailOpen = $('drawerDetail').classList.contains('open');
+  var listReturn = detailOpen && detailListReturn;
+  var filmReturn = detailOpen && detailFilmReturn;
   closeAllDrawers();
   if (listReturn) {
     openDrawer('drawerPlaces');
     $('drawerPlaces').scrollTop = listReturn.scrollTop;
     listReturn.button.focus({ preventScroll: true });
-  }
+  } else if (filmReturn) focusSelectedFrame();
 }
 
 function closeAllDrawers() {
   detailListReturn = null;
+  detailFilmReturn = false;
   DRAWERS.forEach(function (id) {
     var drawer = $(id);
     if (!drawer.classList.contains('open')) return;
@@ -1599,7 +1769,7 @@ function submitAdd() {
 }
 
 /* ---------- 地点详情 ---------- */
-function openDetail(placeId, listButton) {
+function openDetail(placeId, listButton, fromFilmstrip) {
   var p = findPlace(placeId);
   if (!p) return;
   var listReturn = listButton ? { button: listButton, scrollTop: $('drawerPlaces').scrollTop } : null;
@@ -1607,11 +1777,14 @@ function openDetail(placeId, listButton) {
     clearSelection();
     state.selectedPlaceId = placeId;
     renderMarkers();
+    syncFilmstripSelection();
   }
   state.currentDetailId = placeId;
   renderDetail();
   openDrawer('drawerDetail');
   detailListReturn = listReturn;
+  // openDrawer 会先清空抽屉的返回目标，所以只能在这之后记。
+  detailFilmReturn = !listReturn && !!fromFilmstrip;
   if (listReturn) {
     var photo = $('drawerDetail').querySelector('.visit-photo');
     var refitPhoto = function () {
@@ -1709,7 +1882,10 @@ function getConfiguredTmapKey() {
 /* ---------- 地图页类别筛选条 ---------- */
 function renderMapCatStrip() {
   var snapshot = captureFocus($('mapCatStrip'));
-  var places = mapPlaces();
+  // 类别只从当前城市的完整公开记录生成，计算时忽略当前类别选择，避免选中后只剩自己。
+  var places = mapPlaces().filter(function (place) {
+    return state.cityFilter === 'all' || cityOf(place) === state.cityFilter;
+  });
   var categories = CATEGORIES.filter(function (category) {
     return places.some(function (place) { return place.category === category.value; });
   });
@@ -1723,11 +1899,28 @@ function renderMapCatStrip() {
       '" aria-pressed="' + (state.mapCatFilter === c.value) + '" data-cat="' + c.value + '">' + c.emoji + ' ' + c.label + '</button>';
   });
   $('mapCatStrip').innerHTML = html;
-  $('visitCount').textContent = publicDataUnavailable ? '记录暂不可用' : (state.mapCatFilter === 'all' ? '' : categoryOf(state.mapCatFilter).label + ' · ') +
-    placesForActiveCategory().length + ' 个地点';
+  updateVisitCount();
   $('visitEmpty').innerHTML = emptyVisitsHtml();
   $('visitEmpty').hidden = placesForActiveCategory().length > 0 || !$('mapFallback').hidden;
+  renderFilmstrip();
   restoreFocus($('mapCatStrip'), snapshot);
+}
+
+function updateVisitCount() {
+  var count = placesForActiveCategory().length;
+  var button = $('btnPlaceList');
+  if (publicDataUnavailable) {
+    button.textContent = '足迹';
+    button.setAttribute('aria-label', '足迹，公开到访记录暂不可用');
+    $('visitCount').textContent = '记录暂不可用';
+    return;
+  }
+  // 没有记录时不显示「足迹 0」，只留入口本身，把「没有」交给列表与环境提示去说。
+  button.textContent = count ? '足迹 ' + count : '足迹';
+  button.setAttribute('aria-label', count
+    ? '足迹，当前 ' + count + ' 个地点，打开按城市分组的完整列表'
+    : '足迹，当前没有可展示的完整记录，打开按城市分组的完整列表');
+  $('visitCount').textContent = count + ' 个地点';
 }
 
 /* ============================================================
@@ -2065,10 +2258,10 @@ function bindEvents() {
   $('cityFilter').addEventListener('change', function () {
     clearSelection();
     state.cityFilter = this.value;
+    if (state.mapCatFilter !== 'all' && !cityHasCategory(state.mapCatFilter)) state.mapCatFilter = 'all';
     renderMapCatStrip();
     renderMarkers();
-    var place = placesForActiveCategory()[0];
-    if (place) focusPlace(place);
+    fitPlaces(placesForActiveCategory());
   });
   document.addEventListener('click', function (event) {
     if (!event.target.closest('[data-reset-filter]')) return;
@@ -2079,6 +2272,7 @@ function bindEvents() {
     clearSelection();
     renderMapCatStrip();
     renderMarkers();
+    fitPlaces(placesForActiveCategory());
     $('mapCatStrip').querySelector('[data-cat="all"]').focus();
   });
   $('btnPlaceList').addEventListener('click', function () {
@@ -2124,6 +2318,37 @@ function bindEvents() {
     state.mapCatFilter = chip.getAttribute('data-cat');
     renderMapCatStrip();
     renderMarkers();
+    fitPlaces(placesForActiveCategory());
+  });
+
+  // 足迹胶卷：点选画格即选中地图地点，方向键逐格移动，单一 Tab 落点。
+  $('filmstripItems').addEventListener('click', function (evt) {
+    var frame = evt.target.closest('.film-frame');
+    if (frame) selectPlace(frame.getAttribute('data-place-id'));
+  });
+  $('filmstripItems').addEventListener('focusin', function (evt) {
+    var frame = evt.target.closest('.film-frame');
+    if (!frame) return;
+    setFilmTabStop(Array.prototype.indexOf.call(frame.parentNode.children, frame));
+  });
+  $('filmstripItems').addEventListener('keydown', function (evt) {
+    var frame = evt.target.closest('.film-frame');
+    if (!frame) return;
+    var frames = Array.prototype.slice.call(this.querySelectorAll('.film-frame'));
+    var index = frames.indexOf(frame);
+    var next = null;
+    if (evt.key === 'ArrowRight') next = frames[index + 1];
+    else if (evt.key === 'ArrowLeft') next = frames[index - 1];
+    else if (evt.key === 'Home') next = frames[0];
+    else if (evt.key === 'End') next = frames[frames.length - 1];
+    if (!next) return;
+    evt.preventDefault();
+    setFilmTabStop(frames.indexOf(next));
+    next.focus({ preventScroll: true });
+    revealFrame(next);
+  });
+  $('btnVisitPhoto').addEventListener('click', function () {
+    if (state.selectedPlaceId) openDetail(state.selectedPlaceId, null, true);
   });
 
   $('fallbackList').addEventListener('click', function (evt) {

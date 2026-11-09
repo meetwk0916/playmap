@@ -31,6 +31,18 @@ const tmapStub = `
       this.getLat = function () { return lat; };
       this.getLng = function () { return lng; };
     },
+    LatLngBounds: function () {
+      const points = [];
+      this.extend = function (point) { points.push(point); return this; };
+      this.toJSON = function () { return points.map(point => [point.lat, point.lng]); };
+      this.isEmpty = function () { return points.length === 0; };
+      this.getCenter = function () {
+        return new window.TMap.LatLng(
+          points.reduce((sum, point) => sum + point.lat, 0) / points.length,
+          points.reduce((sum, point) => sum + point.lng, 0) / points.length
+        );
+      };
+    },
     Map: function (element, options) {
       window.__mapOptions = options;
       const controls = document.createElement('div');
@@ -69,6 +81,12 @@ const tmapStub = `
           getSouthWest: function () { return new window.TMap.LatLng(31.20, 121.40); },
           getNorthEast: function () { return new window.TMap.LatLng(31.30, 121.55); }
         };
+      };
+      this.fitBounds = function (bounds, options) {
+        window.__mapFitBoundsCalls = window.__mapFitBoundsCalls || [];
+        window.__mapFitBoundsCalls.push({ bounds: bounds.toJSON(), options: options });
+        center = bounds.getCenter();
+        window.__renderMapMarkers.forEach(render => render());
       };
       this.easeTo = function (options, ease) {
         center = options.center;
@@ -165,9 +183,12 @@ async function screenshotWhenReady(page, options) {
   await page.screenshot(options);
 }
 async function openVisit(page, name = visit.name) {
-  await page.getByRole('button', { name: '足迹', exact: true }).click();
+  await page.getByRole('button', { name: /足迹/ }).click();
   await page.locator('#placeList').getByRole('button', { name: new RegExp(name) }).click();
 }
+// 胶卷取代了旧的紧凑浮标：选中状态的可见载体是当前画格。
+const selectedFrame = page => page.locator('#filmstrip .film-frame.is-current');
+const filmFrames = page => page.locator('#filmstrip .film-frame');
 test('More exposes privacy with keyboard, restores focus and remains available without the map', async ({ page }) => {
   await page.addInitScript(() => {
     window.locationRequests = 0;
@@ -201,7 +222,7 @@ test('More exposes privacy with keyboard, restores focus and remains available w
 
 test('opening footprints from an open More menu returns focus to footprints', async ({ page }) => {
   await page.getByRole('button', { name: '更多', exact: true }).click();
-  const footprints = page.getByRole('button', { name: '足迹', exact: true });
+  const footprints = page.getByRole('button', { name: /足迹/ });
   await footprints.click();
   await expect(page.getByRole('dialog', { name: '11 去过的地方', exact: true })).toBeVisible();
   await page.keyboard.press('Escape');
@@ -218,9 +239,12 @@ test(`footprint rows select their map pin above details and restore list context
   await serveVisits(page, places);
   await page.reload();
   await page.locator('[data-map-pin="public:visit-1"]').click();
-  await page.getByRole('button', { name: '足迹', exact: true }).click();
+  await page.getByRole('button', { name: /足迹/ }).click();
   const list = page.getByRole('dialog', { name: '11 去过的地方', exact: true });
   for (const exit of ['close', 'escape']) {
+    await expect(list).toHaveClass(/open/);
+    // 抽屉入场动画会把行推到屏幕外；等它落位再量行位置，否则点击时的自动滚动会污染对照值。
+    await expect.poll(() => list.evaluate(el => Math.round(el.getBoundingClientRect().bottom))).toBe(height);
     const row = list.getByRole('button', { name: exit === 'escape' ? '连续到访12' : '连续到访13', exact: true });
     await row.scrollIntoViewIfNeeded();
     const scroll = await list.evaluate(el => el.scrollTop);
@@ -228,7 +252,7 @@ test(`footprint rows select their map pin above details and restore list context
     const detail = page.getByRole('dialog', { name: exit === 'escape' ? '连续到访12' : '连续到访13', exact: true });
     await expect(detail).toHaveClass(/open/);
     await expect(detail.locator('.visit-photo')).toHaveAttribute('src', exit === 'escape' ? visit.photo : places[14].photo);
-    await expect(page.locator('#placeCard')).toBeHidden();
+    await expect(selectedFrame(page)).toBeHidden();
     const selectedId = exit === 'escape' ? 'public:return-12' : 'public:return-13';
     const pin = page.locator('[data-map-pin="' + selectedId + '"]');
     await expect(pin).toHaveCSS('width', '60px');
@@ -253,17 +277,17 @@ test(`footprint rows select their map pin above details and restore list context
 
 }
 
-test('one map click from footprint details returns to the same selected pin and compact photo card', async ({ page }) => {
-  await page.getByRole('button', { name:'足迹', exact:true }).click();
+test('one map click from footprint details returns to the same selected pin and film frame', async ({ page }) => {
+  await page.getByRole('button', { name:/足迹/ }).click();
   await page.locator('#placeList').getByRole('button', { name:visit.name, exact:true }).click();
   await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
   await page.locator('#mask').click({ position:{ x:8, y:8 } });
-  await expect(page.locator('#placeCard')).toBeVisible();
-  await expect(page.locator('#placeCard')).toContainText(visit.name);
+  await expect(selectedFrame(page)).toBeVisible();
+  await expect(selectedFrame(page)).toContainText(visit.name);
   await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
   await expect(page.locator('#drawerPlaces')).not.toHaveClass(/open/);
   await expect(page.locator('[data-map-pin="public:visit-1"]')).toHaveCSS('width', '60px');
-  await expect(page.getByRole('button', { name:'到访照片', exact:true })).toBeFocused();
+  await expect(selectedFrame(page)).toBeFocused();
   await expect(page.locator('main')).not.toHaveAttribute('inert');
 });
 
@@ -273,19 +297,19 @@ test('map pins, footprint rows and map return share a gentle camera transition w
     await page.evaluate(() => { window.__mapEaseToCalls = []; });
     await page.locator('[data-map-pin="public:visit-1"]').click();
     await expect.poll(() => page.evaluate(() => window.__mapEaseToCalls.at(-1)?.duration)).toBe(duration);
-    await page.getByRole('button', { name:'足迹', exact:true }).click();
+    await page.getByRole('button', { name:/足迹/ }).click();
     await page.evaluate(() => { window.__mapEaseToCalls = []; });
     await page.locator('#placeList').getByRole('button', { name:visit.name, exact:true }).click();
     await expect.poll(() => page.evaluate(() => window.__mapEaseToCalls.at(-1)?.duration)).toBe(duration);
     await page.evaluate(() => { window.__mapEaseToCalls = []; });
     await page.locator('#mask').click({ position:{ x:8, y:8 } });
-    await expect(page.locator('#placeCard')).toBeVisible();
+    await expect(selectedFrame(page)).toBeVisible();
     await expect.poll(() => page.evaluate(() => window.__mapEaseToCalls.at(-1)?.duration)).toBe(duration);
   }
 });
 
 test('footprint details reveal the map without the outgoing list during the drawer transition', async ({ page }) => {
-  await page.getByRole('button', { name:'足迹', exact:true }).click();
+  await page.getByRole('button', { name:/足迹/ }).click();
   const list = page.locator('#drawerPlaces');
   const detail = page.locator('#drawerDetail');
   const row = list.getByRole('button', { name:visit.name, exact:true });
@@ -324,7 +348,7 @@ test('a cold footprint photo refits the selected pin above the final detail layo
   });
   await serveVisits(page, [visit, coldVisit]);
   await page.reload();
-  await page.getByRole('button', { name:'足迹', exact:true }).click();
+  await page.getByRole('button', { name:/足迹/ }).click();
   await page.locator('#placeList').getByRole('button', { name:coldVisit.name, exact:true }).click();
   const detail = page.getByRole('dialog', { name:coldVisit.name, exact:true });
   const photo = detail.locator('.visit-photo');
@@ -353,7 +377,7 @@ for (const destination of ['list', 'another detail']) {
     });
     await serveVisits(page, [visit, coldVisit]);
     await page.reload();
-    await page.getByRole('button', { name:'足迹', exact:true }).click();
+    await page.getByRole('button', { name:/足迹/ }).click();
     await page.locator('#placeList').getByRole('button', { name:coldVisit.name, exact:true }).click();
     const oldPhoto = await page.locator('#drawerDetail .visit-photo').elementHandle();
     await expect(page.locator('#drawerDetail .visit-photo')).toHaveJSProperty('complete', false);
@@ -373,12 +397,12 @@ for (const destination of ['list', 'another detail']) {
     expect(after.x).toBeCloseTo(before.x, 1); expect(after.y).toBeCloseTo(before.y, 1);
     if (destination === 'list') await expect(page.getByRole('dialog', { name:'11 去过的地方', exact:true })).toBeVisible();
     else await expect(page.getByRole('dialog', { name:visit.name, exact:true })).toBeVisible();
-    await expect(page.locator('#placeCard')).toBeHidden();
+    await expect(selectedFrame(page)).toBeHidden();
   });
 }
 
-for (const [width, height] of [[320, 860], [375, 860], [414, 860], [768, 860], [1249, 860], [768, 375], [375, 430], [320, 375]]) {
-  test(`native map tools fit and remain clear of selected cards at ${width}x${height}`, async ({ page }) => {
+for (const [width, height] of [[320, 860], [375, 860], [414, 860], [768, 860], [1249, 860], [768, 375], [375, 430], [320, 375], [320, 568], [375, 667]]) {
+  test(`native map tools fit and remain clear of the filmstrip at ${width}x${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     const targets = page.locator('[data-sdk-controls] .compass-circle, [data-sdk-controls] .rotate-panel > div, [data-sdk-controls] .tmap-zoom-in, [data-sdk-controls] .tmap-zoom-out, #btnLocate');
     const metrics = await page.evaluate(() => {
@@ -413,13 +437,20 @@ for (const [width, height] of [[320, 860], [375, 860], [414, 860], [768, 860], [
     await page.locator('.tmap-zoom-out').click();
     expect(await page.evaluate(() => window.__testMap.getZoom())).toBe(originalZoom);
     await page.locator('[data-map-pin="public:visit-1"]').click();
-    const card = page.locator('#placeCard');
-    await expect(card).toBeVisible();
-    const cardBox = await card.boundingBox();
-    for (const target of await targets.all()) expect(overlaps(await target.boundingBox(), cardBox)).toBe(false);
-    for (const button of await card.getByRole('button').all()) {
-      await button.scrollIntoViewIfNeeded();
-      await button.click({ trial: true });
+    const strip = page.locator('#filmstrip');
+    const frame = selectedFrame(page);
+    if (await strip.isVisible()) {
+      await expect(frame).toBeVisible();
+      const stripBox = await strip.boundingBox();
+      for (const target of await targets.all()) expect(overlaps(await target.boundingBox(), stripBox)).toBe(false);
+      const frameBox = await frame.boundingBox();
+      expect(frameBox.height).toBeGreaterThanOrEqual(44);
+      await frame.click({ trial: true });
+    } else {
+      // 极短视口下胶卷整体收起（仍在 DOM 里，只是不显示），选中状态只体现在图钉上。
+      await expect(strip).toBeHidden();
+      await expect(frame).toBeHidden();
+      await expect(page.getByRole('button', { name:'看照片', exact:true })).toBeHidden();
     }
   });
 }
@@ -428,8 +459,8 @@ test('only complete public visits appear in map and filtered list; personal data
   await page.addInitScript(raw => localStorage.setItem('baby_playmap_v1', raw), raw);
   await serveVisits(page, [visit, { ...visit, poiId: 'no-photo', photo: undefined }, { ...visit, poiId: 'no-score', name: '未评分公园', score: undefined }, { ...visit, poiId: 'no-date', visitedOn: undefined }]);
   await page.goto('/');
-  await expect(page.getByRole('button', { name: '足迹', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: '足迹', exact: true }).click();
+  await expect(page.getByRole('button', { name: /足迹/ })).toBeVisible();
+  await page.getByRole('button', { name: /足迹/ }).click();
   await expect(page.locator('#placeList button')).toHaveCount(2);
   await expect(page.locator('#placeList')).toContainText('未评分公园');
   expect(await page.evaluate(() => window.__markerLayers[0].geometries.length)).toBe(2);
@@ -448,9 +479,9 @@ for (const width of [320, 375, 414, 768]) {
       { ...visit, poiId: 'incomplete', address: '浙江省杭州市西湖区', photo: undefined }
     ]);
     await page.goto('/');
-    await page.getByRole('button', { name: '足迹', exact: true }).click();
+    await page.getByRole('button', { name: /足迹/ }).click();
     const list = page.locator('#placeList');
-    await expect(list.locator('h3')).toHaveText(['上海市2处', '泉州市1处', '南宁市1处', '城市待补充1处']);
+    await expect(list.locator('h3')).toHaveText(['南宁市1处', '泉州市1处', '上海市2处', '城市待补充1处']);
     await expect(list.getByRole('region', { name: '上海市', exact: true }).locator('button strong')).toHaveText(['上海公园', '上海商场']);
     expect(await list.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     await list.getByRole('button', { name: '泉州公园', exact: true }).click();
@@ -458,14 +489,14 @@ for (const width of [320, 375, 414, 768]) {
     await page.keyboard.press('Escape');
     await page.keyboard.press('Escape');
     await page.locator('#mapCatStrip [data-cat="mall"]').click();
-    await page.getByRole('button', { name: '足迹', exact: true }).click();
+    await page.getByRole('button', { name: /足迹/ }).click();
     await expect(list.locator('h3')).toHaveText(['上海市1处']);
     await expect(list.locator('button strong')).toHaveText(['上海商场']);
     await page.keyboard.press('Escape');
     await page.route('**/map.qq.com/api/gljs**', route => route.abort());
     await page.reload();
     await expect(page.locator('#mapFallback')).toBeVisible();
-    await expect(page.locator('#fallbackList h3')).toHaveText(['上海市2处', '泉州市1处', '南宁市1处', '城市待补充1处']);
+    await expect(page.locator('#fallbackList h3')).toHaveText(['南宁市1处', '泉州市1处', '上海市2处', '城市待补充1处']);
     await page.locator('#fallbackList').getByRole('button', { name: '泉州公园 · 11 去过', exact: true }).click();
     await expect(page.locator('#drawerDetail')).toContainText('泉州公园');
   });
@@ -476,7 +507,7 @@ for (const width of [320, 375, 414, 768]) {
     await page.setViewportSize({ width, height: 812 });
     await serveVisits(page, [visit, ...Array.from({ length: 11 }, (_, i) => ({ ...visit, poiId: 'list-' + i, name: i === 10 ? '末项公园' : '到访公园' + i }))]);
     await page.reload();
-    const opener = page.getByRole('button', { name: '足迹', exact: true });
+    const opener = page.getByRole('button', { name: /足迹/ });
     await opener.click();
     const list = page.getByRole('dialog', { name: '11 去过的地方', exact: true });
     const closeList = list.getByRole('button', { name: '关闭地点列表', exact: true });
@@ -541,21 +572,102 @@ for (const width of [320, 375, 414, 768]) {
     await page.reload();
     const strip = page.locator('#mapCatStrip');
     await expect(strip.getByRole('button')).toHaveText(['✨ 全部', '🌳 公园', '🛍️ 商场儿童区']);
-    await expect(page.locator('#visitCount')).toHaveText('2 个地点');
+    await expect(page.locator('#btnPlaceList')).toHaveText('足迹 2');
+    await expect(filmFrames(page)).toHaveCount(2);
     const mall = strip.getByRole('button', { name: '🛍️ 商场儿童区', exact: true });
     await mall.focus(); await page.keyboard.press('Enter');
     await expect(mall).toBeFocused(); await expect(mall).toHaveAttribute('aria-pressed', 'true');
     await expect(strip.locator('[aria-pressed="true"]')).toHaveCount(1);
-    await expect(page.locator('#visitCount')).toHaveText('商场儿童区 · 1 个地点');
+    await expect(page.locator('#btnPlaceList')).toHaveText('足迹 1');
+    await expect(filmFrames(page)).toHaveCount(1);
     expect(await page.locator('#visitHeader').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-    await page.getByRole('button', { name: '足迹', exact: true }).click();
+    await page.getByRole('button', { name: /足迹/ }).click();
     await expect(page.locator('#placeList h3')).toHaveText(['上海市1处']);
     await expect(page.locator('#placeList button strong')).toHaveText(['商场到访']);
     await page.keyboard.press('Escape');
     await page.route('**/map.qq.com/api/gljs**', route => route.abort()); await page.reload();
     await page.locator('#mapCatStrip').getByRole('button', { name: '🛍️ 商场儿童区', exact: true }).click();
-    await expect(page.locator('#visitCount')).toHaveText('商场儿童区 · 1 个地点');
+    await expect(page.locator('#btnPlaceList')).toHaveText('足迹 1');
+    await expect(filmFrames(page)).toHaveCount(1);
     await expect(page.locator('#fallbackList h3')).toHaveText(['上海市1处']);
+  });
+}
+
+test('filmstrip lists filtered visits newest first and fits the map to every match', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await serveVisits(page, [
+    { ...visit, poiId: 'old', name: '旧公园', visitedOn: '2025-03-02', address: '上海市黄浦区' },
+    { ...visit, poiId: 'new', name: '新公园', visitedOn: '2026-09-12', address: '上海市黄浦区' },
+    { ...visit, poiId: 'mall', name: '泉州商场', visitedOn: '2026-01-05', category: 'mall', address: '福建省泉州市' }
+  ]);
+  await page.reload();
+  await expect(filmFrames(page)).toHaveCount(3);
+  await expect(page.locator('.film-name')).toHaveText(['新公园', '泉州商场', '旧公园']);
+  await expect(page.locator('#btnPlaceList')).toHaveText('足迹 3');
+  await expect(page.locator('#btnPlaceList')).toHaveAttribute('aria-label', /当前 3 个地点/);
+
+  await page.getByLabel('选择城市').selectOption('上海市');
+  await expect(filmFrames(page)).toHaveCount(2);
+  await expect(page.locator('.film-name')).toHaveText(['新公园', '旧公园']);
+  await expect(page.locator('#btnPlaceList')).toHaveText('足迹 2');
+  const fit = await page.evaluate(() => window.__mapFitBoundsCalls.at(-1));
+  expect(fit.bounds).toHaveLength(2);
+  expect(fit.options.padding.top).toBeGreaterThan(120);
+  expect(fit.options.padding.bottom).toBeGreaterThan(120);
+
+  await page.getByLabel('选择城市').selectOption('泉州市');
+  await expect(filmFrames(page)).toHaveCount(1);
+  await expect(page.locator('#btnPlaceList')).toHaveText('足迹 1');
+  await expect(page.locator('#mapCatStrip').getByRole('button')).toHaveText(['✨ 全部', '🛍️ 商场儿童区']);
+});
+
+test('filmstrip keeps one tab stop, moves with arrow keys and opens the visit photo', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await serveVisits(page, [
+    { ...visit, poiId: 'a', name: '第一公园', visitedOn: '2026-09-12', address: '上海市黄浦区' },
+    { ...visit, poiId: 'b', name: '第二公园', visitedOn: '2026-05-01', address: '上海市黄浦区' },
+    { ...visit, poiId: 'c', name: '第三公园', visitedOn: '2025-11-20', address: '上海市黄浦区' }
+  ]);
+  await page.reload();
+  await expect(filmFrames(page)).toHaveCount(3);
+  await expect(page.locator('#filmstrip .film-frame[tabindex="0"]')).toHaveCount(1);
+
+  await filmFrames(page).first().focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(filmFrames(page).nth(1)).toBeFocused();
+  await expect(selectedFrame(page)).toHaveCount(0);
+  await page.keyboard.press('Enter');
+  await expect(selectedFrame(page)).toHaveText(/第二公园/);
+  await expect(selectedFrame(page)).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByRole('button', { name: '看照片', exact: true })).toBeVisible();
+
+  await page.keyboard.press('End');
+  await expect(filmFrames(page).last()).toBeFocused();
+  await page.keyboard.press('Home');
+  await expect(filmFrames(page).first()).toBeFocused();
+
+  await filmFrames(page).nth(1).click();
+  await page.getByRole('button', { name: '看照片', exact: true }).click();
+  await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
+  await page.keyboard.press('Escape');
+  await expect(selectedFrame(page)).toBeFocused();
+  await expect(page.locator('#filmstrip .film-frame[tabindex="0"]')).toHaveCount(1);
+});
+
+for (const [label, prepare] of [
+  ['no complete visits', async page => { await serveVisits(page, []); await page.reload(); }],
+  ['unreadable public data', async page => {
+    await page.route('**/public-places.json', route => route.fulfill({ status: 503, body: 'unavailable' }));
+    await page.reload();
+  }]
+]) {
+  test(`filmstrip stays collapsed with ${label} and the footprint entry carries the state`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await prepare(page);
+    await expect(page.locator('#filmstrip')).toBeHidden();
+    await expect(filmFrames(page)).toHaveCount(0);
+    if (label === 'no complete visits') await expect(page.locator('#btnPlaceList')).toHaveText('足迹');
+    else await expect(page.locator('#btnPlaceList')).toHaveAttribute('aria-label', /暂不可用/);
   });
 }
 
@@ -566,7 +678,7 @@ test('an empty library offers all-category recovery and read failure stays disti
   await page.getByRole('button', { name: '查看全部', exact: true }).click();
   await expect(page.locator('#mapCatStrip').getByRole('button')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#mapCatStrip').getByRole('button')).toBeFocused();
-  await page.getByRole('button', { name: '足迹', exact: true }).click();
+  await page.getByRole('button', { name: /足迹/ }).click();
   await page.getByRole('dialog').getByRole('button', { name: '查看全部', exact: true }).click();
   await expect(page.locator('#mapCatStrip').getByRole('button')).toBeFocused();
   await page.route('**/map.qq.com/api/gljs**', route => route.abort()); await page.reload();
@@ -575,7 +687,8 @@ test('an empty library offers all-category recovery and read failure stays disti
   await page.route('**/public-places.json', route => route.fulfill({ status: 503, body: 'unavailable' }));
   await page.reload();
   await expect(page.locator('#fallbackList')).toContainText('公开到访记录暂时无法读取，请刷新重试');
-  await expect(page.locator('#visitCount')).toHaveText('记录暂不可用');
+  await expect(page.locator('#btnPlaceList')).toHaveText('足迹');
+  await expect(filmFrames(page)).toHaveCount(0);
   await expect(page.getByText('暂无完整的到访记录', { exact: true })).toHaveCount(0);
 });
 
@@ -802,7 +915,7 @@ test('public map has no search or add controls and categories never fetch online
   await page.getByRole('button', { name: '🌳 公园', exact: true }).click();
   await page.evaluate(() => window.__mapEvents.idle?.());
   await expect(page.getByRole('button', { name: '🐠 水族馆', exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: '足迹', exact: true }).click();
+  await page.getByRole('button', { name: /足迹/ }).click();
   await expect(page.locator('#placeList')).toContainText(visit.name);
   expect(requests).toBe(0);
   expect(await page.evaluate(() => window.__markerLayers[0].geometries.length)).toBe(1);
@@ -817,7 +930,7 @@ test('invalid photo, date and POI identities stay out of markers and lists', asy
   ].map((patch, i) => ({ ...visit, poiId: 'invalid-' + i, ...patch }));
   await serveVisits(page, [...invalid, visit]);
   await page.reload();
-  await page.getByRole('button', { name: '足迹', exact: true }).click();
+  await page.getByRole('button', { name: /足迹/ }).click();
   await expect(page.locator('#placeList button')).toHaveCount(1);
   expect(await page.evaluate(() => window.__markerLayers[0].geometries.map(g => g.id))).toEqual(['public:visit-1']);
 });
@@ -864,13 +977,13 @@ test('map failure keeps complete public visits filterable and allows explicit ma
   await page.locator('#fallbackList').getByRole('button', { name: visit.name + ' · 11 去过', exact: true }).click();
   await expect(page.locator('#drawerDetail')).toContainText('2岁3个月');
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name:'足迹', exact:true }).click();
+  await page.getByRole('button', { name:/足迹/ }).click();
   const row = page.locator('#placeList').getByRole('button', { name:visit.name, exact:true });
   await row.click();
   await page.locator('#mask').click({ position:{ x:8, y:8 } });
   await expect(page.locator('#drawerPlaces')).toHaveClass(/open/);
   await expect(row).toBeFocused();
-  await expect(page.locator('#placeCard')).toBeHidden();
+  await expect(selectedFrame(page)).toBeHidden();
   await page.keyboard.press('Escape');
   await page.route('**/map.qq.com/api/gljs**', route => route.fulfill({ contentType: 'application/javascript', body: tmapStub }));
   await page.getByRole('button', { name: '重试地图', exact: true }).click();
@@ -894,9 +1007,9 @@ test('blocked navigation preserves the detail with retry and direct map link', a
   await expect(page.locator('.visit-photo')).toBeVisible();
 });
 
-test('detail focus is trapped and Escape restores the photo action', async ({ page }) => {
+test('detail focus is trapped and Escape returns to the same film frame', async ({ page }) => {
   await page.locator('[data-map-pin="public:visit-1"]').click();
-  await page.getByRole('button', { name: '到访照片', exact: true }).click();
+  await page.getByRole('button', { name: '看照片', exact: true }).click();
   const nav = page.getByRole('button', { name: '🧭 导航去这里', exact: true });
   const close = page.getByRole('button', { name: '关闭地点详情', exact: true });
   await expect(close).toBeFocused();
@@ -905,7 +1018,7 @@ test('detail focus is trapped and Escape restores the photo action', async ({ pa
   await page.keyboard.press('Tab'); await expect(nav).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
-  await expect(page.getByRole('button', { name: '到访照片', exact: true })).toBeFocused();
+  await expect(selectedFrame(page)).toBeFocused();
 });
 
 for (const width of [320, 375, 768, 1440]) {
@@ -945,7 +1058,7 @@ test('public origins cannot enable the local POI search mode', async ({ page }) 
   });
   await page.goto('https://playmap.example/?maintain=1');
   await expect(page.locator('#searchBox')).toBeHidden();
-  await expect(page.getByRole('button', { name: '足迹', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /足迹/ })).toBeVisible();
 });
 
 test('public record fetch failure is explained without touching old storage', async ({ page }) => {
@@ -1001,7 +1114,7 @@ test.describe('map and maintenance interpret the same visit in Shanghai time', (
       const record = { ...visit, ...patch, history: { retained: ['original'] } };
       await serveVisits(page, [record]);
       await page.reload();
-      await page.getByRole('button', { name: '足迹', exact: true }).click();
+      await page.getByRole('button', { name: /足迹/ }).click();
       await expect(page.locator('#placeList [data-place-id]')).toHaveCount(age === null ? 0 : 1);
       if (age !== null) {
         await page.locator('#placeList [data-place-id]').click();
@@ -1087,46 +1200,57 @@ for (const [label, reflection, displayed] of [
   });
 }
 
-test('map selection opens a compact card and details return to the same selection', async ({ page }) => {
-  await expect(page.locator('#placeCard')).toBeHidden();
+test('map selection highlights a film frame and details return to the same selection', async ({ page }) => {
+  await expect(selectedFrame(page)).toHaveCount(0);
   await page.evaluate(() => window.__openTestPlace());
-  await expect(page.locator('#placeCard')).toBeVisible();
-  await expect(page.locator('#placeCard')).toContainText(visit.name);
+  await expect(selectedFrame(page)).toBeVisible();
+  await expect(selectedFrame(page)).toContainText(visit.name);
   await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
-  await page.getByRole('button', {name:'到访照片', exact:true}).click();
+  await page.getByRole('button', {name:'看照片', exact:true}).click();
   await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
   await page.keyboard.press('Escape');
-  await expect(page.getByRole('button', {name:'到访照片', exact:true})).toBeFocused();
-  await page.getByRole('button', {name:'到访照片', exact:true}).click();
+  // 关闭详情回到同一画格（而非片头按钮），键盘才能接着用方向键换地点。
+  await expect(selectedFrame(page)).toBeFocused();
+  await page.getByRole('button', {name:'看照片', exact:true}).click();
   await page.locator('#mask').click({ position:{ x:8, y:8 } });
   await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
-  await expect(page.locator('#placeCard')).toBeVisible();
-  await expect(page.getByRole('button', {name:'到访照片', exact:true})).toBeFocused();
-  await page.getByRole('button', {name:'收起地点', exact:true}).click();
-  await expect(page.locator('#placeCard')).toBeHidden();
+  await expect(selectedFrame(page)).toBeVisible();
+  await expect(selectedFrame(page)).toBeFocused();
+  await page.waitForTimeout(450);
+  await page.evaluate(() => window.__mapEvents.click());
+  await expect(selectedFrame(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name:'看照片', exact:true })).toBeHidden();
 });
 
 for (const width of [320, 375, 414, 768, 1249]) {
-  test(`selected pin and compact card stay apart with long names at ${width}px`, async ({ page }) => {
-    await page.setViewportSize({width, height:430});
+  test(`selected pin and film frame stay apart with long names at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({width, height:812});
     await serveVisits(page, [{...visit, name:'上海BFC外滩金融中心南区商场与附近到访活动的完整地点名称'}]);
     await page.reload();
     await expect(page.locator('[data-map-pin="public:visit-1"]')).toBeVisible();
     await page.evaluate(() => window.__testMap.setZoom(17));
     await page.locator('[data-map-pin="public:visit-1"]').click();
     const pin = page.locator('[data-map-pin="public:visit-1"]');
-    const card = page.locator('#placeCard');
-    await expect(card).toContainText('上海BFC外滩金融中心');
-    const pinBox = await pin.boundingBox(), cardBox = await card.boundingBox();
-    const strip = await page.locator('#mapCatStrip').boundingBox();
-    expect(pinBox.y).toBeGreaterThanOrEqual(strip.y+strip.height+4);
-    if (pinBox.x < cardBox.x+cardBox.width && pinBox.x+pinBox.width > cardBox.x) expect(pinBox.y+pinBox.height).toBeLessThanOrEqual(cardBox.y-4);
-    expect(await page.evaluate(() => window.__testMap.getZoom())).toBe(17);
-    for (const button of await card.getByRole('button').all()) {
-      const box = await button.boundingBox();
-      expect(box.width).toBeGreaterThanOrEqual(44); expect(box.height).toBeGreaterThanOrEqual(44);
+    const frame = selectedFrame(page);
+    await expect(frame).toContainText('上海BFC外滩金融中心');
+    const pinBox = await pin.boundingBox(), frameBox = await frame.boundingBox();
+    const strip = await page.locator('#filmstrip').boundingBox();
+    const chips = await page.locator('#mapCatStrip').boundingBox();
+    expect(pinBox.y).toBeGreaterThanOrEqual(chips.y+chips.height+4);
+    if (pinBox.x < frameBox.x+frameBox.width && pinBox.x+pinBox.width > frameBox.x) {
+      expect(pinBox.y+pinBox.height).toBeLessThanOrEqual(strip.y-4);
     }
-    expect(await card.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => window.__testMap.getZoom())).toBe(17);
+    // 长名称在画格内单行省略：画格本身不产生横向溢出，名称被截断而不是撑破片基。
+    expect(await frame.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    const nameStyle = await frame.locator('.film-name').evaluate(el => {
+      const style = getComputedStyle(el);
+      return { textOverflow: style.textOverflow, whiteSpace: style.whiteSpace, clipped: el.scrollWidth > el.clientWidth };
+    });
+    expect(nameStyle.textOverflow).toBe('ellipsis');
+    expect(nameStyle.whiteSpace).toBe('nowrap');
+    expect(nameStyle.clipped).toBe(true);
+    expect(frameBox.height).toBeGreaterThanOrEqual(44);
   });
 }
 
@@ -1140,28 +1264,31 @@ test('city and category filters share results and clear selected markers, with u
   await page.reload();
   await page.getByLabel('选择城市').selectOption('上海市');
   await page.locator('[data-map-pin="public:visit-1"]').click();
-  await expect(page.locator('#placeCard')).toContainText(visit.name);
+  await expect(selectedFrame(page)).toContainText(visit.name);
   await expect(page.locator('[data-map-pin="public:visit-1"]')).toHaveCSS('width','60px');
   await expect(page.locator('[data-map-pin="public:mall"]')).toHaveCSS('width','44px');
   await page.locator('[data-map-pin="public:mall"]').click();
-  await expect(page.locator('#placeCard')).toContainText('上海商场');
+  await expect(selectedFrame(page)).toContainText('上海商场');
   await expect(page.locator('[data-map-pin="public:visit-1"]')).toHaveCSS('width','44px');
   await expect(page.locator('[data-map-pin="public:mall"]')).toHaveCSS('width','60px');
   // The SDK bubbles a marker click to the map; selection must survive that click.
-  await expect(page.locator('#placeCard')).toBeVisible();
-  await page.getByLabel('选择城市').selectOption('泉州市');
-  await expect(page.locator('#placeCard')).toBeHidden();
+  await expect(selectedFrame(page)).toBeVisible();
+  await page.locator('#mapCatStrip [data-cat="mall"]').click();
   await expect(page.locator('[data-map-pin]')).toHaveCount(1);
-  await page.getByRole('button',{name:'🛍️ 商场儿童区',exact:true}).click();
-  await expect(page.locator('[data-map-pin]')).toHaveCount(0);
-  await expect(page.locator('#visitEmpty')).toBeVisible();
-  await page.getByRole('button',{name:'足迹',exact:true}).click();
-  await expect(page.locator('#placeList')).toContainText('暂无完整的到访记录');
-  await page.locator('#placeList').getByRole('button',{name:'查看全部',exact:true}).click();
-  await expect(page.getByLabel('选择城市')).toHaveValue('all');
+  await expect(page.locator('#mapCatStrip [data-cat="mall"]')).toHaveAttribute('aria-pressed','true');
+  await page.getByLabel('选择城市').selectOption('泉州市');
+  await expect(selectedFrame(page)).toBeHidden();
+  await expect(page.locator('[data-map-pin]')).toHaveCount(1);
+  // 泉州没有商场记录：类别条只剩这个城市能产生的类别，原类别回落到「全部」。
+  await expect(page.locator('#mapCatStrip').getByRole('button')).toHaveText(['✨ 全部', '🌳 公园']);
+  await expect(page.locator('#mapCatStrip [data-cat="all"]')).toHaveAttribute('aria-pressed','true');
+  await page.getByRole('button',{name:/足迹/}).click();
+  await expect(page.locator('#placeList h3')).toHaveText(['泉州市1处']);
+  await page.keyboard.press('Escape');
+  await page.getByLabel('选择城市').selectOption('all');
   await expect(page.locator('[data-map-pin]')).toHaveCount(4);
   await page.getByLabel('选择城市').selectOption('城市待补充');
-  await page.getByRole('button',{name:'足迹',exact:true}).click();
+  await page.getByRole('button',{name:/足迹/}).click();
   await expect(page.locator('#placeList h3')).toHaveText(['城市待补充1处']);
   await expect(page.locator('#placeList time')).toHaveText(['2026.09.12']);
   await page.locator('#placeList').getByRole('button',{name:'待补城市',exact:true}).click();
@@ -1169,20 +1296,22 @@ test('city and category filters share results and clear selected markers, with u
   await page.keyboard.press('Escape');
   await expect(page.locator('#placeList').getByRole('button', {name:'待补城市',exact:true})).toBeFocused();
   await page.keyboard.press('Escape');
-  await expect(page.locator('#placeCard')).toBeHidden();
-  await expect(page.getByRole('button',{name:'足迹',exact:true})).toBeFocused();
+  // 胶卷是常驻的选中面：关掉档案列表不会顺手丢掉选中，画格与图钉都还在。
+  await expect(page.locator('#drawerPlaces')).not.toHaveClass(/open/);
+  await expect(selectedFrame(page)).toHaveAttribute('data-place-id', 'public:unknown');
+  await expect(page.getByRole('button',{name:/足迹/})).toBeFocused();
 });
 
 test('map gestures preserve selection and blank-map click clears its highlight', async ({page}) => {
   await page.clock.install();
   await page.locator('[data-map-pin="public:visit-1"]').click();
-  await expect(page.locator('#placeCard')).toBeVisible();
+  await expect(selectedFrame(page)).toBeVisible();
   await page.evaluate(() => {window.__mapEvents.dragstart?.(); window.__mapEvents.dragend?.(); window.__mapEvents.zoom?.();});
-  await expect(page.locator('#placeCard')).toBeVisible();
+  await expect(selectedFrame(page)).toBeVisible();
   await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
   await page.clock.runFor(450);
   await page.evaluate(() => window.__mapEvents.click());
-  await expect(page.locator('#placeCard')).toBeHidden();
+  await expect(selectedFrame(page)).toBeHidden();
   await expect(page.locator('[data-map-pin="public:visit-1"]')).toHaveCSS('width','44px');
 });
 
@@ -1194,30 +1323,30 @@ test(`map timeout clears selection before fallback details and retry (photo ${vi
   await serveVisits(page, [visit, {...visit, poiId:'fallback-other', name:'另一个到访地点', lng:121.478}]);
   await page.reload();
   await page.locator('[data-map-pin="public:visit-1"]').click();
-  await expect(page.locator('#placeCard')).toContainText(visit.name);
-  await page.getByRole('button', {name:'到访照片', exact:true}).focus();
+  await expect(selectedFrame(page)).toContainText(visit.name);
+  await page.getByRole('button', {name:'看照片', exact:true}).focus();
   if (viewingPhoto) await page.keyboard.press('Enter');
   await page.clock.runFor(8001);
   await expect(page.locator('#mapFallback')).toBeVisible();
-  await expect(page.locator('#placeCard')).toBeHidden();
+  await expect(selectedFrame(page)).toBeHidden();
   await expect(page.locator('[data-map-pin]')).toHaveCount(0);
   if (viewingPhoto) {
     await expect(page.getByRole('dialog', {name:visit.name, exact:true})).toBeVisible();
     await page.keyboard.press('Escape');
   }
-  await expect(page.getByRole('button', {name:'足迹', exact:true})).toBeFocused();
+  await expect(page.getByRole('button', {name:/足迹/})).toBeFocused();
   const fallbackPlace = page.locator('#fallbackList').getByRole('button', {name:'另一个到访地点 · 11 去过', exact:true});
   await fallbackPlace.click();
   await expect(page.getByRole('dialog', {name:'另一个到访地点', exact:true})).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(fallbackPlace).toBeFocused();
-  await expect(page.locator('#placeCard')).toBeHidden();
+  await expect(selectedFrame(page)).toBeHidden();
   await page.evaluate(() => { window.__skipMapTilesLoaded = false; });
   await page.getByRole('button', {name:'重试地图', exact:true}).click();
   await page.clock.runFor(1);
   await expect(page.locator('#mapFallback')).toBeHidden();
   await expect(page.locator('[data-map-pin]')).toHaveCount(2);
   for (const pin of await page.locator('[data-map-pin]').all()) await expect(pin).toHaveCSS('width','44px');
-  await expect(page.locator('#placeCard')).toBeHidden();
+  await expect(selectedFrame(page)).toBeHidden();
 });
 }
