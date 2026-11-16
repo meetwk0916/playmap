@@ -720,10 +720,31 @@ body:has(#filmstrip:not([hidden])) #map .tmap-scale-control { display:none; }
 .visit-date { margin:8px 0 0; font-size:14px; font-variant-numeric:tabular-nums; color:var(--text-light); }
 .detail-berry { position:absolute; right:0; top:0; width:36px; height:44px; object-fit:contain; }
 @media (min-width:768px) {
-  :root { --film-height:188px; }
   #visitHeader { right:auto; width:360px; }
   #filmstrip { left:24px; right:auto; width:560px; }
+}
+@media (min-width:768px) and (min-height:601px) {
+  :root { --film-height:188px; }
   .film-frame { --photo-h:68px; flex-basis:148px; }
+}
+@media (min-width:900px) and (orientation:landscape) {
+  #filmstrip { width:clamp(560px, 68vw, 1100px); }
+  :is(#drawerPlaces, #drawerDetail) {
+    top:0;
+    right:0;
+    bottom:0;
+    left:auto;
+    width:clamp(340px, 38vw, 480px);
+    max-height:none;
+    padding-top:calc(6px + env(safe-area-inset-top));
+    padding-right:calc(18px + env(safe-area-inset-right));
+    border-radius:0;
+    transform:translateX(100%);
+  }
+  :is(#drawerPlaces, #drawerDetail).open { transform:translateX(0); }
+  :is(#drawerPlaces, #drawerDetail) .grabber { display:none; }
+  #drawerDetail .visit-photo { max-height:max(160px, calc(100dvh - 240px - env(safe-area-inset-top) - env(safe-area-inset-bottom))); }
+  .mask.show:has(~ :is(#drawerPlaces, #drawerDetail).open) { opacity:.35; }
 }
 </style>
 
@@ -1629,18 +1650,23 @@ function renderCityPlaceList(places, showVisited) {
   }).join('');
 }
 
-function focusPlace(place, panelTop) {
+function focusPlace(place, panel) {
   if (!map) return;
   var position = new TMap.LatLng(place.lat, place.lng);
   var center = position;
   if (state.selectedPlaceId === place.id) {
     var top = $('mapCatStrip').getBoundingClientRect().bottom + 86;
     var strip = $('filmstrip');
-    var bottom = panelTop !== undefined ? panelTop - 4
+    var sidePanel = panel && panel.offsetLeft > innerWidth / 2;
+    var bottom = sidePanel ? innerHeight - 24
+      : panel ? panel.offsetTop - 4
       : (strip.hidden ? innerHeight - 60 : strip.getBoundingClientRect().top - 12);
+    var targetX = sidePanel ? panel.offsetLeft / 2 : innerWidth / 2;
     var targetY = Math.min(bottom, Math.max(top, innerHeight / 2));
     var point = map.projectToContainer(position);
-    center = map.unprojectFromContainer(new TMap.Point(point.x, point.y + innerHeight / 2 - targetY));
+    center = map.unprojectFromContainer(new TMap.Point(
+      point.x + innerWidth / 2 - targetX, point.y + innerHeight / 2 - targetY
+    ));
   }
   map.easeTo({ center: center }, {
     duration: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 600
@@ -1785,11 +1811,12 @@ function openDetail(placeId, listButton, fromFilmstrip) {
   detailListReturn = listReturn;
   // openDrawer 会先清空抽屉的返回目标，所以只能在这之后记。
   detailFilmReturn = !listReturn && !!fromFilmstrip;
+  var panel = $('drawerDetail');
   if (listReturn) {
-    var photo = $('drawerDetail').querySelector('.visit-photo');
+    var photo = panel.querySelector('.visit-photo');
     var refitPhoto = function () {
       if (detailListReturn === listReturn && state.selectedPlaceId === placeId && photo && photo.isConnected) {
-        focusPlace(p, $('drawerDetail').offsetTop);
+        focusPlace(p, panel);
       }
     };
     refitPhoto();
@@ -1797,6 +1824,8 @@ function openDetail(placeId, listButton, fromFilmstrip) {
       photo.addEventListener('load', refitPhoto, { once:true });
       photo.addEventListener('error', refitPhoto, { once:true });
     }
+  } else if (fromFilmstrip && panel.offsetLeft > innerWidth / 2) {
+    focusPlace(p, panel);
   }
 }
 
