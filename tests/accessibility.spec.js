@@ -401,7 +401,45 @@ for (const destination of ['list', 'another detail']) {
   });
 }
 
-for (const [width, height] of [[320, 860], [375, 860], [414, 860], [768, 860], [1249, 860], [768, 375], [375, 430], [320, 375], [320, 568], [375, 667]]) {
+for (const [width, height] of [[1024, 768], [1440, 900]]) {
+  test(`landscape keeps the selected pin beside the detail panel at ${width}x${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    const film = page.locator('#filmstrip');
+    expect((await film.boundingBox()).width).toBeGreaterThan(560);
+    const detail = page.locator('#drawerDetail');
+    const pin = page.locator('[data-map-pin="public:visit-1"]');
+    const list = page.locator('#drawerPlaces');
+    const row = list.getByRole('button', { name:visit.name, exact:true });
+
+    for (const fromList of [false, true]) {
+      if (fromList) {
+        await page.getByRole('button', { name:/足迹/ }).click();
+        const listBox = await list.boundingBox();
+        expect(listBox.y).toBe(0);
+        expect(listBox.height).toBe(height);
+        await row.click();
+      } else {
+        await filmFrames(page).first().click();
+        await page.getByRole('button', { name:'看照片', exact:true }).click();
+      }
+      await expect(detail).toHaveClass(/open/);
+      await expect.poll(async () => {
+        const box = await detail.boundingBox();
+        return Math.round(box.x + box.width);
+      }).toBe(width);
+      const panel = await detail.boundingBox();
+      const marker = await pin.boundingBox();
+      expect(panel.y).toBe(0);
+      expect(panel.height).toBe(height);
+      expect(marker.x + marker.width / 2).toBeCloseTo(panel.x / 2, 0);
+      expect(marker.x + marker.width).toBeLessThan(panel.x);
+      await page.keyboard.press('Escape');
+      await expect(fromList ? row : selectedFrame(page)).toBeFocused();
+    }
+  });
+}
+
+for (const [width, height] of [[320, 860], [375, 860], [414, 860], [768, 860], [1249, 860], [1024, 600], [768, 375], [375, 430], [320, 375], [320, 568], [375, 667]]) {
   test(`native map tools fit and remain clear of the filmstrip at ${width}x${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     const targets = page.locator('[data-sdk-controls] .compass-circle, [data-sdk-controls] .rotate-panel > div, [data-sdk-controls] .tmap-zoom-in, [data-sdk-controls] .tmap-zoom-out, #btnLocate');
@@ -1034,7 +1072,7 @@ for (const width of [320, 375, 768, 1440]) {
     expect(metrics.scroll).toBeLessThanOrEqual(metrics.client);
     expect(metrics.nameRight).toBeLessThanOrEqual(metrics.stampLeft + 4);
     expect(metrics.stampRight).toBeLessThanOrEqual(metrics.right);
-    if (width >= 768) expect(metrics.width).toBeLessThanOrEqual(420);
+    if (width >= 768) expect(metrics.width).toBeLessThanOrEqual(width >= 900 ? 480 : 420);
   });
 }
 
