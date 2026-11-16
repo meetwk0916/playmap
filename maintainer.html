@@ -90,7 +90,9 @@ button:disabled { opacity: .5; cursor: default; }
 'use strict';
 const $ = id => document.getElementById(id);
 const DRAFT_KEY = 'playmap_maintainer_draft_v1';
+const VISIT_HISTORY_MESSAGE = '此地点使用到访历史，请交给 Agent 更新。';
 let draft, base, savedDraft, savedRaw = null, storageBlocked = false;
+let visitHistoryPoiIds;
 let selected = 0, photo = '', dirty = false, dateChanged = false, reflectionChanged = false;
 function validData(data) {
   return data && Array.isArray(data.places) && data.places.every(p => p && p.provider === 'tencent' &&
@@ -190,6 +192,12 @@ $('photoInput').addEventListener('change', async () => {
 });
 $('start').addEventListener('click', () => {
   selected = Number($('place').value);
+  const place = draft.places[selected];
+  if (visitHistoryPoiIds.has(place.poiId) || Object.hasOwn(place, 'visits')) {
+    $('error').textContent = VISIT_HISTORY_MESSAGE;
+    return;
+  }
+  if ($('error').textContent === VISIT_HISTORY_MESSAGE) $('error').textContent = '';
   question();
 });
 $('back').addEventListener('click', () => { show('choose'); $('start').focus(); });
@@ -248,6 +256,7 @@ window.addEventListener('beforeunload', event => { if (dirty) { event.preventDef
     if (!response.ok) throw new Error();
     const data = await response.json();
     if (!validData(data)) throw new Error();
+    visitHistoryPoiIds = new Set(data.places.filter(p => Object.hasOwn(p, 'visits')).map(p => p.poiId));
     base = structuredClone(data); draft = structuredClone(data); savedDraft = structuredClone(data);
     try {
       savedRaw = localStorage.getItem(DRAFT_KEY);
@@ -285,7 +294,7 @@ window.addEventListener('beforeunload', event => { if (dirty) { event.preventDef
     if (!draft.places.length) { $('error').textContent = '暂无地点，请从本地地图添加地点后填写。'; return; }
     $('place').replaceChildren(...draft.places.map((p, i) => new Option(p.name, String(i))));
     $('place').disabled = $('start').disabled = false;
-    if (pending) { $('place').value = String(selected); $('start').click(); dirty = true; }
+    if (pending) { $('place').value = String(selected); $('start').click(); dirty = !$('question').hidden; }
   } catch { $('error').textContent = '未能读取可维护的公开地点。请确认 public-places.json 有有效地点后刷新重试。'; }
 })();
 </script>
