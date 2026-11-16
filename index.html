@@ -1811,9 +1811,15 @@ function openDetail(placeId, listButton, fromFilmstrip) {
   detailFilmReturn = !listReturn && !!fromFilmstrip;
   if (listReturn && map) {
     var drawer = $('drawerDetail');
-    detailResizeObserver = new ResizeObserver(function () {
-      if (state.selectedPlaceId === placeId) focusPlace(p, drawer.offsetTop);
-    });
+    var panelTop;
+    var refitDrawer = function () {
+      var nextTop = drawer.offsetTop;
+      if (nextTop === panelTop || state.selectedPlaceId !== placeId) return;
+      panelTop = nextTop;
+      focusPlace(p, panelTop);
+    };
+    refitDrawer();
+    detailResizeObserver = new ResizeObserver(refitDrawer);
     detailResizeObserver.observe(drawer);
   }
 }
