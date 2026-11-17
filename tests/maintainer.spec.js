@@ -72,6 +72,34 @@ test('existing POI handoff preserves identity and local-only boundary', async ({
   await expect(page.getByRole('alert')).toContainText('仅限本机');
 });
 
+test('POI handoff reuses the published place when a saved draft predates it', async ({ page }) => {
+  const base = { avatar: publicData.avatar, places: [publicData.places[0]] };
+  const oldDraft = { ...base, places: [{ ...base.places[0], reflection: '保留已有草稿' }] };
+  const publishedPlace = {
+    provider: 'tencent', poiId: 'newly-published', name: '已发布乐园', address: '上海市黄浦区',
+    lat: 31.23, lng: 121.47, category: 'playground', score: 4.7, visitedOn: '2026-09-12',
+    photo: 'assets/visits/disney-20260912.jpg'
+  };
+  const incoming = { ...publishedPlace, name: '检索结果名称', address: '腾讯检索地址', category: 'other' };
+  await page.addInitScript(({ key, base, oldDraft, incoming }) => {
+    localStorage.setItem(key, JSON.stringify({ version: 1, base, draft: oldDraft }));
+    sessionStorage.setItem('playmap_rating_poi', JSON.stringify(incoming));
+  }, { key: draftKey, base, oldDraft, incoming });
+  await page.route('**/public-places.json', route => route.fulfill({
+    json: { ...base, places: [...base.places, publishedPlace] }
+  }));
+  await page.goto('/maintainer.html');
+  await expect(page.locator('#heading')).toContainText(publishedPlace.name);
+  await expect(page.getByLabel('到访日期')).toHaveValue(publishedPlace.visitedOn);
+  await page.getByLabel('11’s 玩后感').fill('还想再去。');
+  await page.getByRole('button', { name: '预览记录' }).click();
+  await page.getByRole('button', { name: '保存到本地草稿' }).click();
+  await expect(page.locator('#baseWarning')).toBeVisible();
+  expect(JSON.parse(await page.locator('#batchOutput').inputValue()).places).toEqual([
+    ...oldDraft.places, { ...publishedPlace, reflection: '还想再去。' }
+  ]);
+});
+
 test('drafts resume, accumulate, and resist failed or concurrent writes', async ({ page }) => {
   const data = structuredClone(publicData);
   data.places = [data.places[0], { ...structuredClone(data.places[0]), poiId: 'second', name: '第二个地点' }];

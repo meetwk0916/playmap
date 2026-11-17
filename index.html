@@ -897,6 +897,10 @@ function categoryOf(value) {
   return CATEGORIES[CATEGORIES.length - 1]; // 兜底：其他
 }
 
+function isKnownCategory(value) {
+  return CATEGORIES.some(function (category) { return category.value === value; });
+}
+
 function cssToken(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
@@ -1749,7 +1753,7 @@ function renderCatGrid() {
       ' data-cat="' + c.value + '"><span class="ce" aria-hidden="true">' + c.emoji + '</span>' + c.label + '</button>';
   });
   $('catGrid').innerHTML = html;
-  $('btnRateLocal').disabled = categoryOf(state.addForm.category).value !== state.addForm.category;
+  $('btnRateLocal').disabled = !isKnownCategory(state.addForm.category);
   restoreFocus($('catGrid'), focusSnapshot);
 }
 
@@ -1786,7 +1790,7 @@ function submitAdd() {
       !Number.isFinite(poi.lng) || Math.abs(poi.lat) > 90 || Math.abs(poi.lng) > 180) {
     showToast('请先从地图搜索结果中选择地点'); return;
   }
-  if (categoryOf(poi.category).value !== poi.category) {
+  if (!isKnownCategory(poi.category)) {
     showToast('请先选择类别'); return;
   }
   try {

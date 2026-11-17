@@ -286,10 +286,15 @@ window.addEventListener('beforeunload', event => { if (dirty) { event.preventDef
         sessionStorage.removeItem('playmap_rating_poi');
         throw new Error();
       }
-      selected = draft.places.findIndex(p => p.provider === poi.provider && p.poiId === poi.poiId);
+      const matchesPoi = place => place.provider === poi.provider && place.poiId === poi.poiId;
+      selected = draft.places.findIndex(matchesPoi);
       if (selected === -1) {
         selected = draft.places.length;
-        draft.places.push({ provider: poi.provider, poiId: poi.poiId, name: poi.name, address: poi.address, category: poi.category, lat: poi.lat, lng: poi.lng });
+        const published = data.places.find(matchesPoi);
+        draft.places.push(published ? structuredClone(published) : {
+          provider: poi.provider, poiId: poi.poiId, name: poi.name, address: poi.address,
+          category: poi.category, lat: poi.lat, lng: poi.lng
+        });
       }
       sessionStorage.removeItem('playmap_rating_poi');
     }
