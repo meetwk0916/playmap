@@ -118,8 +118,15 @@ test('a legacy draft for a migrated place stays exportable without reopening the
   await expect(page.locator('#download')).toBeEnabled();
   expect(await page.evaluate(key => localStorage.getItem(key), draftKey)).toBe(existing);
   await page.locator('#place').selectOption('1');
-  await page.locator('#start').click();
-  await expect(page.locator('#question')).toBeVisible();
+  await preview(page);
+  const legacyPlace = data.places[1].name;
+  await expect(page.locator('#reviewTitle')).toContainText(legacyPlace);
+  page.on('dialog', dialog => dialog.accept());
+  await page.locator('#pendingList').getByRole('button', { name: data.places[0].name + ' · 修改' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: '请交给 Agent 更新' })).toBeVisible();
+  await expect(page.locator('#reviewTitle')).toContainText(legacyPlace);
+  await page.locator('#edit').click();
+  await expect(page.locator('#heading')).toContainText(legacyPlace);
 });
 
 test('incompatible drafts are preserved and changed baseline is flagged', async ({ page }) => {

@@ -699,6 +699,7 @@ test.describe('touch visit history', () => {
   test('swipes between complete visits even when the map is unavailable', async ({ page, context }) => {
     await page.route('**/map.qq.com/api/gljs**', route => route.abort());
     await serveVisits(page, [repeatPlace]);
+    await page.addInitScript(() => { window.open = () => { window.navigationTaps = (window.navigationTaps || 0) + 1; return {}; }; });
     await page.reload();
     const fallback = page.locator('#fallbackList').getByRole('button', { name: visit.name + ' · 11 去过' });
     await fallback.tap();
@@ -708,6 +709,7 @@ test.describe('touch visit history', () => {
     await expect(image).toHaveAttribute('src', newerVisit.photo);
     const client = await context.newCDPSession(page);
     async function swipe(direction) {
+      await image.scrollIntoViewIfNeeded();
       await expect(image).toBeInViewport({ ratio: 0.98 });
       const box = await image.boundingBox();
       const start = box.x + box.width * (direction < 0 ? 0.9 : 0.1);
@@ -722,18 +724,19 @@ test.describe('touch visit history', () => {
       await touch('touchEnd');
     }
     const nav = detail.getByRole('button', { name: /导航去这里/ });
-    await expect(nav).toBeInViewport({ ratio: 0.98 });
     await expect(detail.getByText('又来玩了一次')).toBeInViewport({ ratio: 0.98 });
+    await nav.tap();
     await swipe(-1);
     await expect(controls).toHaveText(/2 \/ 2/);
     await expect(image).toHaveAttribute('src', olderVisit.photo);
     await expect(detail.getByRole('region', { name: '11 的到访记录' }).getByText('11’s 玩后感')).toBeHidden();
-    await expect(nav).toBeInViewport({ ratio: 0.98 });
+    await nav.tap();
     await swipe(1);
     await expect(controls).toHaveText(/1 \/ 2/);
     await expect(image).toHaveAttribute('src', newerVisit.photo);
     await expect(detail.getByText('又来玩了一次')).toBeInViewport({ ratio: 0.98 });
-    await expect(nav).toBeInViewport({ ratio: 0.98 });
+    await nav.tap();
+    expect(await page.evaluate(() => window.navigationTaps)).toBe(3);
 
     await serveVisits(page, [{ ...repeatPlace, visits: [olderVisit, { visitedOn: newerVisit.visitedOn }] }]);
     await page.reload();

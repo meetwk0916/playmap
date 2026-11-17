@@ -99,6 +99,14 @@ function validData(data) {
     typeof p.poiId === 'string' && p.poiId && typeof p.name === 'string') &&
     new Set(data.places.map(p => p.poiId)).size === data.places.length;
 }
+function canEditVisit(place) {
+  if (visitHistoryPoiIds.has(place.poiId) || Object.hasOwn(place, 'visits')) {
+    $('error').textContent = VISIT_HISTORY_MESSAGE;
+    return false;
+  }
+  if ($('error').textContent === VISIT_HISTORY_MESSAGE) $('error').textContent = '';
+  return true;
+}
 function renderBatch() {
   const changes = savedDraft.places.filter(p => JSON.stringify(p) !== JSON.stringify(base.places.find(b => b.poiId === p.poiId)));
   $('pendingCount').textContent = changes.length ? changes.length + ' 个地点已保存，等待发布' : '暂无待发布修改';
@@ -107,6 +115,7 @@ function renderBatch() {
     const button = document.createElement('button');
     button.textContent = p.name + (base.places.some(b => b.poiId === p.poiId) ? ' · 修改' : ' · 新增');
     button.addEventListener('click', () => {
+      if (!canEditVisit(p)) return;
       if (dirty && !confirm('当前还有未保存修改，放弃这些修改并打开已保存草稿？')) return;
       draft = structuredClone(savedDraft); dirty = false;
       $('place').replaceChildren(...draft.places.map((p, i) => new Option(p.name, String(i))));
@@ -138,8 +147,10 @@ function show(id) {
   $('status').textContent = '';
   $('batch').hidden = id === 'question' || !savedDraft;
 }
-function question() {
-  const place = draft.places[selected];
+function question(index) {
+  const place = draft.places[index];
+  if (!canEditVisit(place)) return;
+  selected = index;
   show('question');
   $('heading').textContent = place.name + ' · 11 到访记录';
   $('reflection').value = VisitRules.inspect(place).reflection;
@@ -190,16 +201,7 @@ $('photoInput').addEventListener('change', async () => {
     $('error').textContent = ''; updatePhotoPreview();
   } catch { $('error').textContent = '照片无法处理或超过大小限制，请选一张较小的图片。'; $('photoInput').value = ''; }
 });
-$('start').addEventListener('click', () => {
-  selected = Number($('place').value);
-  const place = draft.places[selected];
-  if (visitHistoryPoiIds.has(place.poiId) || Object.hasOwn(place, 'visits')) {
-    $('error').textContent = VISIT_HISTORY_MESSAGE;
-    return;
-  }
-  if ($('error').textContent === VISIT_HISTORY_MESSAGE) $('error').textContent = '';
-  question();
-});
+$('start').addEventListener('click', () => question(Number($('place').value)));
 $('back').addEventListener('click', () => { show('choose'); $('start').focus(); });
 $('question').addEventListener('submit', event => {
   event.preventDefault();
@@ -231,7 +233,7 @@ $('question').addEventListener('submit', event => {
   dirty = true;
   show('review'); $('reviewTitle').focus();
 });
-$('edit').addEventListener('click', question);
+$('edit').addEventListener('click', () => question(selected));
 $('save').addEventListener('click', saveDraft);
 $('another').addEventListener('click', () => { if (!saveDraft()) return; show('choose'); $('place').focus(); $('status').textContent = '已保存，可继续维护其他地点。'; });
 $('download').addEventListener('click', () => {
