@@ -652,6 +652,14 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 .visit-rating > strong { font-size:13px; color:var(--amber-ink); }
 .visit-photo-wrap { position:relative; margin-top:16px; }
 .visit-photo-wrap .visit-photo { margin-top:0; }
+.visit-controls { display:flex; align-items:center; justify-content:center; gap:12px; margin-top:8px; }
+.visit-controls button { width:44px; height:44px; border:1px solid var(--line); border-radius:var(--radius); background:var(--card); color:var(--primary-deep); font-size:22px; }
+.visit-controls button[aria-disabled="true"] { opacity:.45; cursor:default; }
+.visit-controls output { min-width:5ch; text-align:center; color:var(--text-light); font-variant-numeric:tabular-nums; }
+.visit-track { display:flex; overflow-x:auto; overflow-y:hidden; overscroll-behavior-x:contain; scroll-snap-type:x mandatory; scrollbar-width:none; }
+.visit-track > section { flex:0 0 100%; min-width:0; scroll-snap-align:start; scroll-snap-stop:always; }
+.visit-track > [aria-hidden="true"] { contain:size; }
+.visit-track .visit-photo-wrap { margin-top:8px; }
 #detailContent { position:relative; }
 #detailContent > .detail-actions { margin-top:18px; margin-bottom:0; }
 
@@ -966,9 +974,19 @@ function publicVisitFor(place) {
 }
 
 function mapPlaces() {
-  return publicPlaces.filter(function (place) {
-    return VisitRules.inspect(place.visit).complete;
-  });
+  return publicPlaces.filter(function (place) { return !!place.visit; });
+}
+
+function completeVisits(raw) {
+  var candidates = !Object.hasOwn(raw, 'visits') ? [raw] : raw.visits;
+  if (!Array.isArray(candidates)) return [];
+  var dates = new Set();
+  return candidates.filter(function (visit) {
+    if (!visit || typeof visit !== 'object' || Array.isArray(visit) ||
+        !VisitRules.inspect(visit).complete || dates.has(visit.visitedOn)) return false;
+    dates.add(visit.visitedOn);
+    return true;
+  }).sort(function (a, b) { return b.visitedOn.localeCompare(a.visitedOn); });
 }
 
 function findPlace(id) {
@@ -986,7 +1004,8 @@ async function loadPublicPlaces() {
       if (!isTencentPlace(place) || Math.abs(place.lat) > 90 || Math.abs(place.lng) > 180 ||
           publicPlaces.some(function (p) { return samePoi(p, place); })) return;
       place.id = 'public:' + place.poiId;
-      place.visit = raw;
+      place.visits = completeVisits(raw);
+      place.visit = place.visits[0];
       publicPlaces.push(place);
     });
     if (typeof data.avatar === 'string' && data.avatar) {
@@ -1660,6 +1679,7 @@ function closeMoreMenu(restoreFocus) {
 var DRAWERS = ['drawerAdd', 'drawerDetail', 'drawerPrivacy', 'drawerPlaces'];
 var detailListReturn = null;
 var detailFilmReturn = false;
+var detailResizeObserver = null;
 
 function anyDrawerOpen() {
   return DRAWERS.some(function (id) { return $(id).classList.contains('open'); });
@@ -1692,6 +1712,10 @@ function closeCurrentDrawer() {
 }
 
 function closeAllDrawers() {
+  if (detailResizeObserver) {
+    detailResizeObserver.disconnect();
+    detailResizeObserver = null;
+  }
   detailListReturn = null;
   detailFilmReturn = false;
   DRAWERS.forEach(function (id) {
@@ -1785,18 +1809,18 @@ function openDetail(placeId, listButton, fromFilmstrip) {
   detailListReturn = listReturn;
   // openDrawer 会先清空抽屉的返回目标，所以只能在这之后记。
   detailFilmReturn = !listReturn && !!fromFilmstrip;
-  if (listReturn) {
-    var photo = $('drawerDetail').querySelector('.visit-photo');
-    var refitPhoto = function () {
-      if (detailListReturn === listReturn && state.selectedPlaceId === placeId && photo && photo.isConnected) {
-        focusPlace(p, $('drawerDetail').offsetTop);
-      }
+  if (listReturn && map) {
+    var drawer = $('drawerDetail');
+    var panelTop;
+    var refitDrawer = function () {
+      var nextTop = drawer.offsetTop;
+      if (nextTop === panelTop || state.selectedPlaceId !== placeId) return;
+      panelTop = nextTop;
+      focusPlace(p, panelTop);
     };
-    refitPhoto();
-    if (photo && !photo.complete) {
-      photo.addEventListener('load', refitPhoto, { once:true });
-      photo.addEventListener('error', refitPhoto, { once:true });
-    }
+    refitDrawer();
+    detailResizeObserver = new ResizeObserver(refitDrawer);
+    detailResizeObserver.observe(drawer);
   }
 }
 
@@ -1840,18 +1864,16 @@ function openPoiPreview(poi) {
   $('btnChoosePoi').addEventListener('click', function () { openAddForm(poi); });
 }
 
-function visitHtml(place) {
-  var published = publicVisitFor(place);
-  if (!published) return '';
-  var visit = published.visit;
+function visitHtml(place, visit, hidden) {
   var rules = VisitRules.inspect(visit);
-  var photo = rules.validPhoto
-    ? '<img class="visit-photo" src="' + visit.photo + '" alt="11 在' + escapeHtml(place.name) + '的到访打卡照">' : '';
+  var photo = '<img class="visit-photo" draggable="false" src="' + escapeHtml(visit.photo) +
+    '" alt="11 在' + escapeHtml(place.name) + '的到访打卡照">';
   var reflection = rules.reflection ? '<div class="visit-heading">' +
     (publicAvatar ? '<img class="visit-avatar" src="' + publicAvatar + '" alt="11 的头像">' :
       '<span class="visit-avatar" aria-hidden="true">11</span>') +
     '<div class="visit-rating"><strong>11’s 玩后感</strong><p class="visit-reflection">' + escapeHtml(rules.reflection) + '</p></div></div>' : '';
-  return '<section aria-label="11 的到访记录"><div class="visit-photo-wrap">' + photo + '</div>' + reflection + '</section>';
+  return '<section aria-label="11 的到访记录"' + (hidden ? ' aria-hidden="true"' : '') +
+    '><div class="visit-photo-wrap">' + photo + '</div>' + reflection + '</section>';
 }
 
 function visitDateHtml(visit) {
@@ -1861,6 +1883,53 @@ function visitDateHtml(visit) {
     '</time> · <span class="stamp-age">' + Math.floor(months / 12) + '岁' + months % 12 + '个月打卡</span></p>';
 }
 
+function visitCarouselHtml(place) {
+  if (place.visits.length === 1) return visitHtml(place, place.visit);
+  return '<div class="visit-controls" role="group" aria-label="切换到访">' +
+    '<button type="button" aria-label="较新一次" aria-disabled="true">‹</button>' +
+    '<output aria-live="polite">1 / ' + place.visits.length + '</output>' +
+    '<button type="button" aria-label="较早一次">›</button></div>' +
+    '<div class="visit-track" tabindex="-1" role="region" aria-label="左右滑动浏览到访">' +
+    place.visits.map(function (visit, index) { return visitHtml(place, visit, index !== 0); }).join('') + '</div>';
+}
+
+function bindVisitCarousel(place) {
+  var detail = $('detailContent');
+  var track = detail.querySelector('.visit-track');
+  var controls = detail.querySelector('.visit-controls');
+  var newer = controls.firstElementChild;
+  var older = controls.lastElementChild;
+  var position = controls.querySelector('output');
+  var index = 0;
+  var last = place.visits.length - 1;
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)');
+
+  function step(direction) {
+    var next = index + direction;
+    if (next < 0 || next > last) return;
+    track.scrollTo({ left: next * track.clientWidth, behavior: reduce.matches ? 'auto' : 'smooth' });
+  }
+  newer.addEventListener('click', function () { step(-1); });
+  older.addEventListener('click', function () { step(1); });
+  controls.addEventListener('keydown', function (event) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    step(event.key === 'ArrowLeft' ? -1 : 1);
+  });
+  track.addEventListener('scroll', function () {
+    if (!track.clientWidth) return;
+    var next = Math.max(0, Math.min(last, Math.round(track.scrollLeft / track.clientWidth)));
+    if (next === index) return;
+    track.children[index].setAttribute('aria-hidden', 'true');
+    index = next;
+    track.children[index].removeAttribute('aria-hidden');
+    detail.querySelector('.visit-date').outerHTML = visitDateHtml(place.visits[index]);
+    newer.setAttribute('aria-disabled', index === 0);
+    older.setAttribute('aria-disabled', index === last);
+    position.textContent = (index + 1) + ' / ' + place.visits.length;
+  });
+}
+
 function renderDetail() {
   var p = findPlace(state.currentDetailId);
   if (!p) { closeAllDrawers(); return; }
@@ -1868,8 +1937,9 @@ function renderDetail() {
   var cat = categoryOf(p.category);
   $('detailContent').innerHTML = '<div class="detail-head">' +
     '<div class="d-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
-    '<div class="detail-main"><div class="d-cat">' + cat.label + '</div><div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' + visitDateHtml(p.visit) + '</div><img class="detail-berry" src="assets/strawberry-stamp.png" alt=""></div>' + visitHtml(p) +
+    '<div class="detail-main"><div class="d-cat">' + cat.label + '</div><div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' + visitDateHtml(p.visit) + '</div><img class="detail-berry" src="assets/strawberry-stamp.png" alt=""></div>' + visitCarouselHtml(p) +
     '<div class="detail-actions"><button class="btn-nav" id="btnNav">🧭 导航去这里</button></div>';
+  if (p.visits.length > 1) bindVisitCarousel(p);
   restoreFocus($('detailContent'), focusSnapshot);
   $('btnNav').addEventListener('click', function () { openNavigation(p); });
 }

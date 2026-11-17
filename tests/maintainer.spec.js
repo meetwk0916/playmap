@@ -102,6 +102,33 @@ test('drafts resume, accumulate, and resist failed or concurrent writes', async 
   await expect(page.locator('#error')).toContainText('另一个页面');
 });
 
+test('a legacy draft for a migrated place stays exportable without reopening the old editor', async ({ page }) => {
+  const data = structuredClone(publicData);
+  const draft = structuredClone(data);
+  draft.places[0].reflection = '保留给 Agent 核对的旧草稿';
+  const existing = JSON.stringify({ version: 1, base: data, draft });
+  await page.addInitScript(({ key, value }) => localStorage.setItem(key, value), { key: draftKey, value: existing });
+  const published = structuredClone(data);
+  published.places[0].visits = [];
+  await page.route('**/public-places.json', route => route.fulfill({ json: published }));
+  await page.goto('/maintainer.html');
+  await page.locator('#start').click();
+  await expect(page.getByRole('alert').filter({ hasText: '请交给 Agent 更新' })).toBeVisible();
+  await expect(page.locator('#question')).toBeHidden();
+  await expect(page.locator('#download')).toBeEnabled();
+  expect(await page.evaluate(key => localStorage.getItem(key), draftKey)).toBe(existing);
+  await page.locator('#place').selectOption('1');
+  await preview(page);
+  const legacyPlace = data.places[1].name;
+  await expect(page.locator('#reviewTitle')).toContainText(legacyPlace);
+  page.on('dialog', dialog => dialog.accept());
+  await page.locator('#pendingList').getByRole('button', { name: data.places[0].name + ' · 修改' }).click();
+  await expect(page.getByRole('alert').filter({ hasText: '请交给 Agent 更新' })).toBeVisible();
+  await expect(page.locator('#reviewTitle')).toContainText(legacyPlace);
+  await page.locator('#edit').click();
+  await expect(page.locator('#heading')).toContainText(legacyPlace);
+});
+
 test('incompatible drafts are preserved and changed baseline is flagged', async ({ page }) => {
   await page.goto('/maintainer.html');
   await page.evaluate(key => localStorage.setItem(key, '{broken'), draftKey);

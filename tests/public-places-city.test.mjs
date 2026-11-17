@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { cityGroupPatternFromHtml, placesWithoutCity } from '../scripts/check-public-places.mjs';
+import { cityGroupPatternFromHtml, placesWithoutCity, validateVisitHistory } from '../scripts/check-public-places.mjs';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const pattern = cityGroupPatternFromHtml(html);
@@ -47,4 +47,13 @@ test('a page without the city matcher fails closed', () => {
     () => cityGroupPatternFromHtml('function cityOf(place) { return place.address; }\n'),
     /city regex|regex literal/
   );
+});
+
+test('publishing keeps draft visits but rejects malformed histories and duplicate exact dates', () => {
+  const draftVisits = [{ visitedOn: '2025-02' }, { visitedOn: '2025-02' }, { photo: 'old-value' }, { visitedOn: '2025-04-01' }];
+  assert.doesNotThrow(() => validateVisitHistory([{ visitedOn: '2025-01' }, { visits: [] }, { visits: draftVisits }]));
+  assert.throws(() => validateVisitHistory([{ poiId: 'demo', visits: null }]), /demo.*visits/);
+  assert.throws(() => validateVisitHistory([{ poiId: 'demo', visits: [null] }]), /demo.*visits/);
+  assert.throws(() => validateVisitHistory([{ poiId: 'demo', visits: [...draftVisits, { visitedOn: '2025-04-01' }] }]),
+    /demo.*2025-04-01/);
 });

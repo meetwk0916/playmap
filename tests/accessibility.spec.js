@@ -621,6 +621,136 @@ test('filmstrip lists filtered visits newest first and fits the map to every mat
   await expect(page.locator('#mapCatStrip').getByRole('button')).toHaveText(['✨ 全部', '🛍️ 商场儿童区']);
 });
 
+const olderVisit = { visitedOn: '2025-05-01', photo: 'assets/visits/disney-20260912.jpg' };
+const newerVisit = {
+  visitedOn: '2026-09-12', photo: 'assets/visits/legoland-20260927.jpg', reflection: '又来玩了一次'
+};
+const repeatPlace = { ...visit, address: '上海市黄浦区', visits: [olderVisit, newerVisit] };
+
+test('a repeat place opens its latest complete visit and can browse earlier visits', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.setViewportSize({ width: 1120, height: 900 });
+  await serveVisits(page, [
+    { ...repeatPlace, visits: [
+      olderVisit, { visitedOn: '2026-10-01' }, newerVisit, { photo: newerVisit.photo },
+      { ...olderVisit, reflection: '重复日期' }
+    ] },
+    { ...visit, poiId: 'split', name: '资料待补', category: 'mall',
+      visits: [{ visitedOn: newerVisit.visitedOn }, { photo: newerVisit.photo }] },
+    { ...visit, poiId: 'empty', name: '没有公开到访', visits: [] },
+    { ...visit, poiId: 'middle', name: '另一座公园', visitedOn: '2026-05-21', address: '上海市黄浦区' }
+  ]);
+  await page.addInitScript(() => { window.open = url => { window.testNavigation = url; return {}; }; });
+  await page.reload();
+
+  await expect(page.locator('[data-map-pin]')).toHaveCount(2);
+  await expect(filmFrames(page)).toHaveCount(2);
+  await expect(page.locator('.film-name')).toHaveText([visit.name, '另一座公园']);
+  await expect(filmFrames(page).first().locator('img')).toHaveAttribute('src', newerVisit.photo);
+  await expect(page.locator('#mapCatStrip').getByRole('button')).toHaveText(['✨ 全部', '🌳 公园']);
+  await page.locator('#mapCatStrip').getByRole('button', { name: /公园/ }).click();
+
+  await page.getByRole('button', { name: /足迹/ }).click();
+  await expect(page.locator('#placeList h3')).toHaveText(['上海市2处']);
+  await expect(page.locator('#placeList time')).toHaveText(['2026.09.12', '2026.05.21']);
+  const row = page.locator('#placeList').getByRole('button', { name: visit.name, exact: true });
+  await row.click();
+  const detail = page.getByRole('dialog', { name: visit.name });
+  const controls = detail.getByRole('group', { name: '切换到访' });
+  const earlier = controls.getByRole('button', { name: '较早一次' });
+  const later = controls.getByRole('button', { name: '较新一次' });
+  const photo = detail.getByRole('img', { name: '11 在' + visit.name + '的到访打卡照' });
+  await expect(controls).toHaveText(/1 \/ 2/);
+  await expect(photo).toHaveAttribute('src', newerVisit.photo);
+  await photo.hover();
+  await page.mouse.wheel(760, 0);
+  await expect(controls).toHaveText(/2 \/ 2/);
+  await photo.hover();
+  await page.mouse.wheel(-760, 0);
+  await expect(controls).toHaveText(/1 \/ 2/);
+  await expect(detail.getByText('又来玩了一次')).toBeVisible();
+  await expect(detail.locator('.visit-date')).toHaveText('2026.09.12 · 2岁3个月打卡');
+
+  await earlier.click();
+  await expect(controls).toHaveText(/2 \/ 2/);
+  await expect(photo).toHaveAttribute('src', olderVisit.photo);
+  await expect(detail.getByRole('region', { name: '11 的到访记录' }).getByText('11’s 玩后感')).toBeHidden();
+  await expect(detail.locator('.visit-date')).toHaveText('2025.05.01 · 0岁10个月打卡');
+  await expect(earlier).toBeFocused();
+  await expect(earlier).toHaveAttribute('aria-disabled', 'true');
+  await page.keyboard.press('ArrowLeft');
+  await expect(controls).toHaveText(/1 \/ 2/);
+  await expect(later).toHaveAttribute('aria-disabled', 'true');
+
+  await detail.getByRole('button', { name: /导航去这里/ }).click();
+  await expect.poll(() => page.evaluate(() => window.testNavigation)).toContain('coord:31.23,121.47');
+  await page.keyboard.press('Escape');
+  await expect(row).toBeFocused();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '看照片', exact: true }).click();
+  await expect(controls).toHaveText(/1 \/ 2/);
+  await page.keyboard.press('Escape');
+  await expect(selectedFrame(page)).toBeFocused();
+});
+
+test.describe('touch visit history', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+
+  test('swipes between complete visits even when the map is unavailable', async ({ page, context }) => {
+    await page.route('**/map.qq.com/api/gljs**', route => route.abort());
+    await serveVisits(page, [repeatPlace]);
+    await page.addInitScript(() => { window.open = () => { window.navigationTaps = (window.navigationTaps || 0) + 1; return {}; }; });
+    await page.reload();
+    const fallback = page.locator('#fallbackList').getByRole('button', { name: visit.name + ' · 11 去过' });
+    await fallback.tap();
+    const detail = page.getByRole('dialog', { name: visit.name });
+    const controls = detail.getByRole('group', { name: '切换到访' });
+    const image = detail.getByRole('img', { name: '11 在' + visit.name + '的到访打卡照' });
+    await expect(image).toHaveAttribute('src', newerVisit.photo);
+    const client = await context.newCDPSession(page);
+    async function swipe(direction) {
+      await image.scrollIntoViewIfNeeded();
+      await expect(image).toBeInViewport({ ratio: 0.98 });
+      const box = await image.boundingBox();
+      const start = box.x + box.width * (direction < 0 ? 0.9 : 0.1);
+      const y = Math.round(box.y + box.height / 2);
+      const touch = (type, x) => client.send('Input.dispatchTouchEvent', {
+        type, touchPoints: type === 'touchEnd' ? [] : [{ x: Math.round(x), y }]
+      });
+      await touch('touchStart', start);
+      for (let step = 1; step <= 8; step++) {
+        await touch('touchMove', start + direction * box.width * step / 10);
+      }
+      await touch('touchEnd');
+    }
+    const nav = detail.getByRole('button', { name: /导航去这里/ });
+    await expect(detail.getByText('又来玩了一次')).toBeInViewport({ ratio: 0.98 });
+    await nav.tap();
+    await swipe(-1);
+    await expect(controls).toHaveText(/2 \/ 2/);
+    await expect(image).toHaveAttribute('src', olderVisit.photo);
+    await expect(detail.getByRole('region', { name: '11 的到访记录' }).getByText('11’s 玩后感')).toBeHidden();
+    await nav.tap();
+    await swipe(1);
+    await expect(controls).toHaveText(/1 \/ 2/);
+    await expect(image).toHaveAttribute('src', newerVisit.photo);
+    await expect(detail.getByText('又来玩了一次')).toBeInViewport({ ratio: 0.98 });
+    await nav.tap();
+    expect(await page.evaluate(() => window.navigationTaps)).toBe(3);
+
+    await serveVisits(page, [{ ...repeatPlace, visits: [olderVisit, { visitedOn: newerVisit.visitedOn }] }]);
+    await page.reload();
+    await fallback.tap();
+    await expect(image).toHaveAttribute('src', olderVisit.photo);
+    await expect(controls).toHaveCount(0);
+
+    await serveVisits(page, [{ ...repeatPlace, visits: [{ visitedOn: newerVisit.visitedOn }] }]);
+    await page.reload();
+    await expect(fallback).toHaveCount(0);
+    await expect(page.locator('#fallbackList')).toContainText('暂无完整的到访记录');
+  });
+});
+
 test('filmstrip keeps one tab stop, moves with arrow keys and opens the visit photo', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await serveVisits(page, [

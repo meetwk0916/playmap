@@ -59,6 +59,24 @@ export function placesWithoutCity(places, pattern) {
   });
 }
 
+export function validateVisitHistory(places) {
+  for (const place of places) {
+    if (!Object.hasOwn(place, 'visits')) continue;
+    const { poiId, visits } = place;
+    if (!Array.isArray(visits) || visits.some(visit => !visit || typeof visit !== 'object' || Array.isArray(visit))) {
+      throw new Error(`公开地点 ${poiId} 的 visits 必须是到访对象数组。`);
+    }
+    const dates = new Set();
+    for (const { visitedOn } of visits) {
+      if (typeof visitedOn !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(visitedOn)) continue;
+      const date = new Date(visitedOn);
+      if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== visitedOn) continue;
+      if (dates.has(visitedOn)) throw new Error(`公开地点 ${poiId} 有重复到访日期 ${visitedOn}。`);
+      dates.add(visitedOn);
+    }
+  }
+}
+
 function main() {
   try {
     const root = new URL('..', import.meta.url);
@@ -75,6 +93,7 @@ function main() {
       process.exitCode = 1;
       return;
     }
+    validateVisitHistory(data.places);
     console.log(`公开地点地址均可解析出城市（${data.places.length}）。`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));

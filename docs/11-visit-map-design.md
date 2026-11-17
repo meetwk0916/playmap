@@ -1,6 +1,6 @@
 # 11 到访地图设计讨论
 
-状态：维护者于 2026-10-15 指定 implement，授权按最终评阅版本正式实现。2026-10-18 的 [Issue #39](https://github.com/meetwk0916/playmap/issues/39) 将评分替换为可选的一句话玩后感，并取消评分门槛；以下历史原型与验收记录不表示该变化已部署。现役实现说明见 README.md；部署与核验结果见[发布记录](releases.md)。
+状态：维护者于 2026-10-15 指定 implement，授权按最终评阅版本正式实现。2026-10-18 的 [Issue #39](https://github.com/meetwk0916/playmap/issues/39) 将评分替换为可选的一句话玩后感，并取消评分门槛；以下记录保留早期单次详情设计。[Issue #67](https://github.com/meetwk0916/playmap/issues/67) 将同一地点的多次完整到访放在详情内，可左右滑动照片或用箭头切换。以下历史原型与验收记录不表示这些变化已部署。现役实现说明见 README.md；部署与核验结果见[发布记录](releases.md)。
 
 ## 已确认
 
