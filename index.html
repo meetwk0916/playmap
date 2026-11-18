@@ -415,7 +415,7 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
   margin-bottom: 12px;
 }
 .field { margin: 14px 0; }
-.field label {
+.field label, .field-label {
   display: block;
   font-size: 13px;
   color: var(--text-light);
@@ -504,6 +504,7 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
   color: var(--text-light);
   margin-top: 10px;
 }
+#btnRateLocal:disabled { opacity: .45; cursor: default; }
 .btn-danger {
   border: none;
   border-radius: 12px;
@@ -814,11 +815,11 @@ body:has(#filmstrip:not([hidden])) #map .tmap-scale-control { display:none; }
     <input type="text" id="addName" maxlength="30" readonly />
   </div>
   <div class="field">
-    <label>选择类别</label>
-    <div class="cat-grid" id="catGrid"></div>
+    <div class="field-label" id="catGridLabel">选择类别</div>
+    <div class="cat-grid" id="catGrid" role="group" aria-labelledby="catGridLabel"></div>
   </div>
 
-  <button class="btn-ghost" id="btnRateLocal" hidden>11 去过，填写到访记录</button>
+  <button type="button" class="btn-ghost" id="btnRateLocal" hidden disabled>11 去过，填写到访记录</button>
   <button class="btn-ghost" id="btnCancelAdd">取消</button>
 </div>
 
@@ -877,14 +878,14 @@ var hasPersonalData = false;
 // 类别定义（value 唯一，emoji 作为图标；颜色由 :root 设计令牌提供）
 var CATEGORIES = [
   { value: 'park',       label: '公园',          emoji: '🌳', colorToken: '--cat-park',       searchKeyword: '公园',         searchTerms: ['公园'] },
-  { value: 'playground', label: '游乐场',        emoji: '🎠', colorToken: '--cat-playground', searchKeyword: '游乐场',       searchTerms: ['游乐场', '游乐园', '儿童乐园', '亲子'] },
+  { value: 'playground', label: '乐园',          emoji: '🎠', colorToken: '--cat-playground', searchKeyword: '游乐场',       searchTerms: ['游乐场', '游乐园', '儿童乐园', '亲子'] },
   { value: 'zoo',        label: '动物园',        emoji: '🐼', colorToken: '--cat-zoo',        searchKeyword: '动物园',       searchTerms: ['动物园', '动物乐园', '动物岛', '鸟世界'] },
   { value: 'aquarium',   label: '水族馆',        emoji: '🐠', colorToken: '--cat-aquarium',   searchKeyword: '水族馆',       searchTerms: ['水族馆', '海洋馆', '海洋世界'] },
   { value: 'museum',     label: '博物馆',        emoji: '🏛️', colorToken: '--cat-museum',     searchKeyword: '博物馆',       searchTerms: ['博物馆'] },
   { value: 'science',    label: '科技馆',        emoji: '🔬', colorToken: '--cat-science',    searchKeyword: '科技馆',       searchTerms: ['科技馆', '科学馆', '天文馆'] },
   { value: 'library',    label: '图书馆',        emoji: '📚', colorToken: '--cat-library',    searchKeyword: '图书馆',       searchTerms: ['图书馆'] },
-  { value: 'mall',       label: '商场儿童区',    emoji: '🛍️', colorToken: '--cat-mall',       searchKeyword: '商场儿童乐园', searchTerms: ['儿童乐园', '儿童区', '亲子'] },
-  { value: 'water',      label: '亲水玩沙',      emoji: '🏖️', colorToken: '--cat-water',      searchKeyword: '沙滩',         searchTerms: ['沙滩', '海滩', '海滨浴场'] },
+  { value: 'mall',       label: '商场与商店',    emoji: '🛍️', colorToken: '--cat-mall',       searchKeyword: '商场儿童乐园', searchTerms: ['儿童乐园', '儿童区', '亲子'] },
+  { value: 'water',      label: '沙滩与亲水地',  emoji: '🏖️', colorToken: '--cat-water',      searchKeyword: '沙滩',         searchTerms: ['沙滩', '海滩', '海滨浴场'] },
   { value: 'hotel',      label: '酒店住宿',      emoji: '🏨', colorToken: '--cat-hotel',      searchKeyword: '酒店',         searchTerms: ['酒店', '宾馆', '民宿', '度假村'] },
   { value: 'other',      label: '其他',          emoji: '📍', colorToken: '--cat-other' }
 ];
@@ -894,6 +895,10 @@ function categoryOf(value) {
     if (CATEGORIES[i].value === value) return CATEGORIES[i];
   }
   return CATEGORIES[CATEGORIES.length - 1]; // 兜底：其他
+}
+
+function isKnownCategory(value) {
+  return CATEGORIES.some(function (category) { return category.value === value; });
 }
 
 function cssToken(name) {
@@ -941,7 +946,7 @@ var state = {
   currentDetailId: null,
   selectedPlaceId: null,
   cityFilter: 'all',
-  addForm: { name: '', address: '', poiId: '', lat: 0, lng: 0, category: 'park', source: null }
+  addForm: { name: '', address: '', poiId: '', lat: 0, lng: 0, category: null, source: null }
 };
 
 function sanitizePlace(raw) {
@@ -1742,11 +1747,13 @@ function renderCatGrid() {
   var focusSnapshot = captureFocus($('catGrid'));
   var html = '';
   CATEGORIES.forEach(function (c) {
+    var active = state.addForm.category === c.value;
     html += '<button type="button" class="cat-btn' +
-      (state.addForm.category === c.value ? ' active cat-' + c.value : '') + '"' +
+      (active ? ' active cat-' + c.value : '') + '" aria-pressed="' + active + '"' +
       ' data-cat="' + c.value + '"><span class="ce" aria-hidden="true">' + c.emoji + '</span>' + c.label + '</button>';
   });
   $('catGrid').innerHTML = html;
+  $('btnRateLocal').disabled = !isKnownCategory(state.addForm.category);
   restoreFocus($('catGrid'), focusSnapshot);
 }
 
@@ -1762,7 +1769,7 @@ function openAddForm(poi) {
     poiId: String(poi.poiId || '').trim().slice(0, 100),
     lat: poi.lat,
     lng: poi.lng,
-    category: poi.category || 'park',
+    category: null,
     source: 'map-poi'
   };
   $('addName').value = state.addForm.name;
@@ -1782,6 +1789,9 @@ function submitAdd() {
   if (poi.source !== 'map-poi' || !poi.name || !poi.poiId || !Number.isFinite(poi.lat) ||
       !Number.isFinite(poi.lng) || Math.abs(poi.lat) > 90 || Math.abs(poi.lng) > 180) {
     showToast('请先从地图搜索结果中选择地点'); return;
+  }
+  if (!isKnownCategory(poi.category)) {
+    showToast('请先选择类别'); return;
   }
   try {
     sessionStorage.setItem('playmap_rating_poi', JSON.stringify({
@@ -2377,7 +2387,7 @@ function bindEvents() {
     state.addForm.category = btn.getAttribute('data-cat');
     renderCatGrid();
   });
-  $('btnRateLocal').addEventListener('click', function () { submitAdd(true); });
+  $('btnRateLocal').addEventListener('click', submitAdd);
   $('btnCancelAdd').addEventListener('click', closeAllDrawers);
 
   // 地图页类别筛选
