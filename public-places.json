@@ -45,7 +45,9 @@
       "fun": {
         "level": "high",
         "reason": "草坪够大，还有专门的蘑菇乐园，够小孩子放电的"
-      }
+      },
+      "visitedOn": "2026-10-31",
+      "photo": "assets/visits/expo-culture-park-20261031.jpg"
     },
     {
       "provider": "tencent",
@@ -644,6 +646,55 @@
       "lng": 120.60985,
       "visitedOn": "2026-10-10",
       "photo": "assets/visits/dayuling-shaoxing-20261010.jpg"
+    },
+    {
+      "provider": "tencent",
+      "poiId": "15246180074113839559",
+      "name": "绍兴大禹开元观堂",
+      "address": "浙江省绍兴市越城区二环南路1988-1990号",
+      "category": "hotel",
+      "lat": 29.96675,
+      "lng": 120.611445,
+      "visits": [
+        {
+          "visitedOn": "2026-11-07",
+          "photo": "assets/visits/shaoxing-dayu-guanguan-20261107.jpg"
+        },
+        {
+          "visitedOn": "2026-11-08",
+          "photo": "assets/visits/shaoxing-dayu-guanguan-20261108.jpg"
+        }
+      ]
+    },
+    {
+      "provider": "tencent",
+      "poiId": "3343371154000225958",
+      "name": "汤巷公园",
+      "address": "上海市浦东新区康桥镇康人路570号",
+      "category": "park",
+      "lat": 31.146652,
+      "lng": 121.603321,
+      "visits": [
+        {
+          "visitedOn": "2026-10-25",
+          "photo": "assets/visits/tangxiang-park-20261025.jpg"
+        }
+      ]
+    },
+    {
+      "provider": "tencent",
+      "poiId": "6826805714023962873",
+      "name": "世博源",
+      "address": "上海市浦东新区世博大道1368号",
+      "category": "mall",
+      "lat": 31.183626,
+      "lng": 121.492496,
+      "visits": [
+        {
+          "visitedOn": "2026-10-25",
+          "photo": "assets/visits/shiboyuan-20261025.jpg"
+        }
+      ]
     }
   ]
 }
