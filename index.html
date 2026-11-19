@@ -683,17 +683,12 @@ body:has(#mapFallback[hidden]) #drawerDetail { max-height:min(86vh, calc(100dvh 
 #filmstripItems::-webkit-scrollbar { height:4px; }
 #filmstripItems::-webkit-scrollbar-track { background:var(--film-base); border-radius:2px; }
 #filmstripItems::-webkit-scrollbar-thumb { background:var(--brand-sun); border-radius:2px; }
-.film-frame { --photo-h:64px; position:relative; flex:0 0 138px; min-width:44px; padding:3px 3px 5px; border:3px solid var(--card); border-radius:6px; background:var(--film-frame); color:var(--text); text-align:left; overflow:hidden; scroll-snap-align:start; box-shadow:inset 0 0 0 1px var(--line-strong); transition:transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
+.film-frame { --photo-h:50px; position:relative; flex:0 0 138px; min-width:44px; padding:3px 3px 5px; border:3px solid var(--card); border-radius:6px; background:var(--film-frame); color:var(--text); text-align:left; overflow:hidden; scroll-snap-align:start; box-shadow:inset 0 0 0 1px var(--line-strong); transition:transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
 .film-frame img { display:block; width:100%; height:var(--photo-h); object-fit:cover; border-radius:2px; background:var(--spruce-soft); }
-.film-frame { --photo-h:50px; }
-@media (max-width:767px), (pointer:coarse) {
-  #map .map-zoom-control, #map:not(.is-oriented) .map-orientation-control { display:none; }
-}
 #detailContent .btn-nav { flex:0 0 44px; padding:0; background:var(--spruce-soft); color:var(--text); }
 #btnNextPlacePrimary { background:var(--action); color:var(--white); }
-.place-step-controls { display:flex; justify-content:space-between; gap:10px; margin-bottom:12px; }
-.place-step-controls button { min-height:44px; border:1px solid var(--line); border-radius:12px; background:var(--card); color:var(--text); padding:8px; }
-button:disabled { opacity:.5; cursor:default; }
+#detailContent #btnPreviousPlace { flex:0 0 auto; min-height:44px; border:1px solid var(--line); background:var(--card); color:var(--text); padding:8px; }
+#btnPreviousPlace:disabled, #btnNextPlacePrimary:disabled { opacity:.5; cursor:default; }
 .film-number { position:absolute; top:6px; left:6px; padding:2px 5px; border-radius:3px; background:var(--film-base-deep); color:var(--card); font-size:9px; font-weight:700; font-style:normal; letter-spacing:.08em; }
 .film-frame time { position:absolute; top:calc(var(--photo-h) - 14px); right:6px; display:block; padding:1px 4px; border-radius:2px; background:var(--film-base-deep); color:var(--brand-sun); font-size:9px; font-weight:700; line-height:12px; letter-spacing:.04em; white-space:nowrap; }
 .film-name { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; padding:3px 4px 0; font-size:12px; line-height:14px; font-weight:700; overflow:hidden; }
@@ -729,6 +724,9 @@ button:disabled { opacity:.5; cursor:default; }
 #filmstrip[hidden] { display:none; }
 /* 极短视口（横屏手机）留给地图的高度不足半个胶卷，退回「足迹」入口 + 城市分组列表。 */
 @media (max-height:519px) { #filmstrip { display:none; } }
+@media (max-width:767px), (pointer:coarse) {
+  #map .map-zoom-control, #map:not(.is-oriented) .map-orientation-control { display:none; }
+}
 body:has(.mask.show) #filmstrip { visibility:hidden; }
 @media (max-height:600px) {
   :root { --film-height:148px; }
@@ -2203,10 +2201,10 @@ function renderDetail() {
   var index = places.findIndex(function (place) { return place.id === p.id; });
   var previous = index > 0;
   var next = index >= 0 && index < places.length - 1;
-  $('detailContent').innerHTML = '<div class="place-step-controls"><button id="btnPreviousPlace" type="button"' + (previous ? '' : ' disabled') + '>← 上一个</button><button id="btnNextPlace" type="button"' + (next ? '' : ' disabled') + '>下一个地点 →</button></div><div class="detail-head">' +
+  $('detailContent').innerHTML = '<div class="detail-head">' +
     '<div class="d-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
     '<div class="detail-main"><div class="d-cat">' + cat.label + '</div><div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' + visitDateHtml(p.visit) + '</div><img class="detail-berry" src="assets/strawberry-stamp.png" alt=""></div>' + visitCarouselHtml(p) +
-    '<div class="detail-actions"><button class="btn-nav" id="btnNav" aria-label="导航去这里">🧭</button><button id="btnNextPlacePrimary"' + (next ? '' : ' disabled') + '>下一个地点 →</button></div>';
+    '<div class="detail-actions"><button class="btn-nav" id="btnNav" aria-label="导航去这里">🧭</button><button id="btnPreviousPlace" type="button"' + (previous ? '' : ' disabled') + '>← 上一个</button><button id="btnNextPlacePrimary"' + (next ? '' : ' disabled') + '>下一个地点 →</button></div>';
   if (p.visits.length > 1) bindVisitCarousel(p);
   restoreFocus($('detailContent'), focusSnapshot);
   $('btnNav').addEventListener('click', function () { openNavigation(p); });
@@ -2217,10 +2215,9 @@ function renderDetail() {
     selectPlace(target.id);
     openDetail(target.id, null, true);
     var button = $(focusId);
-    (button && !button.disabled ? button : $('btnPreviousPlace')).focus({ preventScroll:true });
+    (button && !button.disabled ? button : $(direction > 0 ? 'btnPreviousPlace' : 'btnNextPlacePrimary')).focus({ preventScroll:true });
   }
   $('btnPreviousPlace').addEventListener('click', function () { stepPlace(-1); });
-  $('btnNextPlace').addEventListener('click', function () { stepPlace(1); });
   $('btnNextPlacePrimary').addEventListener('click', function () { stepPlace(1); });
 }
 /* ---------- 数据与隐私 ---------- */
@@ -2689,8 +2686,9 @@ function bindEvents() {
       closeRoute(true);
       return;
     }
-    selectPlace(placeId);
-    openDetail(placeId, null, true);
+    var fromRoute = routeStops.length > 0;
+    selectPlace(placeId, fromRoute && frame === document.activeElement);
+    if (!fromRoute) openDetail(placeId, null, true);
   });
   $('filmstripItems').addEventListener('focusin', function (evt) {
     var frame = evt.target.closest('.film-frame');

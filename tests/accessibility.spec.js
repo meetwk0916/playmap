@@ -213,11 +213,40 @@ test('initial all-city framing, complete counts and adjacent filtered places agr
   await page.locator('#btnNextPlacePrimary').click();
   await expect(page.locator('#detailTitle')).toHaveText('早地点');
   await expect(page.locator('#btnNextPlacePrimary')).toBeDisabled();
+  await expect(page.locator('#btnPreviousPlace')).toBeFocused();
   await page.locator('#btnPreviousPlace').click();
   await expect(page.locator('#detailTitle')).toHaveText('新地点');
+  await expect(page.locator('#btnNextPlacePrimary')).toBeFocused();
+  await expect(page.locator('#detailContent').getByRole('button', {name:'下一个地点 →', exact:true})).toHaveCount(1);
   await page.keyboard.press('Escape');
   await expect(selectedFrame(page)).toBeFocused();
   await expect(page.locator('#btnVisitPhoto')).toHaveCount(0);
+});
+
+test('a single initial place is centered without selecting it', async ({page}) => {
+  const center = await page.evaluate(() => ({
+    calls:window.__mapEaseToCalls.map(call => ({lat:call.center.lat, lng:call.center.lng})),
+    fits:window.__mapFitBoundsCalls || []
+  }));
+  expect(center.calls).toEqual([{lat:visit.lat, lng:visit.lng}]);
+  expect(center.fits).toEqual([]);
+  await expect(selectedFrame(page)).toHaveCount(0);
+});
+
+test('detail stepping retains the pressed control until its boundary', async ({page}) => {
+  await serveVisits(page, [visit,
+    {...visit, poiId:'middle', visitedOn:'2026-08-01'},
+    {...visit, poiId:'last', visitedOn:'2026-07-01'}]);
+  await page.reload();
+  await filmFrames(page).first().click();
+  await page.locator('#btnNextPlacePrimary').click();
+  await expect(page.locator('#btnNextPlacePrimary')).toBeFocused();
+  await page.locator('#btnNextPlacePrimary').click();
+  await expect(page.locator('#btnPreviousPlace')).toBeFocused();
+  await page.locator('#btnPreviousPlace').click();
+  await expect(page.locator('#btnPreviousPlace')).toBeFocused();
+  await page.locator('#btnPreviousPlace').click();
+  await expect(page.locator('#btnNextPlacePrimary')).toBeFocused();
 });
 
 test('mobile compass appears only for orientation changes and More stays next to its button', async ({page}) => {
@@ -1729,8 +1758,9 @@ test('choosing a playback frame with Enter restores focus to the ordinary frame'
   const earlier = page.getByRole('button', {name:/早期地点.*到访，在地图上选中/});
   await earlier.focus();
   await page.keyboard.press('Enter');
-  await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
-  await page.keyboard.press('Escape');
+  await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
+  await expect(page.getByRole('button', {name:'播放', exact:true})).toBeVisible();
+  await expect(page.locator('#routeInk')).toBeHidden();
   await expect(earlier).toBeFocused();
   await expect(earlier).toHaveAttribute('aria-current', 'true');
 });
