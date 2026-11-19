@@ -1560,7 +1560,7 @@ test('one click plays the full chronology with distinct return arcs and each vis
       {visitedOn:'2026-09-13', photo:collage},
       {visitedOn:'2025-01-01'}
     ]},
-    {...visit, poiId:'middle', name:'中途站', address:'杭州市乙路', category:'zoo', lng:121.481},
+    {...visit, poiId:'middle', name:'中途站', address:'杭州市乙路', category:'zoo', lng:121.521},
     {...visit, poiId:'another', name:'另一处公园', address:'上海市丙路', lng:121.483, visitedOn:'2026-09-15'}
   ]);
   await page.setViewportSize({width:390, height:844});
@@ -1619,6 +1619,29 @@ test('one click plays the full chronology with distinct return arcs and each vis
   await expect(frames.locator('time')).toHaveText(['2026.09.15', '2026.09.14']);
   await expect(page.locator('#cityFilter')).toHaveValue('上海市');
   await expect(page.locator('#mapCatStrip [data-cat="park"]')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[31.23,121.47],[31.23,121.483]]);
+
+  await play.click();
+  await page.evaluate(() => window.__mapEvents.click());
+  await expect(play).toBeVisible();
+  expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[31.23,121.47],[31.23,121.483]]);
+
+  await play.click();
+  const placeList = page.getByRole('button', {name:/足迹/});
+  await placeList.click();
+  await expect(page.getByRole('dialog', {name:'11 去过的地方'})).toBeVisible();
+  expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[31.23,121.47],[31.23,121.483]]);
+  await page.keyboard.press('Escape');
+
+  await play.click();
+  const hiddenByFilter = page.getByRole('button', {name:/中途站.*到访，在地图上选中/});
+  await hiddenByFilter.focus();
+  const previousCameraMoves = await page.evaluate(() => window.__mapEaseToCalls?.length ?? 0);
+  await page.keyboard.press('Enter');
+  await expect(play).toBeFocused();
+  await expect(current).toHaveCount(0);
+  await expect(page.getByRole('button', {name:'看照片', exact:true})).toHaveCount(0);
+  expect(await page.evaluate(() => window.__mapEaseToCalls?.length ?? 0)).toBe(previousCameraMoves);
   expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[31.23,121.47],[31.23,121.483]]);
 });
 

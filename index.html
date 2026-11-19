@@ -845,7 +845,7 @@ body:has(#filmstrip:not([hidden])) #map .tmap-scale-control { display:none; }
 </svg>
 <section id="filmstrip" aria-label="11 的足迹胶卷" hidden>
   <div id="filmstripHead"><strong id="filmstripTitle">11 的足迹胶卷</strong><button type="button" class="route-button" id="routePlay" hidden>播放</button><button type="button" class="route-button" id="routeEnd" hidden>结束</button><button id="btnVisitPhoto" type="button" hidden>看照片</button></div>
-  <div id="routeStatus" role="status" aria-atomic="true"></div>
+  <div id="routeStatus" role="status" aria-atomic="true" hidden></div>
   <div id="filmstripItems" role="group" aria-label="按到访日期排列的记录，可用左右方向键逐格移动"></div>
 </section>
 
@@ -1579,21 +1579,22 @@ function clearRoute() {
   routePins = [];
 }
 
-function closeRoute() {
+function closeRoute(moveFocus = false) {
   var strip = $('filmstrip');
   var previousFocus = document.activeElement;
   var wasInStrip = strip.contains(previousFocus);
   clearRoute();
   $('routeEnd').hidden = true;
   $('routePlay').textContent = '播放';
+  $('routeStatus').hidden = true;
   $('routeStatus').textContent = '';
   state.selectedPlaceId = null;
   renderFilmstrip();
   renderMarkers();
-  if (wasInStrip) {
+  fitPlaces(placesForActiveCategory());
+  if (moveFocus || (wasInStrip && (!previousFocus.isConnected || !previousFocus.getClientRects().length))) {
     var play = $('routePlay');
-    if (!play.getClientRects().length) $('btnPlaceList').focus({ preventScroll: true });
-    else if (!previousFocus.isConnected || !previousFocus.getClientRects().length) play.focus({ preventScroll: true });
+    (play.getClientRects().length ? play : $('btnPlaceList')).focus({ preventScroll: true });
   }
 }
 
@@ -1610,6 +1611,7 @@ function openRoute() {
     place, visit, number:place.visits.length-i
   }))).sort((a,b) => a.visit.visitedOn.localeCompare(b.visit.visitedOn));
   $('routeEnd').hidden = false;
+  $('routeStatus').hidden = false;
   renderFilmstrip();
   var groups = new Map();
   routeStops.forEach((stop,i) => {
@@ -2575,16 +2577,10 @@ function bindSearchEvents() {
    ============================================================ */
 function bindEvents() {
   $('routePlay').onclick = () => routeStops.length ? playRoute() : openRoute();
-  $('routeEnd').onclick = () => {
-    closeRoute();
-    fitPlaces(placesForActiveCategory());
-    $('routePlay').focus({ preventScroll: true });
-  };
+  $('routeEnd').onclick = () => closeRoute(true);
   window.addEventListener('resize', function () {
-    if (routeStops.length && !$('filmstrip').getClientRects().length) {
-      closeRoute();
-      fitPlaces(placesForActiveCategory());
-    } else drawRoute();
+    if (routeStops.length && !$('filmstrip').getClientRects().length) closeRoute();
+    else drawRoute();
   });
   $('cityFilter').addEventListener('change', function () {
     clearSelection();
@@ -2655,7 +2651,13 @@ function bindEvents() {
   // 足迹胶卷：点选画格即选中地图地点，方向键逐格移动，单一 Tab 落点。
   $('filmstripItems').addEventListener('click', function (evt) {
     var frame = evt.target.closest('.film-frame');
-    if (frame) selectPlace(frame.getAttribute('data-place-id'), routeStops.length > 0 && frame === document.activeElement);
+    if (!frame) return;
+    var placeId = frame.getAttribute('data-place-id');
+    if (routeStops.length && !placesForActiveCategory().some(place => place.id === placeId)) {
+      closeRoute(true);
+      return;
+    }
+    selectPlace(placeId, routeStops.length > 0 && frame === document.activeElement);
   });
   $('filmstripItems').addEventListener('focusin', function (evt) {
     var frame = evt.target.closest('.film-frame');
