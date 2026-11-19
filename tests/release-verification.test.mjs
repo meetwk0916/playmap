@@ -1,11 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 import { mkdtemp, mkdir, writeFile, readFile, chmod, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
 import { fileURLToPath } from 'node:url';
+import { promisify } from 'node:util';
 
 test('production verifier compares commit bytes and fails closed', async t => {
   const cwd = await mkdtemp(join(tmpdir(), 'playmap-release-'));
@@ -120,10 +121,15 @@ test('local preview accepts its own directory and rejects a different server', a
   });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const config = { projects: [{ use: { baseURL: `http://127.0.0.1:${server.address().port}/` } }] };
+  const checkPreview = () => promisify(execFile)(process.execPath, ['scripts/check-local-server.cjs', '--running'], {
+    cwd: root, env: { ...process.env, PLAYMAP_PORT: String(server.address().port) }
+  });
   try {
     await checkServer(config);
+    assert.match((await checkPreview()).stdout, /正在服务当前工作目录/);
     sameDirectory = false;
     await assert.rejects(checkServer(config), /另一份工作目录/);
+    await assert.rejects(checkPreview(), /另一份工作目录/);
   } finally { await new Promise(resolve => server.close(resolve)); }
   await assert.rejects(checkServer(config), /尚未启动/);
 });

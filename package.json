@@ -3,7 +3,8 @@
   "private": true,
   "scripts": {
     "predev": "node scripts/check-local-server.cjs",
-    "dev": "python3 -m http.server 4173 --bind 127.0.0.1",
+    "dev": "python3 -m http.server \"${PLAYMAP_PORT:-4173}\" --bind 127.0.0.1",
+    "check:preview": "node scripts/check-local-server.cjs --running",
     "check:design": "node scripts/check-design-discipline.mjs && npm run check:places",
     "check:places": "node scripts/check-public-places.mjs && node --test tests/public-places-city.test.mjs",
     "test": "playwright test",
