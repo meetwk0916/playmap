@@ -2579,8 +2579,10 @@ function bindEvents() {
   $('routePlay').onclick = () => routeStops.length ? playRoute() : openRoute();
   $('routeEnd').onclick = () => closeRoute(true);
   window.addEventListener('resize', function () {
-    if (routeStops.length && !$('filmstrip').getClientRects().length) closeRoute();
-    else drawRoute();
+    if (routeStops.length && !$('filmstrip').getClientRects().length) {
+      // Hiding the strip can blur its focused button before the resize event.
+      closeRoute(document.activeElement === document.body);
+    } else drawRoute();
   });
   $('cityFilter').addEventListener('change', function () {
     clearSelection();
