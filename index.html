@@ -662,6 +662,7 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 .visit-track > [aria-hidden="true"] { contain:size; }
 .visit-track .visit-photo-wrap { margin-top:8px; }
 #detailContent { position:relative; }
+#drawerDetail { clip-path:inset(0 round 24px 24px 0 0); }
 #detailContent > .detail-actions { margin-top:18px; margin-bottom:0; }
 body:has(#mapFallback[hidden]) #drawerDetail { max-height:min(86vh, calc(100dvh - 220px - env(safe-area-inset-top, 0px))); }
 
@@ -1441,9 +1442,14 @@ function initMap() {
     zoomControl.setPosition(TMap.constants.CONTROL_POSITION.TOP_RIGHT);
     rotationControl.setClassName('map-orientation-control');
     zoomControl.setClassName('map-zoom-control');
+    var currentMap = map;
+    var orientationFrame = 0;
     function syncOrientationControl() {
-      var rotated = (typeof map.getRotation === 'function' && map.getRotation() !== 0) ||
-        (typeof map.getPitch === 'function' && map.getPitch() !== 0);
+      if (!map || map !== currentMap) return;
+      var heading = typeof map.getRotation === 'function' ? map.getRotation() : 0;
+      var pitch = typeof map.getPitch === 'function' ? map.getPitch() : 0;
+      heading = ((heading % 360) + 540) % 360 - 180;
+      var rotated = Math.abs(heading) >= 0.5 || Math.abs(pitch) >= 0.5;
       $('map').classList.toggle('is-oriented', Boolean(rotated));
     }
     syncOrientationControl();
@@ -1471,11 +1477,12 @@ function initMap() {
       hideSearchResults();
       clearSelection();
     });
-    ['center_changed','zoom_changed','rotation_changed','pitch_changed','tilesloaded'].forEach(event => map.on(event, function () {
+    ['center_changed','zoom_changed','rotation_changed','pitch_changed','tilesloaded','idle','moveend','rotateend'].forEach(event => map.on(event, function () {
       syncOrientationControl();
+      cancelAnimationFrame(orientationFrame);
+      orientationFrame = requestAnimationFrame(syncOrientationControl);
       drawRoute();
     }));
-    var currentMap = map;
     map.on('tilesloaded', function () {
       if (map !== currentMap) return;
       clearTimeout(mapLoadTimer);
@@ -1713,7 +1720,7 @@ function routeStep(frameLeg) {
   var index = Math.floor(routeTime / legDuration);
   var s = routeStops[index];
   state.selectedPlaceId = s.place.id;
-  $('filmstripTitle').textContent = '第 '+(index+1)+' 站 / 共 '+routeStops.length+' 站'+(s.number >= 2 ? ' · 第 '+s.number+' 次来' : '');
+  $('filmstripTitle').textContent = (index+1)+'/'+routeStops.length+' 站'+(s.number >= 2 ? ' · 第 '+s.number+' 次来' : '');
   var announcement = '第 ' + (index + 1) + ' 站，共 ' + routeStops.length + ' 站，' +
     s.place.name + '，' + s.visit.visitedOn;
   if ($('routeStatus').textContent !== announcement) $('routeStatus').textContent = announcement;
@@ -1863,8 +1870,7 @@ function selectPlace(placeId, moveFocus) {
   syncFilmstripSelection();
   focusPlace(place);
   if (moveFocus) {
-    var frame = $('filmstripItems').querySelector('.film-frame.is-current');
-    if (frame) frame.focus({ preventScroll: true });
+    if (!focusSelectedFrame()) $('btnPlaceList').focus({ preventScroll: true });
   }
 }
 
@@ -1948,7 +1954,7 @@ function focusSelectedFrame() {
   var index = frames.findIndex(function (frame) {
     return frame.getAttribute('data-place-id') === state.selectedPlaceId;
   });
-  if (index < 0) return false;
+  if (index < 0 || !frames[index].getClientRects().length) return false;
   setFilmTabStop(index);
   frames[index].focus({ preventScroll: true });
   revealFrame(frames[index]);
@@ -1964,7 +1970,7 @@ function closeCurrentDrawer() {
     openDrawer('drawerPlaces');
     $('drawerPlaces').scrollTop = listReturn.scrollTop;
     listReturn.button.focus({ preventScroll: true });
-  } else if (filmReturn) focusSelectedFrame();
+  } else if (filmReturn && !focusSelectedFrame()) $('btnPlaceList').focus({ preventScroll: true });
 }
 
 function closeAllDrawers() {
@@ -2212,8 +2218,12 @@ function renderDetail() {
     var target = places[index + direction];
     if (!target) return;
     var focusId = document.activeElement.id;
+    var listReturn = detailListReturn;
+    var filmReturn = detailFilmReturn;
     selectPlace(target.id);
-    openDetail(target.id, null, true);
+    openDetail(target.id, listReturn ? listReturn.button : null, true);
+    if (listReturn) detailListReturn = listReturn;
+    detailFilmReturn = filmReturn;
     var button = $(focusId);
     (button && !button.disabled ? button : $(direction > 0 ? 'btnPreviousPlace' : 'btnNextPlacePrimary')).focus({ preventScroll:true });
   }

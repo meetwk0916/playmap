@@ -249,6 +249,99 @@ test('detail stepping retains the pressed control until its boundary', async ({p
   await expect(page.locator('#btnNextPlacePrimary')).toBeFocused();
 });
 
+for (const height of [844, 480]) {
+  test(`list entry survives place stepping and Escape or Close at 390x${height}`, async ({page}) => {
+    await page.setViewportSize({width:390, height});
+    await serveVisits(page, Array.from({length:15}, (_, i) => ({...visit,
+      poiId:'step-' + i, name:'地点' + i, visitedOn:'2026-09-' + String(28 - i).padStart(2, '0')})));
+    await page.reload();
+    await page.locator('#btnPlaceList').click();
+    const list = page.locator('#drawerPlaces');
+    const row = list.getByRole('button', {name:'地点10', exact:true});
+    for (const exit of ['escape', 'close']) {
+      await expect.poll(() => list.evaluate(el => Math.round(el.getBoundingClientRect().bottom))).toBe(height);
+      await row.scrollIntoViewIfNeeded();
+      const scroll = await list.evaluate(el => el.scrollTop);
+      await row.click();
+      await page.locator('#btnNextPlacePrimary').click();
+      await expect(page.locator('#detailTitle')).toHaveText('地点11');
+      await page.locator('#btnPreviousPlace').click();
+      await page.locator('#btnPreviousPlace').click();
+      await expect(page.locator('#detailTitle')).toHaveText('地点9');
+      if (exit === 'escape') await page.keyboard.press('Escape');
+      else await page.getByRole('button', {name:'关闭地点详情', exact:true}).click();
+      await expect(list).toHaveClass(/open/);
+      await expect(row).toBeFocused();
+      expect(await list.evaluate(el => el.scrollTop)).toBe(scroll);
+    }
+  });
+}
+
+test('closing a filmstrip detail after resizing to a short viewport uses the Footprints fallback', async ({page}) => {
+  await page.setViewportSize({width:390, height:844});
+  await filmFrames(page).first().click();
+  await page.setViewportSize({width:390, height:480});
+  await expect(page.locator('#filmstrip')).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('#btnPlaceList')).toBeFocused();
+});
+
+test('scrollable multi-visit details clip their paint to the drawer, not the map above', async ({page}) => {
+  await page.setViewportSize({width:390, height:844});
+  await serveVisits(page, [{...visit, visits:[
+    {visitedOn:'2026-09-12', photo:visit.photo}, {visitedOn:'2025-05-01', photo:visit.photo}]}]);
+  await page.reload();
+  await filmFrames(page).first().click();
+  const detail = page.locator('#drawerDetail');
+  await expect(detail).toHaveCSS('clip-path', 'inset(0px round 24px 24px 0px 0px)');
+  const pin = await page.locator('[data-map-pin="public:visit-1"]').boundingBox();
+  const drawer = await detail.boundingBox();
+  expect(pin.y + pin.height).toBeLessThanOrEqual(drawer.y - 4);
+  expect(pin.y).toBeGreaterThan((await page.locator('#mapCatStrip').boundingBox()).y + 44);
+  await expect(detail.locator('.visit-track')).toHaveCSS('overflow-x', 'auto');
+  await expect(detail).toHaveCSS('overflow-y', 'auto');
+});
+
+test('compass normalizes north and samples the SDK state after the last change event', async ({page}) => {
+  await page.setViewportSize({width:390, height:844});
+  const compass = page.locator('.map-orientation-control');
+  await page.evaluate(() => { window.__rotation=360.2; window.__pitch=-0.2; window.__mapEvents.rotation_changed(); });
+  await expect(compass).toBeHidden();
+  await page.evaluate(() => { window.__rotation=-359; window.__mapEvents.rotation_changed(); });
+  await expect(compass).toBeVisible();
+  await page.evaluate(() => {
+    window.__mapEvents.rotation_changed();
+    window.__rotation=0;
+    window.__pitch=0;
+  });
+  await expect(compass).toBeHidden();
+  for (const event of ['idle', 'moveend', 'rotateend']) {
+    await page.evaluate(() => { window.__rotation=45; window.__mapEvents.rotation_changed(); });
+    await expect(compass).toBeVisible();
+    await page.evaluate(event => { window.__rotation=0; window.__mapEvents[event](); }, event);
+    await expect(compass).toBeHidden();
+  }
+});
+
+test('the final two-digit replay station and revisit label fit at 390px', async ({page}) => {
+  await page.setViewportSize({width:390, height:844});
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await serveVisits(page, [{...visit, visits:[
+    {visitedOn:'2026-09-12', photo:visit.photo}, {visitedOn:'2025-05-01', photo:visit.photo}]},
+    ...Array.from({length:9}, (_, i) => ({...visit, poiId:'replay-' + i,
+      visitedOn:new Date(Date.UTC(2025, 0, i + 1)).toISOString().slice(0, 10)}))]);
+  await page.reload();
+  await page.clock.install();
+  await page.locator('#routePlay').click();
+  await expect(filmFrames(page)).toHaveCount(11);
+  await page.clock.runFor(2300 * 10 + 100);
+  const title = page.locator('#filmstripTitle');
+  await expect(title).toHaveText('11/11 站 · 第 2 次来');
+  expect(await title.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await expect(page.locator('#filmstrip')).toHaveCSS('height', '184px');
+  await expect(page.locator('#routePlay')).toHaveText('重播');
+});
+
 test('mobile compass appears only for orientation changes and More stays next to its button', async ({page}) => {
   await page.setViewportSize({width:390,height:844});
   await expect(page.locator('.map-zoom-control')).toBeHidden();
