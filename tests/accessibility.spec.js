@@ -1546,3 +1546,26 @@ test(`map timeout clears selection before fallback details and retry (photo ${vi
   await expect(selectedFrame(page)).toBeHidden();
 });
 }
+
+test('one-click playback advances visits in the existing filmstrip, including returns', async ({page}) => {
+  await serveVisits(page, [
+    {...visit, visits:['2025-06-10','2026-09-13'].map(visitedOn=>({visitedOn,photo:visit.photo}))},
+    {...visit, poiId:'middle', name:'中途站'}
+  ]);
+  await page.goto('/');
+  await page.clock.install();
+  const frames = page.locator('#filmstripItems .film-frame');
+  await expect(frames).toHaveCount(2);
+  await page.getByRole('button',{name:'播放'}).click();
+  await expect(frames).toHaveCount(3);
+  const current = page.locator('#filmstripItems .is-current');
+  await expect(current.locator('time')).toHaveText('2025.06.10');
+  await page.clock.runFor(2450);
+  await expect(current).toContainText('中途站');
+  await page.clock.runFor(2450);
+  await expect(current.locator('time')).toHaveText('2026.09.13');
+  await expect(page.locator('#filmstripTitle')).toContainText('第 2 次到访');
+  await page.locator('#routeEnd').click();
+  await expect(frames).toHaveCount(2);
+  await expect(page.locator('#filmstripTitle')).toHaveText('11 的足迹胶卷');
+});
