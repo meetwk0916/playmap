@@ -692,7 +692,34 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 .film-frame time { position:absolute; top:calc(var(--photo-h) - 14px); right:6px; display:block; padding:1px 4px; border-radius:2px; background:var(--film-base-deep); color:var(--brand-sun); font-size:9px; font-weight:700; line-height:12px; letter-spacing:.04em; white-space:nowrap; }
 .film-name { display:block; padding:5px 4px 0; font-size:12px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .film-frame.is-current { border-color:var(--selection); box-shadow:0 0 0 2px var(--film-frame), inset 0 0 0 1px var(--line-strong); transform:translateY(-2px); }
+#filmstrip:has(#routeEnd:not([hidden])) .film-frame:not(.is-current) {
+  transform:scale(.94);
+  border-color:var(--film-base);
+}
+#filmstrip:has(#routeEnd:not([hidden])) .film-frame:not(.is-current) img {
+  filter:saturate(.45) brightness(.75);
+}
+#filmstrip:has(#routeEnd:not([hidden])) .film-frame.is-current {
+  background:var(--brand-sun);
+  border-color:var(--brand-sun);
+  box-shadow:inset 0 0 0 2px var(--film-base-deep);
+  transform:none;
+}
+#filmstrip:has(#routeEnd:not([hidden])) .is-current .film-number {
+  display:inline-flex;align-items:center;gap:4px;
+  background:var(--brand-sun);color:var(--film-base-deep);font-size:12px;
+}
+#filmstrip:has(#routeEnd:not([hidden])) .is-current .film-number::before {
+  content:'';width:0;height:0;border-block:4px solid transparent;border-left:6px solid currentColor;
+}
+#filmstrip:has(#routeEnd:not([hidden])) .film-frame.is-current:focus-visible {
+  outline-color:var(--film-base-deep);
+}
 .film-frame:focus-visible { outline:3px solid var(--brand-sun); outline-offset:-3px; }
+@media (prefers-reduced-motion: reduce) {
+  #filmstrip:has(#routeEnd:not([hidden])) .film-frame { transition:none; }
+  #filmstrip:has(#routeEnd:not([hidden])) .film-frame:not(.is-current) { transform:none; }
+}
 #filmstrip[hidden] { display:none; }
 /* 极短视口（横屏手机）留给地图的高度不足半个胶卷，退回「足迹」入口 + 城市分组列表。 */
 @media (max-height:519px) { #filmstrip { display:none; } }
@@ -734,6 +761,15 @@ body:has(#filmstrip:not([hidden])) #map .tmap-scale-control { display:none; }
   #filmstrip { left:24px; right:auto; width:560px; }
   .film-frame { --photo-h:68px; flex-basis:148px; }
 }
+#routeInk { position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:8;color:var(--primary-deep); }
+#routeLegs path { fill:none;stroke:currentColor;stroke-linecap:round; }
+#routeLegs path:nth-child(odd) { stroke-width:2;stroke-dasharray:1 7;opacity:.56; }
+#routeLegs path:nth-child(even) { stroke-width:3.5;stroke-dasharray:8 5 1 5; }
+#routePins circle { fill:var(--card);stroke:currentColor;stroke-width:2.5; }
+#routePins text { fill:currentColor;stroke:var(--card);stroke-width:4px;paint-order:stroke;text-anchor:middle;font-size:12px;font-weight:700; }
+#filmstripHead .route-button { position:relative; border:0; border-radius:999px; background:var(--brand-sun); color:var(--text); min-width:44px; min-height:28px; padding:0 10px; font-weight:700; }
+#filmstripHead .route-button::after { content:''; position:absolute; inset:-16px 0 0; }
+#routeStatus { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 </style>
 
 <!-- 腾讯地图 GL JS 密钥代理配置（占位符由运行时代理替换） -->
@@ -789,8 +825,27 @@ body:has(#filmstrip:not([hidden])) #map .tmap-scale-control { display:none; }
   <div id="moreMenu" role="menu" aria-label="更多" hidden><button id="btnOpenPrivacy" type="button" role="menuitem">数据与隐私</button></div>
 </div>
 
+<svg id="routeInk" aria-hidden="true" hidden>
+  <defs><clipPath id="riderWindow"><circle cx="-1" cy="-12" r="10"/></clipPath></defs>
+  <g id="routeLegs"></g><g id="routePins"></g>
+  <g id="rider"><g id="riderBody">
+    <circle cx="-1" cy="-12" r="12" fill="var(--card)" stroke="currentColor" stroke-width="2"/>
+    <text x="-1" y="-8" text-anchor="middle" fill="currentColor" font-size="11">11</text>
+    <image id="riderFace" x="-11" y="-22" width="20" height="20" clip-path="url(#riderWindow)"/>
+    <g id="riderCar" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
+      <path d="M-21 -6 Q-21 -10 -16 -10 L-12 -10 Q-9 -1 2 -2 L9 -7 18 -5 Q23 -4 23 2 L22 7 -19 7 Q-23 4 -21 -6Z" fill="var(--spruce-soft)"/>
+      <path d="M15 -3 h5" stroke="var(--rating-ink)"/><circle cx="-13" cy="7" r="5" fill="var(--card)"/><circle cx="14" cy="7" r="5" fill="var(--card)"/>
+      <path d="M-15 7 h4 M12 7 h4"/>
+    </g>
+    <g id="riderPlane" hidden stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="var(--spruce-soft)">
+      <path d="M-23 -12 L-18 -12 -12 -5 13 -5 Q23 -5 26 0 Q20 5 10 5 L-15 4 -22 0Z"/>
+      <path d="M3 0 L-8 14 -15 14 -9 1Z" fill="var(--card)"/><path d="M20 -3 v5"/>
+    </g>
+  </g></g>
+</svg>
 <section id="filmstrip" aria-label="11 的足迹胶卷" hidden>
-  <div id="filmstripHead"><strong id="filmstripTitle">11 的足迹胶卷</strong><button id="btnVisitPhoto" type="button" hidden>看照片</button></div>
+  <div id="filmstripHead"><strong id="filmstripTitle">11 的足迹胶卷</strong><button type="button" class="route-button" id="routePlay" hidden>播放</button><button type="button" class="route-button" id="routeEnd" hidden>结束</button><button id="btnVisitPhoto" type="button" hidden>看照片</button></div>
+  <div id="routeStatus" role="status" aria-atomic="true" hidden></div>
   <div id="filmstripItems" role="group" aria-label="按到访日期排列的记录，可用左右方向键逐格移动"></div>
 </section>
 
@@ -1317,6 +1372,7 @@ function finishLocationRequest() {
 }
 
 function locateUser() {
+  if (routeStops.length) closeRoute();
   if (locationPending) return;
   if (!map) {
     showToast('⚠️ 地图尚未加载，请检查网络后重试');
@@ -1404,12 +1460,14 @@ function initMap() {
       hideSearchResults();
       clearSelection();
     });
+    ['center_changed','zoom_changed','rotation_changed','pitch_changed','tilesloaded'].forEach(event => map.on(event,drawRoute));
     var currentMap = map;
     map.on('tilesloaded', function () {
       if (map !== currentMap) return;
       clearTimeout(mapLoadTimer);
       mapLoadTimer = null;
       $('mapFallback').hidden = true;
+      $('routePlay').hidden = !mapPlaces().length || localMaintenance;
     });
     mapLoadTimer = setTimeout(function () {
       if (map !== currentMap) return;
@@ -1428,6 +1486,7 @@ function initMap() {
 }
 
 function showMapFallback() {
+  $('routePlay').hidden = true;
   clearTimeout(mapLoadTimer);
   mapLoadTimer = null;
   clearSelection();
@@ -1501,6 +1560,182 @@ function renderCityFilter() {
     }).join('');
 }
 
+var routeStops = [];
+var routeFrame = 0;
+var routeTime = 0;
+var legDuration = 2300;
+var routeNodes = [];
+var routePins = [];
+
+function clearRoute() {
+  cancelAnimationFrame(routeFrame);
+  routeFrame = 0;
+  routeTime = 0;
+  $('routeInk').setAttribute('hidden', '');
+  $('routeLegs').replaceChildren();
+  $('routePins').replaceChildren();
+  routeStops = [];
+  routeNodes = [];
+  routePins = [];
+}
+
+function closeRoute(moveFocus = false) {
+  var strip = $('filmstrip');
+  var previousFocus = document.activeElement;
+  var wasInStrip = strip.contains(previousFocus);
+  clearRoute();
+  $('routeEnd').hidden = true;
+  $('routePlay').textContent = '播放';
+  $('routeStatus').hidden = true;
+  $('routeStatus').textContent = '';
+  state.selectedPlaceId = null;
+  renderFilmstrip();
+  renderMarkers();
+  fitPlaces(placesForActiveCategory());
+  if (moveFocus || (wasInStrip && (!previousFocus.isConnected || !previousFocus.getClientRects().length))) {
+    var play = $('routePlay');
+    (play.getClientRects().length ? play : $('btnPlaceList')).focus({ preventScroll: true });
+  }
+}
+
+function routeDistanceKm(a, b) {
+  var rad = Math.PI / 180;
+  var h = Math.sin((b.lat-a.lat)*rad/2)**2 +
+    Math.cos(a.lat*rad)*Math.cos(b.lat*rad)*Math.sin((b.lng-a.lng)*rad/2)**2;
+  return 2*6371*Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+function openRoute() {
+  clearRoute();
+  routeStops = mapPlaces().flatMap(place => place.visits.map((visit,i) => ({
+    place, visit, number:place.visits.length-i
+  }))).sort((a,b) => a.visit.visitedOn.localeCompare(b.visit.visitedOn));
+  $('routeEnd').hidden = false;
+  $('routeStatus').hidden = false;
+  renderFilmstrip();
+  var groups = new Map();
+  routeStops.forEach((stop,i) => {
+    if (!groups.has(stop.place)) groups.set(stop.place, []);
+    groups.get(stop.place).push(i + 1);
+  });
+  function element(type, parent) {
+    var node = document.createElementNS('http://www.w3.org/2000/svg', type);
+    parent.append(node);
+    return node;
+  }
+  routeNodes = routeStops.slice(1).map((stop,i) => ({
+    vehicle:routeDistanceKm(routeStops[i].place, stop.place) >= 500 ? 'plane' : 'car',
+    guide:element('path',$('routeLegs')), trail:element('path',$('routeLegs'))
+  }));
+  routePins = Array.from(groups, ([place,numbers]) => {
+    var pin = element('g',$('routePins'));
+    element('circle',pin).setAttribute('r',5);
+    var label = element('text',pin);
+    label.setAttribute('y',20);
+    label.textContent = numbers.length > 4 ? numbers[0] + ' · 共' + numbers.length + '站' : numbers.join('·');
+    return {place,pin};
+  });
+  markerLayer.setGeometries([]);
+  $('routeInk').removeAttribute('hidden');
+  if (publicAvatar) $('riderFace').setAttribute('href',publicAvatar);
+  playRoute(true);
+}
+
+function frameRouteLeg(index) {
+  var place = routeStops[index].place;
+  var next = routeStops[index + 1]?.place || place;
+  var start = map.projectToContainer(new TMap.LatLng(place.lat, place.lng));
+  var end = map.projectToContainer(new TMap.LatLng(next.lat, next.lng));
+  var top = $('mapCatStrip').getBoundingClientRect().bottom + 40;
+  var bottom = $('filmstrip').getBoundingClientRect().top - 20;
+  var needsRoom = [start, end].some(point => point.x < 32 || point.x > innerWidth - 32 ||
+    point.y < top || point.y > bottom);
+  var tooClose = place !== next && Math.hypot(start.x - end.x, start.y - end.y) < 64;
+  if (needsRoom || tooClose) fitPlaces(place === next ? [place] : [place, next], 24);
+}
+
+function drawRoute() {
+  if (!map || $('routeInk').hasAttribute('hidden')) return;
+  var coords = new Map();
+  routePins.forEach(({place,pin}) => {
+    var p = map.projectToContainer(new TMap.LatLng(place.lat,place.lng));
+    coords.set(place,p);
+    pin.setAttribute('transform','translate(' + p.x + ' ' + p.y + ')');
+  });
+  var index = Math.floor(routeTime / legDuration);
+  var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var t = reduced ? 0 : Math.max(0,(routeTime / legDuration - index - .22) / .78);
+  var tip = coords.get(routeStops[index].place), direction = 1, tilt = 0, bounce = 0;
+  var leg = routeNodes[Math.min(index, routeNodes.length-1)];
+  var plane = leg?.vehicle === 'plane';
+  routeNodes.forEach(({guide,trail},i) => {
+    var a = coords.get(routeStops[i].place), b = coords.get(routeStops[i+1].place);
+    var dx = b.x-a.x, dy = b.y-a.y, length = Math.hypot(dx,dy);
+    if (!length) { guide.removeAttribute('d'); trail.removeAttribute('d'); return; }
+    var bend = Math.min(52,length*.23)/length;
+    var c = {x:(a.x+b.x)/2-dy*bend,y:(a.y+b.y)/2+dx*bend};
+    var start = 'M'+a.x+' '+a.y+' Q';
+    var full = start+c.x+' '+c.y+' '+b.x+' '+b.y;
+    guide.setAttribute('d',full);
+    if (i < index) trail.setAttribute('d',full);
+    else if (i === index && t > 0) {
+      var u = 1-t;
+      var q = {x:u*a.x+t*c.x,y:u*a.y+t*c.y};
+      tip = {x:u*u*a.x+2*u*t*c.x+t*t*b.x,y:u*u*a.y+2*u*t*c.y+t*t*b.y};
+      trail.setAttribute('d',start+q.x+' '+q.y+' '+tip.x+' '+tip.y);
+      direction = dx < 0 ? -1 : 1;
+      tilt = Math.max(-16,Math.min(16,(dy/length)*direction*20));
+      bounce = Math.sin(t*Math.PI*(plane?2:8))*(plane?2.5:1.3);
+    } else trail.removeAttribute('d');
+  });
+  $('rider').setAttribute('transform','translate('+tip.x+' '+tip.y+')');
+  $('riderBody').setAttribute('transform','translate(0 '+(-8+bounce)+') rotate('+tilt+') scale('+direction+' 1)');
+  $('riderFace').setAttribute('transform',direction<0?'translate(-2 0) scale(-1 1)':'');
+  $('riderCar').toggleAttribute('hidden',plane);
+  $('riderPlane').toggleAttribute('hidden',!plane);
+}
+
+function routeStep(frameLeg) {
+  var index = Math.floor(routeTime / legDuration);
+  var s = routeStops[index];
+  state.selectedPlaceId = s.place.id;
+  $('filmstripTitle').textContent = (index+1)+'/'+routeStops.length+' · '+(s.number===1?'首次到访':'第 '+s.number+' 次到访');
+  var announcement = '第 ' + (index + 1) + ' 站，共 ' + routeStops.length + ' 站，' +
+    s.place.name + '，' + s.visit.visitedOn;
+  if ($('routeStatus').textContent !== announcement) $('routeStatus').textContent = announcement;
+  if (frameLeg) frameRouteLeg(index);
+  syncFilmstripSelection();
+  $('routePlay').textContent = routeFrame ? '暂停' : index === routeStops.length - 1 ? '重播' : '继续';
+  drawRoute();
+}
+
+function playRoute(starting) {
+  if (routeFrame) {
+    cancelAnimationFrame(routeFrame);
+    routeFrame = 0;
+    routeStep();
+    return;
+  }
+  var end = (routeStops.length-1)*legDuration;
+  if (routeTime >= end) {
+    routeTime = 0;
+    starting = true;
+  }
+  if (!end) { routeStep(starting); return; }
+  var previous = performance.now();
+  function tick(now) {
+    var before = Math.floor(routeTime/legDuration);
+    // Ignore time spent in a suspended tab so coming back cannot skip stops.
+    routeTime = Math.min(end, routeTime + Math.max(0, Math.min(now - previous, 100)));
+    previous = now;
+    routeFrame = routeTime < end ? requestAnimationFrame(tick) : 0;
+    if (before !== Math.floor(routeTime/legDuration)) routeStep(true);
+    else drawRoute();
+  }
+  routeFrame = requestAnimationFrame(tick);
+  routeStep(starting);
+}
+
 /* ---------- 足迹胶卷：默认浏览与选中面 ---------- */
 var filmTabIndex = 0;
 var filmSignature = '';
@@ -1531,30 +1766,31 @@ function revealFrame(frame) {
   var max = Math.max(0, items.scrollWidth - items.clientWidth);
   var next = Math.max(0, Math.min(frame.offsetLeft - (items.clientWidth - frame.offsetWidth) / 2, max));
   if (Math.abs(next - items.scrollLeft) < 2) return;
-  items.scrollTo({ left: next, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  items.scrollTo({ left: next, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
 }
 
 function syncFilmstripSelection() {
   var frames = $('filmstripItems').querySelectorAll('.film-frame');
   var current = -1;
   Array.prototype.forEach.call(frames, function (frame, i) {
-    var isCurrent = frame.getAttribute('data-place-id') === state.selectedPlaceId;
+    var isCurrent = routeStops.length ? i === Math.floor(routeTime/legDuration) : frame.getAttribute('data-place-id') === state.selectedPlaceId;
     frame.classList.toggle('is-current', isCurrent);
     if (isCurrent) {
       frame.setAttribute('aria-current', 'true');
       current = i;
     } else frame.removeAttribute('aria-current');
   });
-  $('btnVisitPhoto').hidden = current < 0;
+  $('btnVisitPhoto').hidden = Boolean(routeStops.length) || current < 0;
   setFilmTabStop(current >= 0 ? current : filmTabIndex);
   if (current >= 0) revealFrame(frames[current]);
 }
 
 function renderFilmstrip() {
-  var places = filmstripPlaces();
+  var places = routeStops.length ? routeStops.map(s => ({id:s.place.id,name:s.place.name,visit:s.visit})) : filmstripPlaces();
+  if (!routeStops.length) $('filmstripTitle').textContent = '11 的足迹胶卷';
   $('filmstrip').hidden = places.length === 0;
   // 记录集没变就不重建，避免筛选或选中时整条胶卷闪一下、图片重新解码。
-  var signature = places.map(function (place) { return place.id; }).join('|');
+  var signature = places.map(function (place) { return place.id + ':' + place.visit.visitedOn; }).join('|');
   if (signature !== filmSignature) {
     filmSignature = signature;
     $('filmstripItems').innerHTML = places.map(function (place, index) {
@@ -1571,7 +1807,7 @@ function renderFilmstrip() {
   syncFilmstripSelection();
 }
 
-function fitPlaces(places) {
+function fitPlaces(places, extraPadding = 0) {
   if (!map || !places.length) return;
   if (places.length === 1 || typeof TMap.LatLngBounds !== 'function' || typeof map.fitBounds !== 'function') {
     focusPlace(places[0]);
@@ -1581,15 +1817,18 @@ function fitPlaces(places) {
   places.forEach(function (place) { bounds.extend(new TMap.LatLng(place.lat, place.lng)); });
   var strip = $('filmstrip');
   var top = Math.round($('mapCatStrip').getBoundingClientRect().bottom + 20);
-  var bottom = Math.round(strip.hidden ? 40 : innerHeight - strip.getBoundingClientRect().top + 16);
+  var bottom = Math.round(strip.getClientRects().length ? innerHeight - strip.getBoundingClientRect().top + 16 : 40);
   try {
-    map.fitBounds(bounds, { padding: { top: top, bottom: bottom, left: 32, right: 32 } });
+    map.fitBounds(bounds, { padding: {
+      top: top + extraPadding, bottom: bottom + extraPadding, left: 32 + extraPadding, right: 32 + extraPadding
+    } });
   } catch (e) {
     focusPlace(places[0]);
   }
 }
 
 function clearSelection() {
+  if (routeStops.length) closeRoute();
   // 焦点可能正落在胶卷里（画格或「看照片」）：取消选中后这两处会隐藏或失去意义，
   // 与其让焦点掉回 body，不如交给「足迹」入口接管。
   var surface = $('filmstrip');
@@ -1604,6 +1843,7 @@ function clearSelection() {
 }
 
 function selectPlace(placeId, moveFocus) {
+  if (routeStops.length) closeRoute();
   var place = findPlace(placeId);
   if (!place) return;
   closeAllDrawers();
@@ -1734,6 +1974,7 @@ function closeAllDrawers() {
 }
 
 function openDrawer(id) {
+  if (routeStops.length) closeRoute();
   closeMoreMenu($('moreMenu').contains(document.activeElement));
   closeAllDrawers();
   var drawer = $(id);
@@ -2335,6 +2576,14 @@ function bindSearchEvents() {
    10. 事件绑定 & 启动
    ============================================================ */
 function bindEvents() {
+  $('routePlay').onclick = () => routeStops.length ? playRoute() : openRoute();
+  $('routeEnd').onclick = () => closeRoute(true);
+  window.addEventListener('resize', function () {
+    if (routeStops.length && !$('filmstrip').getClientRects().length) {
+      // Hiding the strip can blur its focused button before the resize event.
+      closeRoute(document.activeElement === document.body);
+    } else drawRoute();
+  });
   $('cityFilter').addEventListener('change', function () {
     clearSelection();
     state.cityFilter = this.value;
@@ -2404,7 +2653,13 @@ function bindEvents() {
   // 足迹胶卷：点选画格即选中地图地点，方向键逐格移动，单一 Tab 落点。
   $('filmstripItems').addEventListener('click', function (evt) {
     var frame = evt.target.closest('.film-frame');
-    if (frame) selectPlace(frame.getAttribute('data-place-id'));
+    if (!frame) return;
+    var placeId = frame.getAttribute('data-place-id');
+    if (routeStops.length && !placesForActiveCategory().some(place => place.id === placeId)) {
+      closeRoute(true);
+      return;
+    }
+    selectPlace(placeId, routeStops.length > 0 && frame === document.activeElement);
   });
   $('filmstripItems').addEventListener('focusin', function (evt) {
     var frame = evt.target.closest('.film-frame');

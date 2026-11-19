@@ -1127,6 +1127,7 @@ test('map failure keeps complete public visits filterable and allows explicit ma
   await page.route('**/map.qq.com/api/gljs**', route => route.abort());
   await page.reload();
   await expect(page.locator('#mapFallback')).toBeVisible();
+  await expect(page.getByRole('button', {name:'播放', exact:true})).toHaveCount(0);
   await page.locator('#fallbackList').getByRole('button', { name: visit.name + ' · 11 去过', exact: true }).click();
   await expect(page.locator('#drawerDetail')).toContainText('2岁3个月');
   await page.keyboard.press('Escape');
@@ -1141,6 +1142,7 @@ test('map failure keeps complete public visits filterable and allows explicit ma
   await page.route('**/map.qq.com/api/gljs**', route => route.fulfill({ contentType: 'application/javascript', body: tmapStub }));
   await page.getByRole('button', { name: '重试地图', exact: true }).click();
   await expect(page.locator('#mapFallback')).toBeHidden();
+  await expect(page.getByRole('button', {name:'播放', exact:true})).toBeVisible();
 });
 
 test('tile loading timeout enters the public list fallback', async ({ page }) => {
@@ -1546,3 +1548,194 @@ test(`map timeout clears selection before fallback details and retry (photo ${vi
   await expect(selectedFrame(page)).toBeHidden();
 });
 }
+
+test('one click plays the full chronology with distinct return arcs and each visit photo', async ({page}) => {
+  const collage = 'assets/visits/bfc-20260919.jpg';
+  const lastPhoto = 'assets/visits/dongming-gongyuan-20250501.jpg';
+  await serveVisits(page, [
+    {...visit, address:'上海市甲路', visits:[
+      {visitedOn:'2026-09-14', photo:lastPhoto},
+      {visitedOn:'2025-06-10', photo:visit.photo},
+      {visitedOn:'2025-06-10', photo:collage},
+      {visitedOn:'2026-09-13', photo:collage},
+      {visitedOn:'2025-01-01'}
+    ]},
+    {...visit, poiId:'middle', name:'中途站', address:'杭州市乙路', category:'zoo', lng:121.521},
+    {...visit, poiId:'another', name:'另一处公园', address:'上海市丙路', lng:121.483, visitedOn:'2026-09-15'}
+  ]);
+  await page.setViewportSize({width:390, height:844});
+  await page.goto('/');
+  const play = page.getByRole('button', {name:'播放', exact:true});
+  await expect(play).toBeVisible();
+  await page.locator('#cityFilter').selectOption('上海市');
+  await page.locator('#mapCatStrip [data-cat="park"]').click();
+  await page.clock.install();
+  const frames = page.locator('#filmstripItems .film-frame');
+  const rider = page.locator('#rider');
+  const current = selectedFrame(page);
+  await expect(frames.locator('time')).toHaveText(['2026.09.15', '2026.09.14']);
+  await play.click();
+  await expect(frames).toHaveCount(5);
+  await expect(current.locator('time')).toHaveText('2025.06.10');
+  await expect(current.locator('img')).toHaveAttribute('src', visit.photo);
+  const departure = await rider.getAttribute('transform');
+
+  await page.clock.fastForward(10_000);
+  await expect(current.locator('time')).toHaveText('2025.06.10');
+  await page.clock.runFor(1100);
+  await expect(rider).not.toHaveAttribute('transform', departure);
+  await page.clock.runFor(1350);
+  await expect(current).toContainText('中途站');
+  const guides = page.locator('#routeLegs path:nth-child(odd)');
+  const outward = await guides.nth(0).getAttribute('d');
+  const returning = await guides.nth(1).getAttribute('d');
+  const curveControl = path => path.split(' Q')[1].split(' ').slice(0, 2);
+  expect(curveControl(outward)).not.toEqual(curveControl(returning));
+  await page.clock.runFor(2300);
+  await expect(current.locator('time')).toHaveText('2026.09.13');
+  await expect(current.locator('img')).toHaveAttribute('src', collage);
+  const returned = await rider.getAttribute('transform');
+
+  await page.clock.runFor(1100);
+  await expect(rider).toHaveAttribute('transform', returned);
+  await page.clock.runFor(1200);
+  await expect(current.locator('time')).toHaveText('2026.09.14');
+  await expect(current.locator('img')).toHaveAttribute('src', lastPhoto);
+  const pause = page.getByRole('button', {name:'暂停', exact:true});
+  await pause.click();
+  await expect(current).toBeInViewport({ratio:.95});
+  await expect(current).toHaveCSS('background-color', 'rgb(255, 214, 91)');
+  expect(await current.locator('.film-number').evaluate(number =>
+    getComputedStyle(number, '::before').borderLeftWidth
+  )).toBe('6px');
+
+  await page.getByRole('button', {name:'继续', exact:true}).click();
+  await page.clock.runFor(2300);
+  await expect(current.locator('time')).toHaveText('2026.09.15');
+  await page.getByRole('button', {name:'重播', exact:true}).click();
+  await expect(current.locator('time')).toHaveText('2025.06.10');
+  await page.getByRole('button', {name:'结束', exact:true}).click();
+  await expect(play).toBeFocused();
+  await expect(frames.locator('time')).toHaveText(['2026.09.15', '2026.09.14']);
+  await expect(page.locator('#cityFilter')).toHaveValue('上海市');
+  await expect(page.locator('#mapCatStrip [data-cat="park"]')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[31.23,121.47],[31.23,121.483]]);
+
+  await play.click();
+  await page.evaluate(() => window.__mapEvents.click());
+  await expect(play).toBeVisible();
+  expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[31.23,121.47],[31.23,121.483]]);
+
+  await play.click();
+  const placeList = page.getByRole('button', {name:/足迹/});
+  await placeList.click();
+  await expect(page.getByRole('dialog', {name:'11 去过的地方'})).toBeVisible();
+  expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[31.23,121.47],[31.23,121.483]]);
+  await page.keyboard.press('Escape');
+
+  await play.click();
+  const hiddenByFilter = page.getByRole('button', {name:/中途站.*到访，在地图上选中/});
+  await hiddenByFilter.focus();
+  const previousCameraMoves = await page.evaluate(() => window.__mapEaseToCalls?.length ?? 0);
+  await page.keyboard.press('Enter');
+  await expect(play).toBeFocused();
+  await expect(current).toHaveCount(0);
+  await expect(page.getByRole('button', {name:'看照片', exact:true})).toHaveCount(0);
+  expect(await page.evaluate(() => window.__mapEaseToCalls?.length ?? 0)).toBe(previousCameraMoves);
+  expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[31.23,121.47],[31.23,121.483]]);
+});
+
+test('playback can pause and continue before the first animation frame', async ({page}) => {
+  await serveVisits(page, [visit, {...visit, poiId:'earlier', visitedOn:'2025-06-10'}]);
+  await page.goto('/');
+  await expect(page.getByRole('button', {name:'播放', exact:true})).toBeVisible();
+  await page.clock.install({time: new Date('2026-11-19T12:00:00Z')});
+  await page.clock.pauseAt(new Date('2026-11-19T12:00:01Z'));
+
+  const play = page.locator('#routePlay');
+  await play.focus();
+  await page.keyboard.press('Enter');
+  await expect(play).toHaveText('暂停');
+  await page.keyboard.press('Enter');
+  await expect(play).toHaveText('继续');
+  await expect(play).toBeFocused();
+  await page.clock.runFor(3000);
+  await expect(selectedFrame(page).locator('time')).toHaveText('2025.06.10');
+  await page.keyboard.press('Enter');
+  await page.clock.runFor(2400);
+  await expect(selectedFrame(page).locator('time')).toHaveText('2026.09.12');
+  await expect(play).toHaveText('重播');
+});
+
+test('choosing a playback frame with Enter restores focus to the ordinary frame', async ({page}) => {
+  await serveVisits(page, [visit, {...visit, poiId:'earlier', name:'早期地点', visitedOn:'2025-06-10'}]);
+  await page.goto('/');
+  await page.getByRole('button', {name:'播放', exact:true}).click();
+
+  const earlier = page.getByRole('button', {name:/早期地点.*到访，在地图上选中/});
+  await earlier.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', {name:'播放', exact:true})).toBeVisible();
+  await expect(earlier).toBeFocused();
+  await expect(earlier).toHaveAttribute('aria-current', 'true');
+  await expect(page.getByRole('button', {name:'看照片', exact:true})).toBeVisible();
+});
+
+test('playback gives control back to the list when a short viewport hides the filmstrip', async ({page}) => {
+  await page.getByRole('button', {name:'播放', exact:true}).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('button', {name:'重播', exact:true})).toBeFocused();
+
+  await page.setViewportSize({width:812, height:375});
+  await expect(page.getByRole('button', {name:/足迹/})).toBeFocused();
+  await expect(page.locator('#routeInk')).toBeHidden();
+  await page.setViewportSize({width:375, height:812});
+  await expect(page.getByRole('button', {name:'播放', exact:true})).toBeVisible();
+});
+
+test('reduced-motion playback announces stations and switches vehicle around 500 km', async ({page}) => {
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await serveVisits(page, [
+    {...visit, lat:0, lng:121.47, visitedOn:'2026-09-10'},
+    {...visit, poiId:'under-500-km', name:'短程到访', lat:4.49, lng:121.47, visitedOn:'2026-09-11'},
+    {...visit, poiId:'over-500-km', name:'长程到访', lat:8.99, lng:121.47}
+  ]);
+  await page.goto('/');
+  await expect(page.getByRole('button', {name:'播放', exact:true})).toBeVisible();
+  await page.clock.install();
+  await page.locator('#routePlay').focus();
+  await page.keyboard.press('Enter');
+
+  const rider = page.locator('#rider');
+  const start = await rider.getAttribute('transform');
+  await expect(page.locator('#riderCar')).toBeVisible();
+  await expect(page.locator('#riderPlane')).toBeHidden();
+  expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[0,121.47],[4.49,121.47]]);
+  await page.clock.runFor(1700);
+  await expect(rider).toHaveAttribute('transform', start);
+  await page.clock.runFor(700);
+  await expect(page.locator('#riderPlane')).toBeVisible();
+  await expect(page.locator('#riderCar')).toBeHidden();
+  expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[4.49,121.47],[8.99,121.47]]);
+  await expect(page.getByRole('region', {name:'11 的足迹胶卷'}).getByRole('status')).toHaveText('第 2 站，共 3 站，短程到访，2026-09-11');
+  await expect(page.getByRole('button', {name:'暂停', exact:true})).toBeFocused();
+  await expect(page.locator('#filmstripItems .film-frame').first()).toHaveCSS('transform', 'none');
+  await expect(selectedFrame(page)).toHaveCSS('transition-duration', '0s');
+});
+
+test('playback is absent without complete stops and a single visit can replay', async ({page}) => {
+  await page.getByRole('button', {name:'播放', exact:true}).click();
+  await expect(selectedFrame(page).locator('time')).toHaveText('2026.09.12');
+  const replay = page.getByRole('button', {name:'重播', exact:true});
+  await replay.click();
+  await expect(replay).toBeVisible();
+  await expect(selectedFrame(page)).toHaveCount(1);
+  await page.getByRole('button', {name:'结束', exact:true}).click();
+  await expect(selectedFrame(page)).toHaveCount(0);
+
+  await serveVisits(page, [{...visit, visits:[{visitedOn:'2026-09-12'}]}]);
+  await page.reload();
+  await expect(page.locator('#visitEmpty')).toContainText('暂无完整的到访记录');
+  await expect(page.getByRole('button', {name:'播放', exact:true})).toHaveCount(0);
+  await expect(page.getByRole('button', {name:/足迹/})).toBeVisible();
+});
