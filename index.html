@@ -340,7 +340,7 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   z-index: 18;
 }
 .more-controls button { min-height:44px; min-width:44px; border:1px solid var(--line); border-radius:999px; background:var(--surface-glass); color:var(--text); box-shadow:var(--shadow); padding:10px 14px; font-size:13px; font-weight:700; }
-#moreMenu { position:absolute; left:0; bottom:calc(100% + 8px); padding:6px; border:1px solid var(--line); border-radius:16px; background:var(--card); box-shadow:var(--shadow); white-space:nowrap; }
+#moreMenu { position:absolute; left:calc(100% + 8px); bottom:0; padding:6px; border:1px solid var(--line); border-radius:16px; background:var(--card); box-shadow:var(--shadow); white-space:nowrap; }
 #moreMenu button { border:0; border-radius:10px; box-shadow:none; background:var(--card); }
 .chip {
   border: 1.5px solid var(--line);
@@ -662,7 +662,9 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 .visit-track > [aria-hidden="true"] { contain:size; }
 .visit-track .visit-photo-wrap { margin-top:8px; }
 #detailContent { position:relative; }
+#drawerDetail { clip-path:inset(0 round 24px 24px 0 0); }
 #detailContent > .detail-actions { margin-top:18px; margin-bottom:0; }
+body:has(#mapFallback[hidden]) #drawerDetail { max-height:min(86vh, calc(100dvh - 220px - env(safe-area-inset-top, 0px))); }
 
 /* Map-first tools and temporary selection. */
 #visitHeader strong { display:flex; align-items:center; gap:3px; white-space:nowrap; }
@@ -678,19 +680,19 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 #filmstripHead { display:flex; flex:none; align-items:center; gap:8px; height:28px; margin-bottom:6px; padding:0 4px; }
 #filmstripHead::before { content:''; width:7px; height:14px; flex:none; border-radius:2px; background:var(--brand-sun); box-shadow:11px 0 0 -1px var(--selection); margin-right:12px; }
 #filmstripTitle { min-width:0; flex:1; color:var(--card); font-size:13px; font-weight:700; letter-spacing:.08em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-#btnVisitPhoto { position:relative; flex:none; min-width:44px; min-height:32px; border:0; border-radius:999px; background:var(--brand-sun); color:var(--text); padding:0 12px; font-size:12px; font-weight:800; }
-/* 视觉上是一枚小药丸，热区靠上溢到片头的留白里撑满 44px，不侵占地上的画格。 */
-#btnVisitPhoto::after { content:''; position:absolute; inset:-12px -4px 0; }
-#btnVisitPhoto[hidden] { display:none; }
 #filmstripItems { position:relative; display:flex; flex:1; min-height:0; gap:8px; overflow-x:auto; overflow-y:hidden; padding:2px 3px 6px; scroll-snap-type:x proximity; scrollbar-width:thin; scrollbar-color:var(--brand-sun) var(--film-base); }
 #filmstripItems::-webkit-scrollbar { height:4px; }
 #filmstripItems::-webkit-scrollbar-track { background:var(--film-base); border-radius:2px; }
 #filmstripItems::-webkit-scrollbar-thumb { background:var(--brand-sun); border-radius:2px; }
-.film-frame { --photo-h:64px; position:relative; flex:0 0 138px; min-width:44px; padding:3px 3px 5px; border:3px solid var(--card); border-radius:6px; background:var(--film-frame); color:var(--text); text-align:left; overflow:hidden; scroll-snap-align:start; box-shadow:inset 0 0 0 1px var(--line-strong); transition:transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
+.film-frame { --photo-h:50px; position:relative; flex:0 0 138px; min-width:44px; padding:3px 3px 5px; border:3px solid var(--card); border-radius:6px; background:var(--film-frame); color:var(--text); text-align:left; overflow:hidden; scroll-snap-align:start; box-shadow:inset 0 0 0 1px var(--line-strong); transition:transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
 .film-frame img { display:block; width:100%; height:var(--photo-h); object-fit:cover; border-radius:2px; background:var(--spruce-soft); }
+#detailContent .btn-nav { flex:0 0 44px; padding:0; background:var(--spruce-soft); color:var(--text); }
+#btnNextPlacePrimary { background:var(--action); color:var(--white); }
+#detailContent #btnPreviousPlace { flex:0 0 auto; min-height:44px; border:1px solid var(--line); background:var(--card); color:var(--text); padding:8px; }
+#btnPreviousPlace:disabled, #btnNextPlacePrimary:disabled { opacity:.5; cursor:default; }
 .film-number { position:absolute; top:6px; left:6px; padding:2px 5px; border-radius:3px; background:var(--film-base-deep); color:var(--card); font-size:9px; font-weight:700; font-style:normal; letter-spacing:.08em; }
 .film-frame time { position:absolute; top:calc(var(--photo-h) - 14px); right:6px; display:block; padding:1px 4px; border-radius:2px; background:var(--film-base-deep); color:var(--brand-sun); font-size:9px; font-weight:700; line-height:12px; letter-spacing:.04em; white-space:nowrap; }
-.film-name { display:block; padding:5px 4px 0; font-size:12px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.film-name { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; padding:3px 4px 0; font-size:12px; line-height:14px; font-weight:700; overflow:hidden; }
 .film-frame.is-current { border-color:var(--selection); box-shadow:0 0 0 2px var(--film-frame), inset 0 0 0 1px var(--line-strong); transform:translateY(-2px); }
 #filmstrip:has(#routeEnd:not([hidden])) .film-frame:not(.is-current) {
   transform:scale(.94);
@@ -723,12 +725,15 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 #filmstrip[hidden] { display:none; }
 /* 极短视口（横屏手机）留给地图的高度不足半个胶卷，退回「足迹」入口 + 城市分组列表。 */
 @media (max-height:519px) { #filmstrip { display:none; } }
+@media (max-width:767px), (pointer:coarse) {
+  #map .map-zoom-control, #map:not(.is-oriented) .map-orientation-control { display:none; }
+}
 body:has(.mask.show) #filmstrip { visibility:hidden; }
 @media (max-height:600px) {
   :root { --film-height:148px; }
   #filmstrip { padding:16px 10px; }
   #filmstripHead { height:20px; margin-bottom:2px; }
-  .film-frame { --photo-h:48px; flex-basis:124px; }
+  .film-frame { --photo-h:34px; flex-basis:124px; }
 }
 /* 短屏但胶卷仍在：工具组整体上移并收紧间距，给底部胶卷让出净空。
    罗盘保持 128px 外框与 1.5 倍缩放——四个方向箭头的热区正是靠这个缩放撑到 64px，
@@ -759,7 +764,7 @@ body:has(#filmstrip:not([hidden])) #map .tmap-scale-control { display:none; }
   :root { --film-height:188px; }
   #visitHeader { right:auto; width:360px; }
   #filmstrip { left:24px; right:auto; width:560px; }
-  .film-frame { --photo-h:68px; flex-basis:148px; }
+  .film-frame { --photo-h:54px; flex-basis:148px; }
 }
 #routeInk { position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:8;color:var(--primary-deep); }
 #routeLegs path { fill:none;stroke:currentColor;stroke-linecap:round; }
@@ -844,7 +849,7 @@ body:has(#filmstrip:not([hidden])) #map .tmap-scale-control { display:none; }
   </g></g>
 </svg>
 <section id="filmstrip" aria-label="11 的足迹胶卷" hidden>
-  <div id="filmstripHead"><strong id="filmstripTitle">11 的足迹胶卷</strong><button type="button" class="route-button" id="routePlay" hidden>播放</button><button type="button" class="route-button" id="routeEnd" hidden>结束</button><button id="btnVisitPhoto" type="button" hidden>看照片</button></div>
+  <div id="filmstripHead"><strong id="filmstripTitle">11 的足迹胶卷</strong><button type="button" class="route-button" id="routePlay" hidden>播放</button><button type="button" class="route-button" id="routeEnd" hidden>结束</button></div>
   <div id="routeStatus" role="status" aria-atomic="true" hidden></div>
   <div id="filmstripItems" role="group" aria-label="按到访日期排列的记录，可用左右方向键逐格移动"></div>
 </section>
@@ -1437,6 +1442,17 @@ function initMap() {
     zoomControl.setPosition(TMap.constants.CONTROL_POSITION.TOP_RIGHT);
     rotationControl.setClassName('map-orientation-control');
     zoomControl.setClassName('map-zoom-control');
+    var currentMap = map;
+    var orientationFrame = 0;
+    function syncOrientationControl() {
+      if (!map || map !== currentMap) return;
+      var heading = typeof map.getRotation === 'function' ? map.getRotation() : 0;
+      var pitch = typeof map.getPitch === 'function' ? map.getPitch() : 0;
+      heading = ((heading % 360) + 540) % 360 - 180;
+      var rotated = Math.abs(heading) >= 0.5 || Math.abs(pitch) >= 0.5;
+      $('map').classList.toggle('is-oriented', Boolean(rotated));
+    }
+    syncOrientationControl();
 
     markerLayer = new TMap.MultiMarker({
       map: map,
@@ -1444,6 +1460,7 @@ function initMap() {
       geometries: []
     });
     renderMarkers();
+    fitPlaces(placesForActiveCategory());
 
     markerLayer.on('click', function (evt) {
       lastMarkerClickAt = Date.now();
@@ -1460,8 +1477,12 @@ function initMap() {
       hideSearchResults();
       clearSelection();
     });
-    ['center_changed','zoom_changed','rotation_changed','pitch_changed','tilesloaded'].forEach(event => map.on(event,drawRoute));
-    var currentMap = map;
+    ['center_changed','zoom_changed','rotation_changed','pitch_changed','tilesloaded','idle','moveend','rotateend'].forEach(event => map.on(event, function () {
+      syncOrientationControl();
+      cancelAnimationFrame(orientationFrame);
+      orientationFrame = requestAnimationFrame(syncOrientationControl);
+      drawRoute();
+    }));
     map.on('tilesloaded', function () {
       if (map !== currentMap) return;
       clearTimeout(mapLoadTimer);
@@ -1699,7 +1720,7 @@ function routeStep(frameLeg) {
   var index = Math.floor(routeTime / legDuration);
   var s = routeStops[index];
   state.selectedPlaceId = s.place.id;
-  $('filmstripTitle').textContent = (index+1)+'/'+routeStops.length+' · '+(s.number===1?'首次到访':'第 '+s.number+' 次到访');
+  $('filmstripTitle').textContent = (index+1)+'/'+routeStops.length+' 站'+(s.number >= 2 ? ' · 第 '+s.number+' 次来' : '');
   var announcement = '第 ' + (index + 1) + ' 站，共 ' + routeStops.length + ' 站，' +
     s.place.name + '，' + s.visit.visitedOn;
   if ($('routeStatus').textContent !== announcement) $('routeStatus').textContent = announcement;
@@ -1780,7 +1801,6 @@ function syncFilmstripSelection() {
       current = i;
     } else frame.removeAttribute('aria-current');
   });
-  $('btnVisitPhoto').hidden = Boolean(routeStops.length) || current < 0;
   setFilmTabStop(current >= 0 ? current : filmTabIndex);
   if (current >= 0) revealFrame(frames[current]);
 }
@@ -1829,8 +1849,6 @@ function fitPlaces(places, extraPadding = 0) {
 
 function clearSelection() {
   if (routeStops.length) closeRoute();
-  // 焦点可能正落在胶卷里（画格或「看照片」）：取消选中后这两处会隐藏或失去意义，
-  // 与其让焦点掉回 body，不如交给「足迹」入口接管。
   var surface = $('filmstrip');
   var needsFocus = surface.contains(document.activeElement);
   focusLayers.forEach(function (layer) {
@@ -1852,8 +1870,7 @@ function selectPlace(placeId, moveFocus) {
   syncFilmstripSelection();
   focusPlace(place);
   if (moveFocus) {
-    var frame = $('filmstripItems').querySelector('.film-frame.is-current');
-    if (frame) frame.focus({ preventScroll: true });
+    if (!focusSelectedFrame()) $('btnPlaceList').focus({ preventScroll: true });
   }
 }
 
@@ -1937,7 +1954,7 @@ function focusSelectedFrame() {
   var index = frames.findIndex(function (frame) {
     return frame.getAttribute('data-place-id') === state.selectedPlaceId;
   });
-  if (index < 0) return false;
+  if (index < 0 || !frames[index].getClientRects().length) return false;
   setFilmTabStop(index);
   frames[index].focus({ preventScroll: true });
   revealFrame(frames[index]);
@@ -1953,7 +1970,7 @@ function closeCurrentDrawer() {
     openDrawer('drawerPlaces');
     $('drawerPlaces').scrollTop = listReturn.scrollTop;
     listReturn.button.focus({ preventScroll: true });
-  } else if (filmReturn) focusSelectedFrame();
+  } else if (filmReturn && !focusSelectedFrame()) $('btnPlaceList').focus({ preventScroll: true });
 }
 
 function closeAllDrawers() {
@@ -2060,7 +2077,7 @@ function openDetail(placeId, listButton, fromFilmstrip) {
   detailListReturn = listReturn;
   // openDrawer 会先清空抽屉的返回目标，所以只能在这之后记。
   detailFilmReturn = !listReturn && !!fromFilmstrip;
-  if (listReturn && map) {
+  if ((listReturn || fromFilmstrip) && map) {
     var drawer = $('drawerDetail');
     var panelTop;
     var refitDrawer = function () {
@@ -2186,13 +2203,32 @@ function renderDetail() {
   if (!p) { closeAllDrawers(); return; }
   var focusSnapshot = captureFocus($('detailContent'));
   var cat = categoryOf(p.category);
+  var places = filmstripPlaces();
+  var index = places.findIndex(function (place) { return place.id === p.id; });
+  var previous = index > 0;
+  var next = index >= 0 && index < places.length - 1;
   $('detailContent').innerHTML = '<div class="detail-head">' +
     '<div class="d-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
     '<div class="detail-main"><div class="d-cat">' + cat.label + '</div><div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' + visitDateHtml(p.visit) + '</div><img class="detail-berry" src="assets/strawberry-stamp.png" alt=""></div>' + visitCarouselHtml(p) +
-    '<div class="detail-actions"><button class="btn-nav" id="btnNav">🧭 导航去这里</button></div>';
+    '<div class="detail-actions"><button class="btn-nav" id="btnNav" aria-label="导航去这里">🧭</button><button id="btnPreviousPlace" type="button"' + (previous ? '' : ' disabled') + '>← 上一个</button><button id="btnNextPlacePrimary"' + (next ? '' : ' disabled') + '>下一个地点 →</button></div>';
   if (p.visits.length > 1) bindVisitCarousel(p);
   restoreFocus($('detailContent'), focusSnapshot);
   $('btnNav').addEventListener('click', function () { openNavigation(p); });
+  function stepPlace(direction) {
+    var target = places[index + direction];
+    if (!target) return;
+    var focusId = document.activeElement.id;
+    var listReturn = detailListReturn;
+    var filmReturn = detailFilmReturn;
+    selectPlace(target.id);
+    openDetail(target.id, listReturn ? listReturn.button : null, true);
+    if (listReturn) detailListReturn = listReturn;
+    detailFilmReturn = filmReturn;
+    var button = $(focusId);
+    (button && !button.disabled ? button : $(direction > 0 ? 'btnPreviousPlace' : 'btnNextPlacePrimary')).focus({ preventScroll:true });
+  }
+  $('btnPreviousPlace').addEventListener('click', function () { stepPlace(-1); });
+  $('btnNextPlacePrimary').addEventListener('click', function () { stepPlace(1); });
 }
 /* ---------- 数据与隐私 ---------- */
 function getConfiguredTmapKey() {
@@ -2606,6 +2642,7 @@ function bindEvents() {
   });
   $('btnPlaceList').addEventListener('click', function () {
     var places = placesForActiveCategory();
+    $('placeListTitle').textContent = places.length + ' 处 · ' + places.reduce(function (total, place) { return total + place.visits.length; }, 0) + ' 次';
     $('placeList').innerHTML = places.length ? renderCityPlaceList(places, false) : emptyVisitsHtml();
     openDrawer('drawerPlaces');
   });
@@ -2659,7 +2696,9 @@ function bindEvents() {
       closeRoute(true);
       return;
     }
-    selectPlace(placeId, routeStops.length > 0 && frame === document.activeElement);
+    var fromRoute = routeStops.length > 0;
+    selectPlace(placeId, fromRoute && frame === document.activeElement);
+    if (!fromRoute) openDetail(placeId, null, true);
   });
   $('filmstripItems').addEventListener('focusin', function (evt) {
     var frame = evt.target.closest('.film-frame');
@@ -2681,9 +2720,6 @@ function bindEvents() {
     setFilmTabStop(frames.indexOf(next));
     next.focus({ preventScroll: true });
     revealFrame(next);
-  });
-  $('btnVisitPhoto').addEventListener('click', function () {
-    if (state.selectedPlaceId) openDetail(state.selectedPlaceId, null, true);
   });
 
   $('fallbackList').addEventListener('click', function (evt) {
@@ -2739,7 +2775,6 @@ async function init() {
   renderMapCatStrip();
   $('btnPlaceList').disabled = false;
   initMap();
-  if (mapPlaces().length === 1) focusPlace(mapPlaces()[0]);
   if (!publicDataUnavailable) showFirstUsePrivacyNote();
 }
 
