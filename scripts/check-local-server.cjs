@@ -12,6 +12,9 @@ async function checkServer(url) {
     try {
       response = await fetch(new URL(name, url), { signal: AbortSignal.timeout(2000) });
     } catch (error) {
+      if (error.cause?.message === 'bad port') {
+        throw new Error(origin + ' 的端口被浏览器和 fetch 限制，请改用其他 PLAYMAP_PORT。', { cause: error });
+      }
       if (error.cause?.code === 'ECONNREFUSED') return false;
       throw new Error(origin + ' 上的服务无响应；请检查并停止占用进程。', { cause: error });
     }
@@ -30,7 +33,14 @@ module.exports = async function (config) {
 };
 
 if (require.main === module) {
-  checkServer('http://127.0.0.1:4173/').then(running => {
-    if (running) throw new Error('当前工作目录已在 4173 运行；直接打开页面即可。');
+  Promise.resolve().then(async () => {
+    const url = require('./local-preview.cjs');
+    const running = await checkServer(url);
+    if (process.argv.includes('--running')) {
+      if (!running) throw new Error(url + ' 本地服务尚未启动。');
+      console.log(url + ' 正在服务当前工作目录。');
+    } else if (running) {
+      throw new Error(url + ' 已在服务当前工作目录，直接打开即可。');
+    }
   }).catch(error => { console.error(error.message); process.exitCode = 1; });
 }

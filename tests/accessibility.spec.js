@@ -1575,6 +1575,7 @@ test('one click plays the full chronology with distinct return arcs and each vis
   const current = selectedFrame(page);
   await expect(frames.locator('time')).toHaveText(['2026.09.15', '2026.09.14']);
   await play.click();
+  await expect(page.getByRole('region', {name:/胶卷/})).toHaveCount(1);
   await expect(frames).toHaveCount(5);
   await expect(current.locator('time')).toHaveText('2025.06.10');
   await expect(current.locator('img')).toHaveAttribute('src', visit.photo);

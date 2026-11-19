@@ -10,11 +10,13 @@ npm run dev
 
 打开 <http://127.0.0.1:4173/index.html>。应用使用原生 HTML/CSS/JavaScript 和腾讯地图 GL JS API；地图与维护页共用 `assets/visit-rules.js` 解释到访记录。数据保存在浏览器 `localStorage`，不需要后端。公开记录来自仓库 JSON，旧个人数据保留在原有存储键中。
 
+验证预览归属运行 `npm run check:preview`。并行工作树可在启动、校验和测试命令前加同一个 `PLAYMAP_PORT=4202`，例如 `PLAYMAP_PORT=4202 npm run dev`。调整现有界面前，先打开该地址确认要改的控件确实存在。
+
 生产站点为 <https://meetwk.site/playmap/>，由 GitHub Pages 从 `main` 分支根目录发布并强制使用 HTTPS。
 
 ## 腾讯地图配置
 
-生产页面使用受域名限制的浏览器 Key 加载腾讯地图 GL JS，并供地点搜索降级通道复用。腾讯位置服务控制台必须允许 `meetwk.site`，同时为地点搜索启用 WebService API 和相应配额。本地调试在线搜索还需允许 `127.0.0.1:4173`，并通过上面的 HTTP 地址打开；`file://` 页面没有可授权来源，不支持在线搜索。启动与浏览器测试会校验 4173 是否服务于当前工作目录；发现其他目录或无响应服务时停止并报告，不自动结束占用进程。
+生产页面使用受域名限制的浏览器 Key 加载腾讯地图 GL JS，并供地点搜索降级通道复用。腾讯位置服务控制台必须允许 `meetwk.site`，同时为地点搜索启用 WebService API 和相应配额。本地调试在线搜索还需允许 `127.0.0.1:4173`，并通过上面的 HTTP 地址打开；`file://` 页面没有可授权来源，不支持在线搜索。启动与浏览器测试会校验所选端口是否服务于当前工作目录；发现其他目录或无响应服务时停止并报告，不自动结束占用进程。
 
 浏览器 Key 会随页面源码公开，必须依靠域名白名单和额度限制控制使用范围。不要把腾讯地图 SecretKey/SK 写入 HTML、JavaScript 或仓库；如需使用 SK，应改由服务端代理持有。
 
@@ -25,7 +27,7 @@ npm run check:design
 npm test
 ```
 
-`npm run check:design` 包含设计令牌门禁，以及 `npm run check:places`：公开地点 `address` 必须能被地点列表解析出「…市」。`npm test` 使用 Playwright，并自动启动 4173 端口的静态服务器；首次运行前需安装项目依赖及 Playwright Chromium 运行环境。
+`npm run check:design` 包含设计令牌门禁，以及 `npm run check:places`：公开地点 `address` 必须能被地点列表解析出「…市」。`npm test` 使用 Playwright，并自动启动或复用当前工作目录的静态服务器，默认使用 4173；首次运行前需安装项目依赖及 Playwright Chromium 运行环境。
 
 首轮本地诊断可用 `npm test -- --max-failures=1`，让运行器在首次失败后停止，避免重复启动故障。根据失败日志判断原因：`browserType.launch` 中的 Chromium 缺失、系统动态库缺失或 macOS `MachPortRendezvousServer ... Permission denied` 表示浏览器启动环境受限；浏览器已启动后的页面断言失败仍需按产品问题排查，不能把首次失败一概归为环境问题。
 
