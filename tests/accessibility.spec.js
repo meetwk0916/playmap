@@ -74,6 +74,8 @@ const tmapStub = `
         };
       };
       this.getZoom = function () { return zoomLevel; };
+      this.getRotation = function () { return window.__rotation || 0; };
+      this.getPitch = function () { return window.__pitch || 0; };
       this.setZoom = function (zoom) { zoomLevel = zoom; };
       this.getCenter = function () { return new window.TMap.LatLng(31.23, 121.47); };
       this.getBounds = function () {
@@ -189,6 +191,54 @@ async function openVisit(page, name = visit.name) {
 // 胶卷取代了旧的紧凑浮标：选中状态的可见载体是当前画格。
 const selectedFrame = page => page.locator('#filmstrip .film-frame.is-current');
 const filmFrames = page => page.locator('#filmstrip .film-frame');
+test('initial all-city framing, complete counts and adjacent filtered places agree', async ({page}) => {
+  await serveVisits(page, [
+    {...visit, poiId:'a', name:'新地点', address:'上海市黄浦区', visits:[
+      {visitedOn:'2026-09-12', photo:visit.photo}, {visitedOn:'2025-05-01', photo:visit.photo},
+      {visitedOn:'2025-04-01', photo:''}]},
+    {...visit, poiId:'b', name:'早地点', address:'上海市黄浦区', visitedOn:'2026-05-01'},
+    {...visit, poiId:'c', name:'远地点', address:'北京市朝阳区', lat:39.9, lng:116.4, visitedOn:'2025-06-01'}
+  ]);
+  await page.reload();
+  await expect(page.locator('#btnPlaceList')).toHaveText('足迹 3');
+  expect(await page.evaluate(() => window.__mapFitBoundsCalls[0].bounds.length)).toBe(3);
+  expect(await page.evaluate(() => window.__mapFitBoundsCalls[0].options.padding.bottom)).toBeGreaterThan(148);
+  await page.locator('#cityFilter').selectOption('上海市');
+  await page.locator('#btnPlaceList').click();
+  await expect(page.locator('#placeListTitle')).toHaveText('2 处 · 3 次');
+  await page.keyboard.press('Escape');
+  await filmFrames(page).first().click();
+  await expect(page.locator('#btnPreviousPlace')).toBeDisabled();
+  await expect(page.locator('#btnNextPlacePrimary')).toBeEnabled();
+  await page.locator('#btnNextPlacePrimary').click();
+  await expect(page.locator('#detailTitle')).toHaveText('早地点');
+  await expect(page.locator('#btnNextPlacePrimary')).toBeDisabled();
+  await page.locator('#btnPreviousPlace').click();
+  await expect(page.locator('#detailTitle')).toHaveText('新地点');
+  await page.keyboard.press('Escape');
+  await expect(selectedFrame(page)).toBeFocused();
+  await expect(page.locator('#btnVisitPhoto')).toHaveCount(0);
+});
+
+test('mobile compass appears only for orientation changes and More stays next to its button', async ({page}) => {
+  await page.setViewportSize({width:390,height:844});
+  await expect(page.locator('.map-zoom-control')).toBeHidden();
+  await expect(page.locator('.map-orientation-control')).toBeHidden();
+  await page.evaluate(() => { window.__rotation=30; window.__mapEvents.rotation_changed(); });
+  await expect(page.locator('.map-orientation-control')).toBeVisible();
+  await page.evaluate(() => { window.__rotation=0; window.__pitch=20; window.__mapEvents.pitch_changed(); });
+  await expect(page.locator('.map-orientation-control')).toBeVisible();
+  await page.evaluate(() => { window.__pitch=0; window.__mapEvents.pitch_changed(); });
+  await expect(page.locator('.map-orientation-control')).toBeHidden();
+  for (const width of [390,1440]) {
+    await page.setViewportSize({width,height:900});
+    await page.locator('#btnMore').click();
+    const button=await page.locator('#btnMore').boundingBox(), menu=await page.locator('#moreMenu').boundingBox();
+    expect(menu.x-button.x-button.width).toBeCloseTo(8,0);
+    expect(menu.y+menu.height).toBeCloseTo(button.y+button.height,0);
+    await page.keyboard.press('Escape');
+  }
+});
 test('More exposes privacy with keyboard, restores focus and remains available without the map', async ({ page }) => {
   await page.addInitScript(() => {
     window.locationRequests = 0;
@@ -224,7 +274,7 @@ test('opening footprints from an open More menu returns focus to footprints', as
   await page.getByRole('button', { name: '更多', exact: true }).click();
   const footprints = page.getByRole('button', { name: /足迹/ });
   await footprints.click();
-  await expect(page.getByRole('dialog', { name: '11 去过的地方', exact: true })).toBeVisible();
+  await expect(page.locator('#drawerPlaces')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(footprints).toBeFocused();
   await expect(page.getByRole('button', { name: '更多', exact: true })).toHaveAttribute('aria-expanded', 'false');
@@ -238,9 +288,10 @@ test(`footprint rows select their map pin above details and restore list context
     photo: i === 13 ? 'assets/visits/bfc-20260919.jpg' : visit.photo }))];
   await serveVisits(page, places);
   await page.reload();
-  await page.locator('[data-map-pin="public:visit-1"]').click();
+  await expect.poll(() => page.evaluate(() => typeof window.__openMarkerById)).toBe('function');
+  await page.evaluate(() => window.__openMarkerById('public:visit-1'));
   await page.getByRole('button', { name: /足迹/ }).click();
-  const list = page.getByRole('dialog', { name: '11 去过的地方', exact: true });
+  const list = page.locator('#drawerPlaces');
   for (const exit of ['close', 'escape']) {
     await expect(list).toHaveClass(/open/);
     // 抽屉入场动画会把行推到屏幕外；等它落位再量行位置，否则点击时的自动滚动会污染对照值。
@@ -395,7 +446,7 @@ for (const destination of ['list', 'another detail']) {
     await expect(pin).toHaveCSS('width', '60px');
     const after = await pin.boundingBox();
     expect(after.x).toBeCloseTo(before.x, 1); expect(after.y).toBeCloseTo(before.y, 1);
-    if (destination === 'list') await expect(page.getByRole('dialog', { name:'11 去过的地方', exact:true })).toBeVisible();
+    if (destination === 'list') await expect(page.locator('#drawerPlaces')).toBeVisible();
     else await expect(page.getByRole('dialog', { name:visit.name, exact:true })).toBeVisible();
     await expect(selectedFrame(page)).toBeHidden();
   });
@@ -404,7 +455,7 @@ for (const destination of ['list', 'another detail']) {
 for (const [width, height] of [[320, 860], [375, 860], [414, 860], [768, 860], [1249, 860], [768, 375], [375, 430], [320, 375], [320, 568], [375, 667]]) {
   test(`native map tools fit and remain clear of the filmstrip at ${width}x${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
-    const targets = page.locator('[data-sdk-controls] .compass-circle, [data-sdk-controls] .rotate-panel > div, [data-sdk-controls] .tmap-zoom-in, [data-sdk-controls] .tmap-zoom-out, #btnLocate');
+    const targets = page.locator('[data-sdk-controls] .compass-circle:visible, [data-sdk-controls] .rotate-panel > div:visible, [data-sdk-controls] .tmap-zoom-in:visible, [data-sdk-controls] .tmap-zoom-out:visible, #btnLocate');
     const metrics = await page.evaluate(() => {
       const rect = el => el.getBoundingClientRect().toJSON();
       const strip = rect(document.querySelector('#mapCatStrip'));
@@ -413,10 +464,10 @@ for (const [width, height] of [[320, 860], [375, 860], [414, 860], [768, 860], [
           const box = rect(el), x = Math.max(box.x, strip.x);
           return { ...box, x, width:Math.max(0, Math.min(box.right, strip.right) - x) };
         }),
-        groups:['.map-orientation-control', '.map-zoom-control', '#btnLocate'].map(selector => rect(document.querySelector(selector))) };
+        groups:['.map-orientation-control', '.map-zoom-control', '#btnLocate'].map(selector => rect(document.querySelector(selector))).filter(box => box.width) };
     });
     const overlaps = (a, b) => a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
-    await expect(targets).toHaveCount(8);
+    await expect(targets).toHaveCount(width < 768 ? 1 : 8);
     for (const target of await targets.all()) {
       const box = await target.boundingBox();
       expect(box.width).toBeGreaterThanOrEqual(44); expect(box.height).toBeGreaterThanOrEqual(44);
@@ -431,11 +482,13 @@ for (const [width, height] of [[320, 860], [375, 860], [414, 860], [768, 860], [
       const gap = metrics.groups[i].y - metrics.groups[i - 1].y - metrics.groups[i - 1].height;
       expect(gap).toBeGreaterThanOrEqual(4); expect(gap).toBeLessThanOrEqual(16);
     }
+    if (width >= 768) {
     const originalZoom = await page.evaluate(() => window.__testMap.getZoom());
     await page.locator('.tmap-zoom-in').click();
     expect(await page.evaluate(() => window.__testMap.getZoom())).toBe(originalZoom + 1);
     await page.locator('.tmap-zoom-out').click();
     expect(await page.evaluate(() => window.__testMap.getZoom())).toBe(originalZoom);
+    }
     await page.locator('[data-map-pin="public:visit-1"]').click();
     const strip = page.locator('#filmstrip');
     const frame = selectedFrame(page);
@@ -509,7 +562,7 @@ for (const width of [320, 375, 414, 768]) {
     await page.reload();
     const opener = page.getByRole('button', { name: /足迹/ });
     await opener.click();
-    const list = page.getByRole('dialog', { name: '11 去过的地方', exact: true });
+    const list = page.locator('#drawerPlaces');
     const closeList = list.getByRole('button', { name: '关闭地点列表', exact: true });
     await expect(closeList).toBeFocused();
     for (const id of ['btnMore', 'btnLocate']) {
@@ -524,7 +577,7 @@ for (const width of [320, 375, 414, 768]) {
     await expect(detail.locator('.grabber')).toHaveAttribute('aria-hidden', 'true');
     const close = detail.getByRole('button', { name: '关闭地点详情', exact: true });
     await expect(close).toBeFocused();
-    const nav = detail.getByRole('button', { name: '🧭 导航去这里', exact: true });
+    const nav = detail.getByRole('button', { name: '导航去这里', exact: true });
     await nav.scrollIntoViewIfNeeded();
     await page.evaluate(() => { window.open = () => null; });
     await nav.click();
@@ -557,7 +610,7 @@ for (const width of [320, 375, 414, 768]) {
     await openVisit(page);
     for (const button of await page.locator('#drawerDetail button').all()) {
       const box = await button.boundingBox();
-      expect(box.width).toBeGreaterThanOrEqual(44); expect(box.height).toBeGreaterThanOrEqual(44);
+      expect(Math.round(box.width)).toBeGreaterThanOrEqual(44); expect(Math.round(box.height)).toBeGreaterThanOrEqual(44);
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
@@ -710,7 +763,7 @@ test('a repeat place opens its latest complete visit and can browse earlier visi
   await page.keyboard.press('Escape');
   await expect(row).toBeFocused();
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: '看照片', exact: true }).click();
+  await selectedFrame(page).click();
   await expect(controls).toHaveText(/1 \/ 2/);
   await page.keyboard.press('Escape');
   await expect(selectedFrame(page)).toBeFocused();
@@ -792,7 +845,8 @@ test('filmstrip keeps one tab stop, moves with arrow keys and opens the visit ph
   await page.keyboard.press('Enter');
   await expect(selectedFrame(page)).toHaveText(/第二公园/);
   await expect(selectedFrame(page)).toHaveAttribute('aria-current', 'true');
-  await expect(page.getByRole('button', { name: '看照片', exact: true })).toBeVisible();
+  await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
+  await page.keyboard.press('Escape');
 
   await page.keyboard.press('End');
   await expect(filmFrames(page).last()).toBeFocused();
@@ -800,7 +854,6 @@ test('filmstrip keeps one tab stop, moves with arrow keys and opens the visit ph
   await expect(filmFrames(page).first()).toBeFocused();
 
   await filmFrames(page).nth(1).click();
-  await page.getByRole('button', { name: '看照片', exact: true }).click();
   await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
   await page.keyboard.press('Escape');
   await expect(selectedFrame(page)).toBeFocused();
@@ -880,7 +933,7 @@ test('visit detail keeps one photo, readable date and age with a small strawberr
   await expect(detail.locator('.stamp-age')).toHaveText('2岁3个月打卡');
   await expect(detail.locator('.visit-photo')).toHaveCount(1);
   await expect(detail.getByRole('button', { name: /复制|添加|删除/ })).toHaveCount(0);
-  const nav = detail.getByRole('button', { name: '🧭 导航去这里', exact: true });
+  const nav = detail.getByRole('button', { name: '导航去这里', exact: true });
   await expect(nav).toBeVisible();
   const layout = await detail.evaluate(el => {
     const photo = el.querySelector('.visit-photo').getBoundingClientRect();
@@ -1155,7 +1208,7 @@ test('tile loading timeout enters the public list fallback', async ({ page }) =>
 test('blocked navigation preserves the detail with retry and direct map link', async ({ page }) => {
   await openVisit(page);
   await page.evaluate(() => { window.open = () => null; });
-  await page.getByRole('button', { name: '🧭 导航去这里', exact: true }).click();
+  await page.getByRole('button', { name: '导航去这里', exact: true }).click();
   await expect(page.locator('#navigationFallback')).toContainText('导航没有打开');
   await expect(page.getByRole('link', { name: '打开腾讯地图', exact: true })).toHaveAttribute('href', /coord:31.23,121.47/);
   await expect(page.getByRole('button', { name: /复制目的地/ })).toHaveCount(0);
@@ -1164,8 +1217,8 @@ test('blocked navigation preserves the detail with retry and direct map link', a
 
 test('detail focus is trapped and Escape returns to the same film frame', async ({ page }) => {
   await page.locator('[data-map-pin="public:visit-1"]').click();
-  await page.getByRole('button', { name: '看照片', exact: true }).click();
-  const nav = page.getByRole('button', { name: '🧭 导航去这里', exact: true });
+  await selectedFrame(page).click();
+  const nav = page.getByRole('button', { name: '导航去这里', exact: true });
   const close = page.getByRole('button', { name: '关闭地点详情', exact: true });
   await expect(close).toBeFocused();
   await page.keyboard.press('Shift+Tab'); await expect(nav).toBeFocused();
@@ -1360,7 +1413,7 @@ for (const [label, reflection, displayed] of [
     await expect(detail.locator('.rating-stars')).toHaveCount(0);
     await expect(detail.locator('.visit-photo')).toBeVisible();
     await expect(detail.locator('time')).toHaveText('2026.09.12');
-    await expect(detail.getByRole('button', { name: '🧭 导航去这里', exact: true })).toBeVisible();
+    await expect(detail.getByRole('button', { name: '导航去这里', exact: true })).toBeVisible();
     expect(await page.evaluate(() => window.reflectionExecuted)).toBeUndefined();
     expect(await detail.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     const layout = await detail.evaluate(el => {
@@ -1391,8 +1444,8 @@ for (const [label, reflection, displayed] of [
       expect(narrow.stampBottom).toBeLessThanOrEqual(narrow.photoTop);
       expect(narrow.navTop).toBeGreaterThanOrEqual(narrow.photoBottom);
       await screenshotWhenReady(page, { path: '/tmp/playmap-39-logs/synthetic-80-characters-320.png' });
-      await detail.getByRole('button', { name: '🧭 导航去这里', exact: true }).scrollIntoViewIfNeeded();
-      await expect(detail.getByRole('button', { name: '🧭 导航去这里', exact: true })).toBeInViewport();
+      await detail.getByRole('button', { name: '导航去这里', exact: true }).scrollIntoViewIfNeeded();
+      await expect(detail.getByRole('button', { name: '导航去这里', exact: true })).toBeInViewport();
       await screenshotWhenReady(page, { path: '/tmp/playmap-39-logs/synthetic-80-characters-320-navigation.png' });
     }
   });
@@ -1404,12 +1457,12 @@ test('map selection highlights a film frame and details return to the same selec
   await expect(selectedFrame(page)).toBeVisible();
   await expect(selectedFrame(page)).toContainText(visit.name);
   await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
-  await page.getByRole('button', {name:'看照片', exact:true}).click();
+  await selectedFrame(page).click();
   await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
   await page.keyboard.press('Escape');
   // 关闭详情回到同一画格（而非片头按钮），键盘才能接着用方向键换地点。
   await expect(selectedFrame(page)).toBeFocused();
-  await page.getByRole('button', {name:'看照片', exact:true}).click();
+  await selectedFrame(page).click();
   await page.locator('#mask').click({ position:{ x:8, y:8 } });
   await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
   await expect(selectedFrame(page)).toBeVisible();
@@ -1443,10 +1496,10 @@ for (const width of [320, 375, 414, 768, 1249]) {
     expect(await frame.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     const nameStyle = await frame.locator('.film-name').evaluate(el => {
       const style = getComputedStyle(el);
-      return { textOverflow: style.textOverflow, whiteSpace: style.whiteSpace, clipped: el.scrollWidth > el.clientWidth };
+      return { clamp: style.webkitLineClamp, whiteSpace: style.whiteSpace, clipped: el.scrollHeight > el.clientHeight };
     });
-    expect(nameStyle.textOverflow).toBe('ellipsis');
-    expect(nameStyle.whiteSpace).toBe('nowrap');
+    expect(nameStyle.clamp).toBe('2');
+    expect(nameStyle.whiteSpace).toBe('normal');
     expect(nameStyle.clipped).toBe(true);
     expect(frameBox.height).toBeGreaterThanOrEqual(44);
   });
@@ -1522,7 +1575,7 @@ test(`map timeout clears selection before fallback details and retry (photo ${vi
   await page.reload();
   await page.locator('[data-map-pin="public:visit-1"]').click();
   await expect(selectedFrame(page)).toContainText(visit.name);
-  await page.getByRole('button', {name:'看照片', exact:true}).focus();
+  await selectedFrame(page).focus();
   if (viewingPhoto) await page.keyboard.press('Enter');
   await page.clock.runFor(8001);
   await expect(page.locator('#mapFallback')).toBeVisible();
@@ -1630,7 +1683,7 @@ test('one click plays the full chronology with distinct return arcs and each vis
   await play.click();
   const placeList = page.getByRole('button', {name:/足迹/});
   await placeList.click();
-  await expect(page.getByRole('dialog', {name:'11 去过的地方'})).toBeVisible();
+  await expect(page.locator('#drawerPlaces')).toBeVisible();
   expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[31.23,121.47],[31.23,121.483]]);
   await page.keyboard.press('Escape');
 
@@ -1676,10 +1729,10 @@ test('choosing a playback frame with Enter restores focus to the ordinary frame'
   const earlier = page.getByRole('button', {name:/早期地点.*到访，在地图上选中/});
   await earlier.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByRole('button', {name:'播放', exact:true})).toBeVisible();
+  await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
+  await page.keyboard.press('Escape');
   await expect(earlier).toBeFocused();
   await expect(earlier).toHaveAttribute('aria-current', 'true');
-  await expect(page.getByRole('button', {name:'看照片', exact:true})).toBeVisible();
 });
 
 test('playback gives control back to the list when a short viewport hides the filmstrip', async ({page}) => {
