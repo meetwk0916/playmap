@@ -1,7 +1,15 @@
 const { test, expect } = require('@playwright/test');
 const { readFile } = require('node:fs/promises');
 const publicData = require('../public-places.json');
+// 维护页只处理旧单条记录。夹具固定为旧格式，公开数据改用 visits 也不会让整套测试失效。
+const legacyData = JSON.parse(JSON.stringify(publicData));
+delete legacyData.places[0].visits;
 const draftKey = 'playmap_maintainer_draft_v1';
+
+// 没显式 mock 的用例也读旧格式夹具；用例内后注册的 route 会覆盖它。
+test.beforeEach(async ({ page }) => {
+  await page.route('**/public-places.json', route => route.fulfill({ json: legacyData }));
+});
 
 async function preview(page, reflection = '玩得开心，也有一点遗憾。') {
   await page.locator('#start').click();
@@ -10,7 +18,7 @@ async function preview(page, reflection = '玩得开心，也有一点遗憾。'
 }
 
 test('reflection and one photo export without changing unrelated data', async ({ page }) => {
-  const data = structuredClone(publicData);
+  const data = structuredClone(legacyData);
   data.places[0].extra = { retained: true };
   await page.route('**/public-places.json', route => route.fulfill({ json: data }));
   await page.goto('/maintainer.html');
@@ -35,7 +43,7 @@ test('reflection and one photo export without changing unrelated data', async ({
 });
 
 test('reflection is optional and never creates a score or inferred opinion', async ({ page }) => {
-  const data = structuredClone(publicData);
+  const data = structuredClone(legacyData);
   delete data.places[0].score;
   await page.route('**/public-places.json', route => route.fulfill({ json: data }));
   await page.goto('/maintainer.html');
@@ -56,7 +64,7 @@ test('unreadable public data blocks draft generation', async ({ page }) => {
 });
 
 test('existing POI handoff preserves identity and local-only boundary', async ({ page }) => {
-  const p = publicData.places[0];
+  const p = legacyData.places[0];
   await page.addInitScript(p => sessionStorage.setItem('playmap_rating_poi', JSON.stringify(p)), p);
   await page.goto('/maintainer.html');
   await expect(page.locator('#heading')).toContainText(p.name);
@@ -64,7 +72,7 @@ test('existing POI handoff preserves identity and local-only boundary', async ({
   await page.getByLabel('11’s 玩后感').fill('还想再来。');
   await page.locator('#next').click();
   const draft = JSON.parse(await page.locator('#output').inputValue());
-  expect(draft.places).toHaveLength(publicData.places.length);
+  expect(draft.places).toHaveLength(legacyData.places.length);
   expect(draft.places[0]).toMatchObject({ poiId: p.poiId, score: p.score, reflection: '还想再来。' });
   const html = await readFile(require('node:path').join(__dirname, '../maintainer.html'), 'utf8');
   await page.route('https://playmap.example/maintainer.html', route => route.fulfill({ contentType: 'text/html', body: html }));
@@ -73,7 +81,7 @@ test('existing POI handoff preserves identity and local-only boundary', async ({
 });
 
 test('POI handoff reuses the published place when a saved draft predates it', async ({ page }) => {
-  const base = { avatar: publicData.avatar, places: [publicData.places[0]] };
+  const base = { avatar: legacyData.avatar, places: [legacyData.places[0]] };
   const oldDraft = { ...base, places: [{ ...base.places[0], reflection: '保留已有草稿' }] };
   const publishedPlace = {
     provider: 'tencent', poiId: 'newly-published', name: '已发布乐园', address: '上海市黄浦区',
@@ -101,7 +109,7 @@ test('POI handoff reuses the published place when a saved draft predates it', as
 });
 
 test('drafts resume, accumulate, and resist failed or concurrent writes', async ({ page }) => {
-  const data = structuredClone(publicData);
+  const data = structuredClone(legacyData);
   data.places = [data.places[0], { ...structuredClone(data.places[0]), poiId: 'second', name: '第二个地点' }];
   await page.route('**/public-places.json', route => route.fulfill({ json: data }));
   await page.goto('/maintainer.html');
@@ -131,7 +139,7 @@ test('drafts resume, accumulate, and resist failed or concurrent writes', async 
 });
 
 test('a legacy draft for a migrated place stays exportable without reopening the old editor', async ({ page }) => {
-  const data = structuredClone(publicData);
+  const data = structuredClone(legacyData);
   const draft = structuredClone(data);
   draft.places[0].reflection = '保留给 Agent 核对的旧草稿';
   const existing = JSON.stringify({ version: 1, base: data, draft });
@@ -165,10 +173,10 @@ test('incompatible drafts are preserved and changed baseline is flagged', async 
   await preview(page);
   await page.locator('#save').click();
   expect(await page.evaluate(key => localStorage.getItem(key), draftKey)).toBe('{broken');
-  const draft = structuredClone(publicData);
+  const draft = structuredClone(legacyData);
   draft.places[0].score = 4.7;
-  await page.evaluate(({ key, data, draft }) => localStorage.setItem(key, JSON.stringify({ version: 1, base: data, draft })), { key: draftKey, data: publicData, draft });
-  const latest = structuredClone(publicData);
+  await page.evaluate(({ key, data, draft }) => localStorage.setItem(key, JSON.stringify({ version: 1, base: data, draft })), { key: draftKey, data: legacyData, draft });
+  const latest = structuredClone(legacyData);
   latest.places[0].address = '更新的公开地址';
   await page.route('**/public-places.json', route => route.fulfill({ json: latest }));
   await page.reload();
@@ -185,7 +193,7 @@ test('visit date can be maintained, previewed, exported and resumed without drop
   await page.locator('#save').click();
   const stored = await page.evaluate(key => JSON.parse(localStorage.getItem(key)), draftKey);
   expect(stored.draft.places[0].visitedOn).toBe('2026-09-10');
-  expect(stored.draft.places).toHaveLength(publicData.places.length);
+  expect(stored.draft.places).toHaveLength(legacyData.places.length);
   await page.reload();
   await page.locator('#start').click();
   await expect(page.getByLabel('到访日期')).toHaveValue('2026-09-10');
@@ -196,7 +204,7 @@ test('visit date can be maintained, previewed, exported and resumed without drop
 });
 
 test('editing a reflection preserves an old partial date until the date itself is edited', async ({ page }) => {
-  const data = structuredClone(publicData);
+  const data = structuredClone(legacyData);
   data.places[0].visitedOn = '2026-09';
   await page.route('**/public-places.json', route => route.fulfill({ json: data }));
   await page.goto('/maintainer.html'); await preview(page);
@@ -207,7 +215,7 @@ test('editing a reflection preserves an old partial date until the date itself i
 
 
 test('invalid historical dates stay in the draft and are explained without an age', async ({ page }) => {
-  const data = structuredClone(publicData);
+  const data = structuredClone(legacyData);
   data.places[0].visitedOn = '2026-02-30';
   data.places[0].extra = { retained: true };
   await page.route('**/public-places.json', route => route.fulfill({ json: data }));
@@ -223,7 +231,7 @@ test('invalid historical dates stay in the draft and are explained without an ag
 });
 
 test('reflection supports 80 characters, rejects overflow visibly, resumes and clears without losing history', async ({ page }) => {
-  const data = structuredClone(publicData);
+  const data = structuredClone(legacyData);
   const original = data.places[0];
   original.reflection = '旧的玩后感';
   original.extra = { retained: ['original'] };
@@ -257,7 +265,7 @@ test('reflection supports 80 characters, rejects overflow visibly, resumes and c
 
 for (const invalid of [{ unsupported: true }, '玩'.repeat(81), '第一行\n第二行']) {
   test(`invalid unedited reflection ${JSON.stringify(invalid).slice(0, 30)} stays intact until edited`, async ({ page }) => {
-    const data = structuredClone(publicData);
+    const data = structuredClone(legacyData);
     data.places[0].reflection = invalid;
     await page.route('**/public-places.json', route => route.fulfill({ json: data }));
     await page.goto('/maintainer.html');

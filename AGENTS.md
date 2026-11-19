@@ -12,7 +12,7 @@ npm run check:design
 npm test
 ```
 
-Playwright 需要 Chromium 及其系统动态库。缺少系统依赖时，不要把浏览器无法启动误报为代码测试失败。
+Playwright 需要 Chromium 及其系统动态库。缺少系统依赖时，不要把浏览器无法启动误报为代码测试失败。首轮诊断用 `npm test -- --max-failures=1`；判据与完整复跑要求见 `README.md`「验证」。
 
 ## 技术栈与结构
 
@@ -47,8 +47,4 @@ Playwright 需要 Chromium 及其系统动态库。缺少系统依赖时，不�
 
 ## 技能参考文件路径（WSL 会话）
 
-VS Code 同步到 WSL 的技能镜像只投递各技能的 `SKILL.md`，不含 `references/` 等配套文件。在 WSL 会话中加载技能后，如需其配套文件，从规范库读取：
-
-`/home/wakun/shared/copilot-skills/<技能名>/`
-
-该路径解析到 Windows 规范库 `C:\Users\wakun\.copilot\skills`。不要改动 `agentPlugins` 同步镜像，也不要创建 `~/.copilot/skills`。
+WSL 技能镜像缺少 `references/` 等配套文件；需要时按 [WSL 技能配套文件](docs/agents/wsl-skill-mirror.md) 从规范库读取。
