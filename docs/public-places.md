@@ -99,6 +99,8 @@ Agent 根据维护者确认的内容编辑根目录的 `public-places.json`，�
 
 有 `visits` 时，该数组是该地点的到访记录，空数组表示当前无公开到访可显示。旧单条记录使用地点上的 `visitedOn`、`photo` 和 `reflection`，可直接读取。首次改为多条时，把旧的到访内容逐项移入数组作为一条，保留原值、待补信息及其他历史字段。每个有效日期在同一地点只出现一次。
 
+**维护页兼容**：`maintainer.html` 把带 `visits` 的地点判为「到访历史，请交给 Agent 更新」，本地草稿问卷会拒绝对它进入编辑。地点首次只有一次到访时沿用旧单条字段；确实要记第二次到访时，再按上一条把旧记录移入数组。`tests/maintainer.spec.js` 的夹具固定为旧格式，不依赖公开数据首个地点的字段形态。
+
 `visitedOn` 是照片对应到访的 `YYYY-MM-DD` 日期，缺少或不完整时不上图。`reflection` 是可选的单行纯文本，去除两端空白后最多 80 个字符，超限明确提示而不静默截断；清空表示移除。旧 `score` 保留，但不展示、编辑或作为上图条件。`photo` 优先使用 `assets/visits/<小写字母数字或连字符>.jpg` 的仓库相对路径，也兼容手工维护页生成的单张 `data:image/jpeg;base64,...`。最长边 960 像素，处理后最多约 330 KB；不填写时省略。旧三维体验、推荐、设施、来源等字段可以继续保留，不在现役详情展示。类别包含 `park`、`playground`、`zoo`、`aquarium`、`museum`、`science`、`library`、`mall`、`water`、`hotel`、`other`。
 
 ```json
