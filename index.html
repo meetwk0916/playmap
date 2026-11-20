@@ -1928,7 +1928,8 @@ function fitPlaces(places, extraPadding = 0) {
   var bounds = new TMap.LatLngBounds();
   places.forEach(function (place) { bounds.extend(new TMap.LatLng(place.lat, place.lng)); });
   var strip = $('filmstrip');
-  var top = Math.round($('mapCatStrip').getBoundingClientRect().bottom + 20);
+  // 图钉从锚点向上长 54px：顶部留出整张图钉的高度，最北的地点才不会钻到类别条下面。
+  var top = Math.round($('mapCatStrip').getBoundingClientRect().bottom + 62);
   var bottom = Math.round(strip.getClientRects().length ? innerHeight - strip.getBoundingClientRect().top + 16 : 40);
   try {
     map.fitBounds(bounds, { padding: {
