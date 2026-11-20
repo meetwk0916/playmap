@@ -1070,6 +1070,30 @@ test('visit detail keeps one photo, readable date and age with a small strawberr
   expect(await page.evaluate(() => window.__opened)).toContain('coord:31.23,121.47');
 });
 
+test('detail print hugs the photo, keeps the date imprint decorative and the next-place action in view', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await serveVisits(page, [visit, { ...visit, poiId: 'second', name: '第二公园', visitedOn: '2026-05-01' }]);
+  await page.reload();
+  await filmFrames(page).first().click();
+  const detail = page.locator('#drawerDetail');
+  const photo = detail.locator('.visit-photo');
+  await expect.poll(() => photo.evaluate(el => el.complete && el.naturalWidth > 0)).toBe(true);
+  await expect(detail.locator('.photo-imprint')).toHaveText("'26 09 12");
+  await expect(detail.locator('.photo-imprint')).toHaveAttribute('aria-hidden', 'true');
+  await expect(detail.locator('time')).toHaveCount(1);
+  const metrics = await detail.evaluate(el => {
+    const wrap = el.querySelector('.visit-photo-wrap').getBoundingClientRect();
+    const image = el.querySelector('.visit-photo').getBoundingClientRect();
+    const imprint = el.querySelector('.photo-imprint').getBoundingClientRect();
+    return { border: wrap.width - image.width, inside: imprint.right <= image.right && imprint.bottom <= image.bottom &&
+      imprint.left >= image.left, scroll: el.scrollHeight, client: el.clientHeight };
+  });
+  expect(metrics.border).toBeCloseTo(16, 0);
+  expect(metrics.inside).toBe(true);
+  expect(metrics.scroll).toBeLessThanOrEqual(metrics.client);
+  await expect(page.locator('#btnNextPlacePrimary')).toBeInViewport({ ratio: 1 });
+});
+
 async function readLocationMapState(page) {
   return page.evaluate(() => {
     const call = window.__mapEaseToCalls.at(-1);

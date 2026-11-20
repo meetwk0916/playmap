@@ -4,36 +4,40 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <meta name="format-detection" content="telephone=no" />
+<meta name="theme-color" content="#1C1B18" />
 <title>11去哪玩 🧸</title>
 <style>
 /* ============================================================
-   全局样式（移动优先 / 暖暖童趣配色：暖黄 + 橙 + 奶白）
+   全局样式（移动优先 / 胶片相机与冲印店：胶片黑 + 胶卷盒黄 + 相纸白）
    ============================================================ */
 :root {
   --map-tools-gap: clamp(4px, calc((100dvh - 416px) / 2), 12px);
   --map-tools-top: clamp(calc(72px + env(safe-area-inset-top, 0px)), calc(100dvh - 264px - var(--map-tools-gap) - var(--map-tools-gap) - 24px - env(safe-area-inset-bottom, 0px)), calc(128px + env(safe-area-inset-top, 0px)));
-  --brand-sun: #FFD65B;
-  --selection: #F16A45;
-  --action: #13815E;
-  --bg: #F7F5EE;            /* 暖纸白背景 */
-  --primary: #4C8F6F;       /* 云杉绿·浅（仅用于图标/边框/装饰，不承载白字） */
-  --primary-deep: #2F6B4F;  /* 云杉绿（强调文字/选中态） */
-  --primary-strong: #23543D; /* 深云杉：主按钮白字填充面（对比 8.6:1） */
-  --text: #24352B;          /* 深云杉墨文字 */
-  --text-light: #5C6B60;
-  --card: #FFFEFA;
+  --brand-sun: #FFD65B;     /* 胶卷盒黄：品牌、选中类别、回放当前站 */
+  --selection: #F16A45;     /* 珊瑚：选中图钉与选中画格 */
+  --ink: #1C1B18;           /* 胶片黑：顶栏、片基、主按钮 */
+  --ink-soft: #2E2B26;
+  --stamp: #FF9A3D;         /* 照片右下角的日期压印橙 */
+  --action: #1C1B18;
+  --bg: #F4EFE3;            /* 相纸白背景 */
+  --primary: #8C8474;       /* 暖灰（仅用于边框/装饰，不承载白字） */
+  --primary-deep: #4A453B;  /* 深暖灰（次级强调文字） */
+  --primary-strong: #1C1B18; /* 胶片黑：主按钮填充面与键盘焦点环 */
+  --text: #211F1A;
+  --text-light: #6A6358;
+  --card: #FFFDF7;
   --danger: #C8493B;
   --radius: 16px;
-  --line: #E7E2D2;        /* 分隔线/描边 */
-  --spruce-soft: #E3EFE6; /* 云杉绿浅底（chip 选中态） */
-  --sun-soft: #FCF0D8;    /* 暖阳黄浅底（待探索徽章） */
-  --sky-soft: #E2EEF6;    /* 天空蓝浅底（导航/信息） */
-  --sky-ink: #2F5D87;     /* 天空蓝文字（sky-soft 上 6:1） */
+  --line: #E7E0CE;        /* 分隔线/描边 */
+  --spruce-soft: #E3EFE6; /* 公园类别浅底 */
+  --sun-soft: #FFF1C9;    /* 暖黄浅底（玩后感、导航按钮） */
+  --sky-soft: #E2EEF6;
+  --sky-ink: #2F5D87;
   --white: #FFFFFF;
   --black: #000000;
-  --line-strong: #EDE8D8;
+  --line-strong: #DAD2BC;
   --line-soft: #EFE9DA;
-  --surface-muted: #FBFAF4;
+  --surface-muted: #F8F3E7;
   --amber-ink: #795500;
   --rating-gold: #E8AA00;
   --rating-ink: #A66D00;
@@ -59,22 +63,31 @@
   --cat-water-soft: #E0F2F7;
   --cat-hotel-soft: #EEE7F5;
   --cat-other-soft: #EFEDE6;
-  --overlay-toast: rgba(36, 53, 43, 0.92);
-  --overlay-mask: rgba(36, 53, 43, 0.45);
-  --overlay-confirm: rgba(36, 53, 43, 0.5);
-  --surface-glass: rgba(255, 254, 250, 0.94);
+  --overlay-toast: rgba(28, 27, 24, 0.94);
+  --overlay-mask: rgba(28, 27, 24, 0.5);
+  --overlay-confirm: rgba(28, 27, 24, 0.55);
+  --surface-glass: rgba(255, 253, 247, 0.94);
   --surface-results: rgba(255, 255, 255, 0.97);
-  --shadow: 0 4px 16px rgba(47, 107, 79, 0.12);
-  --shadow-button: 0 4px 14px rgba(35, 84, 61, 0.30);
+  --ink-glass: rgba(28, 27, 24, 0.9);
+  --ink-hairline: rgba(255, 253, 247, 0.16);
+  --ink-shade: rgba(28, 27, 24, 0.16);
+  --imprint-plate: rgba(21, 20, 18, 0.66);
+  --stamp-glow: rgba(255, 122, 24, 0.6);
+  --shadow: 0 6px 18px rgba(28, 27, 24, 0.14);
+  --shadow-button: 0 6px 18px rgba(28, 27, 24, 0.28);
+  --shadow-print: 0 1px 2px rgba(28, 27, 24, 0.2), 0 10px 26px rgba(28, 27, 24, 0.16);
+  --shadow-thumb: 0 1px 2px rgba(28, 27, 24, 0.22), 0 3px 8px rgba(28, 27, 24, 0.12);
   --dur-fast: 150ms;
   --dur-base: 180ms;
   --dur-slow: 260ms;
   --ease-out: cubic-bezier(.22, 1, .36, 1);
-  --font-display: "PingFang SC", -apple-system, sans-serif;
-  /* 足迹胶卷：片基用深云杉阶，画格是奶油纸，日期压印与选中态复用品牌黄与珊瑚色 */
-  --film-base: #2B4235;
-  --film-base-deep: #1F3229;
-  --film-frame: #F1EADA;
+  --font-display: ui-rounded, "SF Pro Rounded", "PingFang SC", -apple-system, sans-serif;
+  --font-code: ui-monospace, "SF Mono", Menlo, "Roboto Mono", monospace;
+  /* 足迹胶卷：胶片黑片基，齿孔透出相纸色，画格上是橙色日期压印 */
+  --film-base: #262420;
+  --film-base-deep: #151412;
+  --film-frame: #F3ECDC;
+  --film-hole: rgba(244, 239, 227, 0.92);
   --film-height: 184px;
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -115,14 +128,15 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .fallback-list { display: grid; gap: 8px; margin-top: 14px; }
 /* Hallmark · component: city-grouped list · genre: playful · theme: existing spruce
  * pre-emit critique: P5 H5 E4 S5 R5 V4 */
-.city-group + .city-group { margin-top: 12px; }
-.city-group-heading { display: flex; align-items: baseline; gap: 8px; margin: 0 0 8px; font-size: 16px; font-style: normal; color: var(--primary-deep); }
-.city-group-count { font-size: 13px; font-weight: 400; color: var(--text-light); white-space: nowrap; }
+.city-group + .city-group { margin-top: 18px; }
+.city-group-heading { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 16px; font-style: normal; font-weight: 800; color: var(--text); }
+.city-group-heading::before { content:''; flex:none; width:6px; height:16px; border-radius:2px; background:var(--brand-sun); box-shadow:9px 0 0 -1px var(--selection); margin-right:9px; }
+.city-group-count { padding: 2px 8px; border-radius: 999px; background: var(--ink); color: var(--brand-sun); font-family: var(--font-code); font-size: 11px; font-weight: 700; letter-spacing: .04em; white-space: nowrap; }
 .city-place-list { display: grid; gap: 0; min-width: 0; }
 .fallback-place {
   width: 100%;
   border: 0;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px dashed var(--line-strong);
   border-radius: 0;
   background: transparent;
   color: var(--text);
@@ -158,7 +172,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 }
 .map-cat-strip::-webkit-scrollbar { display: none; }
 .map-cat-strip.hidden { display: none; }
-.map-cat-strip .chip { min-height:44px; min-width:44px; flex-shrink:0; box-shadow:var(--shadow); }
+.map-cat-strip .chip { min-height:44px; min-width:44px; flex-shrink:0; box-shadow:0 3px 10px var(--ink-shade); }
+.map-cat-strip .chip.active { box-shadow:0 2px 0 var(--ink); }
 #map .map-orientation-control { position:fixed; top:var(--map-tools-top); right:calc(8px + env(safe-area-inset-right, 0px)); width:128px; height:128px; }
 #map .map-orientation-control .rotate-circle { padding:0; margin:19px; transform:scale(1.5); transform-origin:top left; }
 #map .map-zoom-control { position:fixed; top:calc(var(--map-tools-top) + 128px + var(--map-tools-gap)); right:calc(50px + env(safe-area-inset-right, 0px)); margin:0; width:44px; }
@@ -179,8 +194,8 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   border: 1px solid var(--line);
   border-radius: 50%;
   background: var(--surface-glass);
-  color: var(--primary-strong);
-  box-shadow: var(--shadow-button);
+  color: var(--ink);
+  box-shadow: var(--shadow);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -195,8 +210,9 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 .location-control svg { width: 24px; height: 24px; }
 .location-control.is-locating { opacity: 0.62; cursor: wait; }
 .location-control.is-located {
-  background: var(--spruce-soft);
-  color: var(--primary-deep);
+  background: var(--brand-sun);
+  border-color: var(--ink);
+  color: var(--ink);
 }
 
 /* ============================================================
@@ -339,27 +355,28 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
   bottom: calc(18px + env(safe-area-inset-bottom, 0px));
   z-index: 18;
 }
-.more-controls button { min-height:44px; min-width:44px; border:1px solid var(--line); border-radius:999px; background:var(--surface-glass); color:var(--text); box-shadow:var(--shadow); padding:10px 14px; font-size:13px; font-weight:700; }
+.more-controls button { min-height:44px; min-width:44px; border:1px solid var(--ink-hairline); border-radius:999px; background:var(--ink-glass); color:var(--card); box-shadow:var(--shadow); padding:10px 14px; font-size:13px; font-weight:700; -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px); }
 #moreMenu { position:absolute; left:calc(100% + 8px); bottom:0; padding:6px; border:1px solid var(--line); border-radius:16px; background:var(--card); box-shadow:var(--shadow); white-space:nowrap; }
-#moreMenu button { border:0; border-radius:10px; box-shadow:none; background:var(--card); }
+#moreMenu button { border:0; border-radius:10px; box-shadow:none; background:var(--card); color:var(--text); -webkit-backdrop-filter:none; backdrop-filter:none; }
 .chip {
-  border: 1.5px solid var(--line);
+  border: 1.5px solid var(--card);
   background: var(--card);
-  color: var(--text-light);
+  color: var(--text);
   border-radius: 999px;
   padding: 8px 14px;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
   transition: background-color var(--dur-base) var(--ease-out),
               border-color var(--dur-base) var(--ease-out),
               color var(--dur-base) var(--ease-out);
 }
+/* 选中的类别像贴在地图上的一枚黄色标签：胶片黑描边 + 硬投影 */
 .chip.active {
-  background: var(--spruce-soft);
-  border-color: var(--primary-deep);
-  color: var(--text);
-  font-weight: 700;
+  background: var(--brand-sun);
+  border-color: var(--ink);
+  color: var(--ink);
+  font-weight: 800;
 }
 /* ============================================================
    底部抽屉（添加地点 / 地点详情 / 数据与隐私）
@@ -392,12 +409,12 @@ input, textarea, select { font-family: inherit; font-size: 16px; color: var(--te
 main[inert] .more-controls, main[inert] .location-control { visibility: hidden; }
 .drawer-controls { display:grid; grid-template-columns:44px 1fr 44px; align-items:center; }
 .drawer-controls .grabber { grid-column:2; }
-.drawer-close { grid-column:3; width:44px; height:44px; border:0; border-radius:50%; background:var(--surface-muted); color:var(--text); font-size:20px; }
+.drawer-close { grid-column:3; width:44px; height:44px; border:1px solid var(--line); border-radius:50%; background:var(--surface-muted); color:var(--text); font-size:20px; line-height:1; }
 .drawer .grabber {
   width: 42px;
   height: 5px;
   border-radius: 3px;
-  background: var(--line);
+  background: var(--line-strong);
   margin: 6px auto 4px;
 }
 .drawer h2 {
@@ -405,9 +422,10 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
   font-size: 20px;
   text-align: center;
   font-family: var(--font-display);
-  font-weight: 400;
+  font-weight: 700;
 }
-#placeListTitle { margin:0 0 22px; text-align:left; font-size:22px; font-weight:650; }
+/* 足迹列表标题：像印样袋上的计数，「N 处 · M 次」用大号圆体数字 */
+#placeListTitle { margin:-4px 0 20px; text-align:left; font-size:30px; line-height:1.2; font-weight:800; letter-spacing:.01em; font-variant-numeric:tabular-nums; }
 .drawer .sub {
   text-align: center;
   color: var(--text-light);
@@ -640,10 +658,12 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 }
 .visit-count { margin-left:auto; font-size:12px; color:var(--text-light); white-space:nowrap; }
 .place-list-button { border:0; border-left:1px solid var(--line); padding:0 0 0 12px; min-height:44px; color:var(--primary-deep); background:transparent; font-size:14px; font-weight:700; white-space:nowrap; }
-#visitHeader .search-input-wrap { display:flex; padding:4px 8px; gap:4px; border:1px solid var(--line); border-radius:18px; background:var(--card); }
+/* 顶栏是相机顶盖：胶片黑玻璃面，黄色「11」机身标，「足迹」是黄色计数窗 */
+#visitHeader .search-input-wrap { display:flex; padding:4px 5px 4px 8px; gap:4px; border:1px solid var(--ink-hairline); border-radius:20px; background:var(--ink-glass); color:var(--card); box-shadow:var(--shadow-button); }
+#visitHeader :focus-visible { outline-color:var(--brand-sun); }
 #visitHeader .visit-count { margin-left:0; }
 #btnPlaceList { grid-column:2; grid-row:1 / 3; }
-#visitHeader strong { font-size:18px; }
+#visitHeader strong { font-family:var(--font-display); font-size:18px; font-weight:800; letter-spacing:.02em; }
 #map { isolation:isolate; }
 /* A little warmth, while retaining the original drawer. */
 .detail-head .d-emoji { transform:rotate(-7deg); border-radius:18px 22px 16px 22px; }
@@ -667,45 +687,60 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 body:has(#mapFallback[hidden]) #drawerDetail { max-height:min(86vh, calc(100dvh - 220px - env(safe-area-inset-top, 0px))); }
 
 /* Map-first tools and temporary selection. */
-#visitHeader strong { display:flex; align-items:center; gap:3px; white-space:nowrap; }
-.brand-eleven { display:inline-grid; place-items:center; width:34px; height:34px; background:var(--brand-sun); border-radius:12px; font-size:22px; transform:rotate(-8deg); }
-#cityFilter { margin-left:auto; min-width:0; max-width:130px; min-height:44px; border:0; background:transparent; font-size:13px; }
-#btnPlaceList { min-width:48px; min-height:44px; padding:0 10px; border:0; border-radius:999px; background:var(--action); color:var(--white); }
-.map-cat-strip .chip.active { background:var(--brand-sun); border-color:var(--brand-sun); color:var(--text); }
-/* Footprint filmstrip: the default browse and selection surface for 11's visit record book. */
-#filmstrip { position:fixed; z-index:17; left:max(12px, env(safe-area-inset-left)); right:max(12px, env(safe-area-inset-right)); bottom:calc(30px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; height:var(--film-height); padding:18px 12px; border:1px solid var(--film-base-deep); border-radius:14px; background:linear-gradient(180deg, var(--film-base), var(--film-base-deep)); box-shadow:var(--shadow); overflow:hidden; }
-#filmstrip::before, #filmstrip::after { content:''; position:absolute; left:7px; right:7px; height:8px; background-image:radial-gradient(ellipse 5px 3px at 7px 50%, var(--bg) 0 70%, transparent 73%); background-size:22px 8px; background-repeat:repeat-x; opacity:.9; pointer-events:none; }
+#visitHeader strong { display:flex; align-items:center; gap:7px; white-space:nowrap; }
+.brand-eleven { display:inline-grid; place-items:center; width:34px; height:34px; background:var(--brand-sun); color:var(--ink); border-radius:11px; font-size:21px; letter-spacing:0; transform:rotate(-8deg); box-shadow:inset 0 -3px 0 var(--ink-shade); }
+#cityFilter { margin-left:auto; min-width:0; max-width:130px; min-height:44px; border:0; border-radius:12px; background:transparent; color:var(--card); font-size:13px; }
+#cityFilter option { background:var(--card); color:var(--text); }
+#btnPlaceList { min-width:48px; min-height:44px; padding:0 12px; border:0; border-radius:15px; background:var(--brand-sun); color:var(--ink); font-weight:800; font-variant-numeric:tabular-nums; box-shadow:inset 0 -3px 0 var(--ink-shade); }
+/* Footprint filmstrip: the default browse and selection surface for 11's visit record book.
+   片基是胶片黑，上下两排圆角齿孔；画格不再是卡片，而是直接嵌在片基里的正片，日期用相机的橙色压印。 */
+#filmstrip { position:fixed; z-index:17; left:max(12px, env(safe-area-inset-left)); right:max(12px, env(safe-area-inset-right)); bottom:calc(30px + env(safe-area-inset-bottom)); display:flex; flex-direction:column; height:var(--film-height); padding:18px 12px; border:1px solid var(--film-base-deep); border-radius:10px; background:linear-gradient(180deg, var(--film-base), var(--film-base-deep)); box-shadow:var(--shadow-button); overflow:hidden; }
+#filmstrip::before, #filmstrip::after { content:''; position:absolute; left:6px; right:6px; height:8px; background:var(--film-hole); -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='8'%3E%3Crect x='5' y='.5' width='10' height='7' rx='2'/%3E%3C/svg%3E") repeat-x left center; mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='8'%3E%3Crect x='5' y='.5' width='10' height='7' rx='2'/%3E%3C/svg%3E") repeat-x left center; pointer-events:none; }
 #filmstrip::before { top:5px; }
 #filmstrip::after { bottom:5px; }
 #filmstripHead { display:flex; flex:none; align-items:center; gap:8px; height:28px; margin-bottom:6px; padding:0 4px; }
 #filmstripHead::before { content:''; width:7px; height:14px; flex:none; border-radius:2px; background:var(--brand-sun); box-shadow:11px 0 0 -1px var(--selection); margin-right:12px; }
-#filmstripTitle { min-width:0; flex:1; color:var(--card); font-size:13px; font-weight:700; letter-spacing:.08em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+/* 片头字样仿胶片边码：黄色等宽字 */
+#filmstripTitle { min-width:0; flex:1; color:var(--brand-sun); font-family:var(--font-code); font-size:12px; font-weight:700; letter-spacing:.1em; word-spacing:-.3em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #filmstripItems { position:relative; display:flex; flex:1; min-height:0; gap:8px; overflow-x:auto; overflow-y:hidden; padding:2px 3px 6px; scroll-snap-type:x proximity; scrollbar-width:thin; scrollbar-color:var(--brand-sun) var(--film-base); }
 #filmstripItems::-webkit-scrollbar { height:4px; }
 #filmstripItems::-webkit-scrollbar-track { background:var(--film-base); border-radius:2px; }
 #filmstripItems::-webkit-scrollbar-thumb { background:var(--brand-sun); border-radius:2px; }
-.film-frame { --photo-h:50px; position:relative; flex:0 0 138px; min-width:44px; padding:3px 3px 5px; border:3px solid var(--card); border-radius:6px; background:var(--film-frame); color:var(--text); text-align:left; overflow:hidden; scroll-snap-align:start; box-shadow:inset 0 0 0 1px var(--line-strong); transition:transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out); }
-.film-frame img { display:block; width:100%; height:var(--photo-h); object-fit:cover; border-radius:2px; background:var(--spruce-soft); }
-#detailContent .btn-nav { flex:0 0 44px; padding:0; background:var(--spruce-soft); color:var(--text); }
-#btnNextPlacePrimary { background:var(--action); color:var(--white); }
-#detailContent #btnPreviousPlace { flex:0 0 auto; min-height:44px; border:1px solid var(--line); background:var(--card); color:var(--text); padding:8px; }
-#btnPreviousPlace:disabled, #btnNextPlacePrimary:disabled { opacity:.5; cursor:default; }
-.film-number { position:absolute; top:6px; left:6px; padding:2px 5px; border-radius:3px; background:var(--film-base-deep); color:var(--card); font-size:9px; font-weight:700; font-style:normal; letter-spacing:.08em; }
-.film-frame time { position:absolute; top:calc(var(--photo-h) - 14px); right:6px; display:block; padding:1px 4px; border-radius:2px; background:var(--film-base-deep); color:var(--brand-sun); font-size:9px; font-weight:700; line-height:12px; letter-spacing:.04em; white-space:nowrap; }
-.film-name { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; padding:3px 4px 0; font-size:12px; line-height:14px; font-weight:700; overflow:hidden; }
-.film-frame.is-current { border-color:var(--selection); box-shadow:0 0 0 2px var(--film-frame), inset 0 0 0 1px var(--line-strong); transform:translateY(-2px); }
+.film-frame { --photo-h:68px; position:relative; display:flex; flex-direction:column; justify-content:flex-start; flex:0 0 116px; min-width:44px; padding:0; border:0; border-radius:5px; background:transparent; color:var(--film-frame); text-align:left; overflow:hidden; scroll-snap-align:start; transition:transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+.film-frame img { display:block; flex:none; width:100%; height:var(--photo-h); object-fit:cover; border:2px solid var(--film-frame); border-radius:5px; background:var(--ink-soft); transition:border-color var(--dur-fast) var(--ease-out); }
+#detailContent .btn-nav { flex:0 0 48px; padding:0; border:1px solid var(--line); background:var(--sun-soft); color:var(--text); font-size:20px; }
+#btnNextPlacePrimary { background:var(--action); color:var(--card); font-weight:800; box-shadow:var(--shadow-button); }
+#detailContent #btnPreviousPlace { flex:0 0 auto; min-height:44px; border:1px solid var(--line-strong); background:var(--card); color:var(--text); padding:8px 12px; }
+#btnPreviousPlace:disabled, #btnNextPlacePrimary:disabled { opacity:.45; cursor:default; box-shadow:none; }
+.film-number { position:absolute; top:5px; left:5px; padding:1px 5px; border-radius:3px; background:var(--film-base-deep); color:var(--brand-sun); font-family:var(--font-code); font-size:9px; font-weight:700; font-style:normal; line-height:13px; letter-spacing:.08em; }
+/* 日期压印：老相机右下角那行橙色数字，压在照片内，永远盖不到下排齿孔 */
+.film-frame time { position:absolute; top:calc(var(--photo-h) - 19px); right:5px; display:block; padding:1px 4px; border-radius:2px; background:var(--imprint-plate); color:var(--stamp); font-family:var(--font-code); font-size:10px; font-weight:700; line-height:12px; letter-spacing:.04em; white-space:nowrap; }
+.film-name { display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; padding:4px 3px 0; font-size:12px; line-height:14px; font-weight:600; overflow:hidden; }
+@media (hover:hover) {
+  .film-frame:hover img { border-color:var(--brand-sun); }
+  .map-cat-strip .chip:not(.active):hover { border-color:var(--ink); }
+  .fallback-place:hover strong { text-decoration:underline; text-decoration-color:var(--brand-sun); text-decoration-thickness:3px; text-underline-offset:3px; }
+}
+.film-frame.is-current { transform:translateY(-2px); }
+.film-frame.is-current img { border-width:3px; border-color:var(--selection); }
+.film-frame.is-current .film-name { color:var(--brand-sun); }
+.film-frame.is-current .film-number { background:var(--selection); color:var(--white); }
 #filmstrip:has(#routeEnd:not([hidden])) .film-frame:not(.is-current) {
   transform:scale(.94);
-  border-color:var(--film-base);
 }
 #filmstrip:has(#routeEnd:not([hidden])) .film-frame:not(.is-current) img {
   filter:saturate(.45) brightness(.75);
 }
 #filmstrip:has(#routeEnd:not([hidden])) .film-frame.is-current {
   background:var(--brand-sun);
-  border-color:var(--brand-sun);
-  box-shadow:inset 0 0 0 2px var(--film-base-deep);
+  color:var(--film-base-deep);
   transform:none;
+}
+#filmstrip:has(#routeEnd:not([hidden])) .film-frame.is-current img {
+  border-color:var(--brand-sun);
+}
+#filmstrip:has(#routeEnd:not([hidden])) .film-frame.is-current .film-name {
+  color:var(--film-base-deep);
 }
 #filmstrip:has(#routeEnd:not([hidden])) .is-current .film-number {
   display:inline-flex;align-items:center;gap:4px;
@@ -733,7 +768,7 @@ body:has(.mask.show) #filmstrip { visibility:hidden; }
   :root { --film-height:148px; }
   #filmstrip { padding:16px 10px; }
   #filmstripHead { height:20px; margin-bottom:2px; }
-  .film-frame { --photo-h:34px; flex-basis:124px; }
+  .film-frame { --photo-h:46px; flex-basis:104px; }
 }
 /* 短屏但胶卷仍在：工具组整体上移并收紧间距，给底部胶卷让出净空。
    罗盘保持 128px 外框与 1.5 倍缩放——四个方向箭头的热区正是靠这个缩放撑到 64px，
@@ -750,11 +785,15 @@ body:has(.mask.show) #filmstrip { visibility:hidden; }
 }
 /* 比例尺与胶卷同处左下角，只会露出一条竖缝；隐藏比例尺，保留地图 logo、版权与审图号。 */
 body:has(#filmstrip:not([hidden])) #map .tmap-scale-control { display:none; }
-.fallback-place { display:flex; align-items:center; gap:12px; min-height:68px; }
-.fallback-place img { width:56px; height:56px; object-fit:cover; border-radius:10px; }
-.fallback-place span { min-width:0; overflow-wrap:anywhere; }
-.fallback-place strong { display:block; font-weight:600; }
-.fallback-place time { display:block; margin-top:6px; font-size:12px; color:var(--text-light); }
+.fallback-place { display:flex; align-items:center; gap:14px; min-height:76px; }
+.city-place-list .fallback-place:last-child { border-bottom:0; }
+/* 列表缩略图是一张张小印样：白边、轻微左右歪斜 */
+.fallback-place img { flex:none; width:60px; height:60px; padding:3px; object-fit:cover; border-radius:3px; background:var(--white); box-shadow:var(--shadow-thumb); transform:rotate(-2deg); }
+.fallback-place:nth-child(even) img { transform:rotate(1.5deg); }
+.fallback-place span { flex:1; min-width:0; overflow-wrap:anywhere; }
+.fallback-place strong { display:block; font-weight:700; }
+.fallback-place time { display:block; margin-top:6px; font-family:var(--font-code); font-size:12px; letter-spacing:.02em; color:var(--text-light); }
+.fallback-place::after { content:'›'; flex:none; color:var(--primary); font-size:20px; line-height:1; }
 .detail-head { position:relative; padding-right:42px; min-height:0; }
 .detail-head .d-emoji { display:none; }
 .detail-main .d-name { font-size:22px; line-height:1.4; }
@@ -763,18 +802,52 @@ body:has(#filmstrip:not([hidden])) #map .tmap-scale-control { display:none; }
 @media (min-width:768px) {
   :root { --film-height:188px; }
   #visitHeader { right:auto; width:360px; }
-  #filmstrip { left:24px; right:auto; width:560px; }
-  .film-frame { --photo-h:54px; flex-basis:148px; }
+  /* 桌面端片基随画格数量伸展，最多横贯整个窗口，像一条摊开的胶片 */
+  #filmstrip { left:24px; right:auto; width:fit-content; min-width:560px; max-width:calc(100vw - 48px); }
+  .film-frame { --photo-h:72px; flex-basis:128px; }
 }
-#routeInk { position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:8;color:var(--primary-deep); }
+#routeInk { position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:8;color:var(--ink); }
 #routeLegs path { fill:none;stroke:currentColor;stroke-linecap:round; }
 #routeLegs path:nth-child(odd) { stroke-width:2;stroke-dasharray:1 7;opacity:.56; }
-#routeLegs path:nth-child(even) { stroke-width:3.5;stroke-dasharray:8 5 1 5; }
+#routeLegs path:nth-child(even) { stroke:var(--selection);stroke-width:3.5;stroke-dasharray:8 5 1 5; }
 #routePins circle { fill:var(--card);stroke:currentColor;stroke-width:2.5; }
 #routePins text { fill:currentColor;stroke:var(--card);stroke-width:4px;paint-order:stroke;text-anchor:middle;font-size:12px;font-weight:700; }
-#filmstripHead .route-button { position:relative; border:0; border-radius:999px; background:var(--brand-sun); color:var(--text); min-width:44px; min-height:28px; padding:0 10px; font-weight:700; }
+#filmstripHead .route-button { position:relative; border:0; border-radius:999px; background:var(--brand-sun); color:var(--ink); min-width:44px; min-height:28px; padding:0 11px; font-size:13px; font-weight:800; }
+#filmstripHead #routeEnd { background:transparent; color:var(--brand-sun); box-shadow:inset 0 0 0 1.5px var(--brand-sun); }
 #filmstripHead .route-button::after { content:''; position:absolute; inset:-16px 0 0; }
 #routeStatus { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+/* ============================================================
+   冲印店：详情是一张带白边的相纸，右下角有相机的橙色日期压印
+   ============================================================ */
+.detail-head .d-cat { margin:0 0 6px; font-size:12px; color:var(--text); }
+.d-cat-tag { display:inline-flex; align-items:center; gap:5px; padding:3px 10px 3px 8px; border-radius:999px; font-weight:700; letter-spacing:.04em; }
+.detail-main .d-name { font-family:var(--font-display); font-weight:800; }
+.visit-date time { font-family:var(--font-code); font-weight:700; letter-spacing:.02em; color:var(--text); }
+.stamp-age { padding:0 3px; font-weight:700; color:var(--text); background:linear-gradient(transparent 58%, var(--brand-sun) 58%); }
+.visit-photo-wrap { width:fit-content; min-width:140px; min-height:110px; max-width:100%; margin:18px auto 0; padding:8px; border-radius:4px; background:var(--white); box-shadow:var(--shadow-print); }
+/* 照片高度按窗口让位：抽屉最高到「窗口高 − 220px」，扣掉标题、切换与底部按钮后剩下的都给照片，
+   常见手机上不用滚动就能同时看到整张照片和「下一个地点」。 */
+.visit-photo { width:auto; max-width:100%; height:auto; max-height:clamp(200px, calc(100dvh - 220px - var(--detail-chrome, 292px)), 344px); margin:0 auto; border-radius:2px; animation:develop 900ms var(--ease-out) both; }
+.photo-imprint { position:absolute; right:18px; bottom:15px; color:var(--stamp); font-family:var(--font-code); font-size:15px; font-weight:700; line-height:1; letter-spacing:.1em; text-shadow:0 0 8px var(--stamp-glow), 0 1px 2px var(--imprint-plate); pointer-events:none; }
+.visit-track > section { padding:0 6px 14px; }
+.visit-track .visit-photo-wrap { margin-top:10px; }
+.visit-track .visit-photo { --detail-chrome:332px; }
+.visit-controls { margin-top:8px; }
+.visit-controls button { border-color:var(--line-strong); border-radius:50%; color:var(--text); }
+.visit-controls output { font-family:var(--font-code); font-weight:700; color:var(--text); }
+.visit-heading { align-items:flex-start; border-radius:4px 16px 16px 16px; }
+.visit-heading::after { content:'”'; top:2px; right:14px; color:var(--rating-gold); font-family:Georgia, serif; font-size:34px; line-height:1; transform:none; }
+.visit-rating > strong { letter-spacing:.06em; }
+.visit-reflection { margin:2px 0 0; }
+.detail-actions button { min-height:48px; border-radius:14px; }
+/* 显影：照片像拍立得一样从发白的相纸里慢慢浮出来 */
+@keyframes develop {
+  from { opacity:.3; filter:brightness(1.5) saturate(.1) sepia(.5); }
+  to { opacity:1; filter:none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .visit-photo { animation:none; }
+}
 </style>
 
 <!-- 腾讯地图 GL JS 密钥代理配置（占位符由运行时代理替换） -->
@@ -838,11 +911,11 @@ body:has(#filmstrip:not([hidden])) #map .tmap-scale-control { display:none; }
     <text x="-1" y="-8" text-anchor="middle" fill="currentColor" font-size="11">11</text>
     <image id="riderFace" x="-11" y="-22" width="20" height="20" clip-path="url(#riderWindow)"/>
     <g id="riderCar" stroke="currentColor" stroke-width="2" stroke-linejoin="round">
-      <path d="M-21 -6 Q-21 -10 -16 -10 L-12 -10 Q-9 -1 2 -2 L9 -7 18 -5 Q23 -4 23 2 L22 7 -19 7 Q-23 4 -21 -6Z" fill="var(--spruce-soft)"/>
-      <path d="M15 -3 h5" stroke="var(--rating-ink)"/><circle cx="-13" cy="7" r="5" fill="var(--card)"/><circle cx="14" cy="7" r="5" fill="var(--card)"/>
+      <path d="M-21 -6 Q-21 -10 -16 -10 L-12 -10 Q-9 -1 2 -2 L9 -7 18 -5 Q23 -4 23 2 L22 7 -19 7 Q-23 4 -21 -6Z" fill="var(--brand-sun)"/>
+      <path d="M15 -3 h5" stroke="var(--selection)"/><circle cx="-13" cy="7" r="5" fill="var(--card)"/><circle cx="14" cy="7" r="5" fill="var(--card)"/>
       <path d="M-15 7 h4 M12 7 h4"/>
     </g>
-    <g id="riderPlane" hidden stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="var(--spruce-soft)">
+    <g id="riderPlane" hidden stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="var(--brand-sun)">
       <path d="M-23 -12 L-18 -12 -12 -5 13 -5 Q23 -5 26 0 Q20 5 10 5 L-15 4 -22 0Z"/>
       <path d="M3 0 L-8 14 -15 14 -9 1Z" fill="var(--card)"/><path d="M20 -3 v5"/>
     </g>
@@ -965,32 +1038,50 @@ function cssToken(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
+/* 图钉是一张钉在地图上的小拍立得：白相纸边框描类别色，头像是照片，类别 emoji 像贴纸压在角上。
+   未选中的左右各歪一点（按地点固定），选中的摆正、放大并换成珊瑚色描边。 */
+function pinSvg(category, tilt, selected) {
+  var paper = cssToken('--white');
+  var catColor = cssToken(category.colorToken);
+  var edge = selected ? cssToken('--selection') : catColor;
+  var stroke = selected ? 3 : 2;
+  var photo = publicAvatar
+    ? '<defs><clipPath id="avatar"><rect x="7.5" y="6.5" width="29" height="29" rx="2"/></clipPath></defs>' +
+      '<image href="' + publicAvatar + '" x="7.5" y="6.5" width="29" height="29" clip-path="url(#avatar)"/>'
+    : '<rect x="7.5" y="6.5" width="29" height="29" rx="2" fill="' + catColor + '"/>' +
+      '<text x="22" y="21" dy=".35em" font-size="15" font-weight="700" text-anchor="middle" fill="' + paper + '">11</text>';
+  return '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54" viewBox="0 -4 44 58">' +
+    '<g transform="rotate(' + tilt + ' 22 53)">' +
+    '<path d="M22 53L16 44H28Z" fill="' + paper + '" stroke="' + edge + '" stroke-width="' + stroke + '" stroke-linejoin="round"/>' +
+    '<rect x="4" y="3" width="36" height="43.5" rx="4" fill="' + paper + '" stroke="' + edge + '" stroke-width="' + stroke + '"/>' +
+    photo +
+    '<rect x="15.5" y="39" width="13" height="3" rx="1.5" fill="' + catColor + '"/></g>' +
+    // 头像缺失时仍保留分类贴纸。
+    '<text x="' + (tilt > 0 ? 9 : 35) + '" y="9" font-size="16" text-anchor="middle" ' +
+    'fill="' + paper + '" stroke="' + paper + '" stroke-width="2" stroke-linejoin="round" paint-order="stroke fill">' + category.emoji + '</text></svg>';
+}
+
 function buildMarkerStyles() {
   var styles = {};
   CATEGORIES.forEach(function (c) {
-    var color = cssToken(c.colorToken);
-    var white = cssToken('--white');
-    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54" viewBox="0 -4 44 58">' +
-      '<path d="M22 52L15 42H29Z" fill="' + color + '" stroke="' + white + '" stroke-width="2" stroke-linejoin="round"/>' +
-      '<circle cx="22" cy="29" r="19" fill="' + color + '" stroke="' + white + '" stroke-width="2"/>';
-    if (publicAvatar) {
-      svg += '<defs><clipPath id="avatar"><circle cx="22" cy="29" r="16"/></clipPath></defs>' +
-        '<image href="' + publicAvatar + '" x="6" y="13" width="32" height="32" clip-path="url(#avatar)"/>';
-    } else {
-      svg += '<text x="22" y="29" dy=".35em" font-size="17" text-anchor="middle" fill="' + white + '">11</text>';
-    }
-    // 分类像小发饰贴在外圈上沿，保持额头可见；头像缺失时仍保留分类。
-    svg += '<g transform="rotate(-6 22 9)"><text x="22" y="13" font-size="18" text-anchor="middle" ' +
-      'fill="' + white + '" stroke="' + white + '" stroke-width="2" stroke-linejoin="round" paint-order="stroke fill">' + c.emoji + '</text></g></svg>';
-    var selectedSvg = svg.replace('<path ', '<circle cx="22" cy="29" r="22" fill="' + cssToken('--selection') + '"/><path ');
     styles['selected-' + c.value] = new TMap.MarkerStyle({
-      width: 60, height: 74, anchor: { x: 30, y: 74 }, src: svgToDataUri(selectedSvg)
+      width: 60, height: 74, anchor: { x: 30, y: 74 }, src: svgToDataUri(pinSvg(c, 0, true))
     });
     styles['public-' + c.value] = new TMap.MarkerStyle({
-      width: 44, height: 54, anchor: { x: 22, y: 54 }, src: svgToDataUri(svg)
+      width: 44, height: 54, anchor: { x: 22, y: 54 }, src: svgToDataUri(pinSvg(c, -4, false))
+    });
+    styles['public-' + c.value + '-b'] = new TMap.MarkerStyle({
+      width: 44, height: 54, anchor: { x: 22, y: 54 }, src: svgToDataUri(pinSvg(c, 3, false))
     });
   });
   return styles;
+}
+
+// 图钉歪向哪边只由地点身份决定，筛选或重排后同一张「照片」不会左右乱跳。
+function pinLeansRight(place) {
+  var sum = 0;
+  for (var i = 0; i < place.poiId.length; i++) sum += place.poiId.charCodeAt(i);
+  return sum % 2 === 1;
 }
 
 function svgToDataUri(svg) {
@@ -1350,7 +1441,7 @@ function ensureUserLocationLayer() {
   if (userLocationLayer || !map || typeof TMap === 'undefined') return userLocationLayer;
   var markerSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 28 28">' +
     '<circle cx="14" cy="14" r="12" fill="white" fill-opacity=".92"/>' +
-    '<circle cx="14" cy="14" r="8" fill="#23543D"/>' +
+    '<circle cx="14" cy="14" r="8" fill="#1C1B18"/>' +
     '<circle cx="14" cy="14" r="3" fill="white"/>' +
     '</svg>';
   userLocationLayer = new TMap.MultiMarker({
@@ -1544,7 +1635,8 @@ function renderMarkers() {
   var geometries = placesForActiveCategory().map(function (p) {
     return {
       id: p.id,
-      styleId: (state.selectedPlaceId === p.id ? 'selected-' : (publicVisitFor(p) ? 'public-' : '')) + categoryOf(p.category).value,
+      styleId: state.selectedPlaceId === p.id ? 'selected-' + categoryOf(p.category).value
+        : 'public-' + categoryOf(p.category).value + (pinLeansRight(p) ? '-b' : ''),
       rank: state.selectedPlaceId === p.id ? 100 : 0,
       position: new TMap.LatLng(p.lat, p.lng),
       properties: { placeId: p.id }
@@ -1836,7 +1928,8 @@ function fitPlaces(places, extraPadding = 0) {
   var bounds = new TMap.LatLngBounds();
   places.forEach(function (place) { bounds.extend(new TMap.LatLng(place.lat, place.lng)); });
   var strip = $('filmstrip');
-  var top = Math.round($('mapCatStrip').getBoundingClientRect().bottom + 20);
+  // 图钉从锚点向上长 54px：顶部留出整张图钉的高度，最北的地点才不会钻到类别条下面。
+  var top = Math.round($('mapCatStrip').getBoundingClientRect().bottom + 62);
   var bottom = Math.round(strip.getClientRects().length ? innerHeight - strip.getBoundingClientRect().top + 16 : 40);
   try {
     map.fitBounds(bounds, { padding: {
@@ -2081,7 +2174,8 @@ function openDetail(placeId, listButton, fromFilmstrip) {
     var drawer = $('drawerDetail');
     var panelTop;
     var refitDrawer = function () {
-      var nextTop = drawer.offsetTop;
+      // 抽屉贴底且高度可能带小数：用不受位移动画影响的高度向下取整，图钉才不会压进抽屉上沿。
+      var nextTop = Math.floor(innerHeight - drawer.getBoundingClientRect().height);
       if (nextTop === panelTop || state.selectedPlaceId !== placeId) return;
       panelTop = nextTop;
       focusPlace(p, panelTop);
@@ -2141,7 +2235,10 @@ function visitHtml(place, visit, hidden) {
       '<span class="visit-avatar" aria-hidden="true">11</span>') +
     '<div class="visit-rating"><strong>11’s 玩后感</strong><p class="visit-reflection">' + escapeHtml(rules.reflection) + '</p></div></div>' : '';
   return '<section aria-label="11 的到访记录"' + (hidden ? ' aria-hidden="true"' : '') +
-    '><div class="visit-photo-wrap">' + photo + '</div>' + reflection + '</section>';
+    '><div class="visit-photo-wrap">' + photo +
+    // 仿老相机的日期压印，纯装饰：可读日期仍由标题下的 <time> 承担。
+    '<span class="photo-imprint" aria-hidden="true">\'' + visit.visitedOn.slice(2).replace(/-/g, ' ') + '</span></div>' +
+    reflection + '</section>';
 }
 
 function visitDateHtml(visit) {
@@ -2209,7 +2306,7 @@ function renderDetail() {
   var next = index >= 0 && index < places.length - 1;
   $('detailContent').innerHTML = '<div class="detail-head">' +
     '<div class="d-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
-    '<div class="detail-main"><div class="d-cat">' + cat.label + '</div><div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' + visitDateHtml(p.visit) + '</div><img class="detail-berry" src="assets/strawberry-stamp.png" alt=""></div>' + visitCarouselHtml(p) +
+    '<div class="detail-main"><div class="d-cat"><span class="d-cat-tag cat-bg-' + cat.value + '"><span aria-hidden="true">' + cat.emoji + '</span><span>' + cat.label + '</span></span></div><div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' + visitDateHtml(p.visit) + '</div><img class="detail-berry" src="assets/strawberry-stamp.png" alt=""></div>' + visitCarouselHtml(p) +
     '<div class="detail-actions"><button class="btn-nav" id="btnNav" aria-label="导航去这里">🧭</button><button id="btnPreviousPlace" type="button"' + (previous ? '' : ' disabled') + '>← 上一个</button><button id="btnNextPlacePrimary"' + (next ? '' : ' disabled') + '>下一个地点 →</button></div>';
   if (p.visits.length > 1) bindVisitCarousel(p);
   restoreFocus($('detailContent'), focusSnapshot);
