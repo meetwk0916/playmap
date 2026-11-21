@@ -48,7 +48,7 @@ for (const file of files) {
   if (!existsSync(source)) continue; // A tracked document may be deleted in the working tree.
   const { links, definitions } = readMarkdown(source);
   for (const link of links) {
-    const url = link.url ?? definitions.get(link.identifier);
+    const url = (link.url ?? definitions.get(link.identifier))?.replace(/%(?![\da-f]{2})/gi, '%25');
     if (!url || /^(?:[a-z][a-z\d+.-]*:|\/)/i.test(url)) continue;
     checked++;
     try {

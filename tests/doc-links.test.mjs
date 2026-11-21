@@ -137,3 +137,11 @@ test('checks reference-style links at their use site', t => {
   assert.equal(result.status, 1);
   assert.equal(result.stderr.trim(), 'README.md:1: missing.md (missing target)');
 });
+
+test('accepts both literal and URL-encoded percent signs in an existing file name', t => {
+  const result = check(t, '[直接](100%.md) [编码](100%25.md)\n', {
+    '100%.md': '# 完成\n'
+  });
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /^2 relative links checked/);
+});
