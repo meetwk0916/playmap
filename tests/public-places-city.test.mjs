@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
-import { readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { cityGroupPatternFromHtml, placesWithoutCity, validateVisitHistory, validateVisitPhotos, visitPhotoAssetProblem, visitPhotoFormatProblem, visitPhotoRefs } from '../scripts/check-public-places.mjs';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -100,22 +102,26 @@ test('visit photo assets decode data URIs and enforce JPEG size and dimensions',
     0xff, 0xd8, 0xff, 0xc0, 0x00, 0x0b, 0x08,
     (height >> 8) & 0xff, height & 0xff,
     (width >> 8) & 0xff, width & 0xff,
-    0x01, 0x01, 0x11, 0x00, 0xff, 0xd9
+    0x01, 0x01, 0x11, 0x00,
+    0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00,
+    0x00, 0x3f, 0xff, 0xd9
   ]);
   assert.match(visitPhotoAssetProblem(`data:image/jpeg;base64,${sof(1280, 1280).toString('base64')}`, root), /960/);
   assert.equal(visitPhotoAssetProblem(`data:image/jpeg;base64,${sof(800, 600).toString('base64')}`, root), null);
+  const headerOnly = Buffer.concat([sof(640, 480).subarray(0, 15), Buffer.from([0xff, 0xd9])]);
+  assert.match(visitPhotoAssetProblem(`data:image/jpeg;base64,${headerOnly.toString('base64')}`, root), /图像数据/);
   assert.match(visitPhotoAssetProblem(`data:image/jpeg;base64,${Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString('base64')}`, root), /尺寸/);
   assert.match(validateVisitPhotos([{ name: 'bad', visitedOn: '2025-01-01', photo: 'data:image/jpeg;base64,A' }], root)[0], /Base64/);
 });
 
 test('visit photo file assets enforce the published size ceiling', () => {
-  const root = new URL('../', import.meta.url);
-  const rel = 'assets/visits/test-oversize-check.jpg';
-  const file = fileURLToPath(new URL(rel, root));
-  writeFileSync(file, Buffer.alloc(331 * 1024));
+  const dir = mkdtempSync(join(tmpdir(), 'playmap-places-'));
   try {
-    assert.match(visitPhotoAssetProblem(rel, root), /超过/);
+    mkdirSync(join(dir, 'assets', 'visits'), { recursive: true });
+    writeFileSync(join(dir, 'assets', 'visits', 'oversize.jpg'), Buffer.alloc(331 * 1024));
+    const root = pathToFileURL(`${dir}/`);
+    assert.match(visitPhotoAssetProblem('assets/visits/oversize.jpg', root), /超过/);
   } finally {
-    rmSync(file, { force: true });
+    rmSync(dir, { recursive: true, force: true });
   }
 });

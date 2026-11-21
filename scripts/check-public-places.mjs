@@ -117,28 +117,31 @@ export function visitPhotoFormatProblem(photo) {
   return '照片路径或 data URI 不符合到访规则';
 }
 
-function jpegLongestEdge(bytes) {
+function jpegInspect(bytes) {
   if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+  let edge = null;
   let offset = 2;
   while (offset < bytes.length) {
     if (bytes[offset] !== 0xff) return null;
     while (offset < bytes.length && bytes[offset] === 0xff) offset += 1;
-    if (offset >= bytes.length) return null;
+    if (offset >= bytes.length) break;
     const marker = bytes[offset];
     offset += 1;
-    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd9)) continue;
-    if (marker === 0xda || offset + 2 > bytes.length) return null;
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7) || marker === 0xd8) continue;
+    if (marker === 0xd9) return edge === null ? null : { edge, hasScan: false };
+    if (offset + 2 > bytes.length) return null;
     const length = bytes.readUInt16BE(offset);
     if (length < 2 || offset + length > bytes.length) return null;
+    if (marker === 0xda) return edge === null ? null : { edge, hasScan: true };
     if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
       if (length < 7) return null;
       const height = bytes.readUInt16BE(offset + 3);
       const width = bytes.readUInt16BE(offset + 5);
-      return Math.max(width, height);
+      edge = Math.max(width, height);
     }
     offset += length;
   }
-  return null;
+  return edge === null ? null : { edge, hasScan: false };
 }
 
 export function visitPhotoAssetProblem(photo, root) {
@@ -154,9 +157,10 @@ export function visitPhotoAssetProblem(photo, root) {
   }
   if (bytes.length > VISIT_PHOTO_FILE_MAX_BYTES) return `照片超过 ${VISIT_PHOTO_FILE_MAX_BYTES} 字节：${photo}`;
   if (!bytes.subarray(0, JPEG_MAGIC.length).equals(JPEG_MAGIC)) return `照片不是 JPEG：${photo}`;
-  const edge = jpegLongestEdge(bytes);
-  if (edge === null) return `照片尺寸无法解析：${photo}`;
-  if (edge > VISIT_PHOTO_MAX_EDGE) return `照片最长边超过 ${VISIT_PHOTO_MAX_EDGE} 像素：${photo}`;
+  const info = jpegInspect(bytes);
+  if (!info) return `照片尺寸无法解析：${photo}`;
+  if (!info.hasScan) return `照片缺少图像数据：${photo}`;
+  if (info.edge > VISIT_PHOTO_MAX_EDGE) return `照片最长边超过 ${VISIT_PHOTO_MAX_EDGE} 像素：${photo}`;
   return null;
 }
 
