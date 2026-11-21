@@ -2,7 +2,7 @@
  * Public place addresses must match the city regex in index.html cityOf.
  * The pattern is read from that function so the list and this check stay on one expression.
  */
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -79,8 +79,10 @@ export function validateVisitHistory(places) {
 
 const VISIT_PHOTO_FILE = /^assets\/visits\/[a-z0-9-]+\.jpg$/;
 const VISIT_PHOTO_DATA_URI = /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/;
+const VISIT_PHOTO_DATA_URI_PREFIX = 'data:image/jpeg;base64,';
 const VISIT_PHOTO_DATA_URI_MAX = 450000;
-const VISIT_PHOTO_FILE_MAX_BYTES = 360 * 1024;
+const VISIT_PHOTO_FILE_MAX_BYTES = 330 * 1024;
+const VISIT_PHOTO_MAX_EDGE = 960;
 const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff]);
 
 export function visitPhotoRefs(places) {
@@ -104,18 +106,57 @@ export function visitPhotoRefs(places) {
 export function visitPhotoFormatProblem(photo) {
   if (typeof photo !== 'string' || photo.length === 0) return '照片必须是非空字符串';
   if (VISIT_PHOTO_FILE.test(photo)) return null;
-  if (VISIT_PHOTO_DATA_URI.test(photo) && photo.length <= VISIT_PHOTO_DATA_URI_MAX) return null;
+  if (VISIT_PHOTO_DATA_URI.test(photo) && photo.length <= VISIT_PHOTO_DATA_URI_MAX) {
+    try {
+      atob(photo.slice(VISIT_PHOTO_DATA_URI_PREFIX.length));
+      return null;
+    } catch {
+      return '照片 data URI 的 Base64 无法解码';
+    }
+  }
   return '照片路径或 data URI 不符合到访规则';
 }
 
+function jpegLongestEdge(bytes) {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+  let offset = 2;
+  while (offset < bytes.length) {
+    if (bytes[offset] !== 0xff) return null;
+    while (offset < bytes.length && bytes[offset] === 0xff) offset += 1;
+    if (offset >= bytes.length) return null;
+    const marker = bytes[offset];
+    offset += 1;
+    if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd9)) continue;
+    if (marker === 0xda || offset + 2 > bytes.length) return null;
+    const length = bytes.readUInt16BE(offset);
+    if (length < 2 || offset + length > bytes.length) return null;
+    if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+      if (length < 7) return null;
+      const height = bytes.readUInt16BE(offset + 3);
+      const width = bytes.readUInt16BE(offset + 5);
+      return Math.max(width, height);
+    }
+    offset += length;
+  }
+  return null;
+}
+
 export function visitPhotoAssetProblem(photo, root) {
-  if (!VISIT_PHOTO_FILE.test(photo)) return null;
-  const file = fileURLToPath(new URL(photo, root));
-  if (!existsSync(file)) return `照片文件不存在：${photo}`;
-  const { size } = statSync(file);
-  if (size > VISIT_PHOTO_FILE_MAX_BYTES) return `照片超过 ${VISIT_PHOTO_FILE_MAX_BYTES} 字节：${photo}`;
-  const head = readFileSync(file).subarray(0, 3);
-  if (!head.equals(JPEG_MAGIC)) return `照片不是 JPEG：${photo}`;
+  let bytes;
+  if (VISIT_PHOTO_FILE.test(photo)) {
+    const file = fileURLToPath(new URL(photo, root));
+    if (!existsSync(file)) return `照片文件不存在：${photo}`;
+    bytes = readFileSync(file);
+  } else if (VISIT_PHOTO_DATA_URI.test(photo)) {
+    bytes = Buffer.from(photo.slice(VISIT_PHOTO_DATA_URI_PREFIX.length), 'base64');
+  } else {
+    return null;
+  }
+  if (bytes.length > VISIT_PHOTO_FILE_MAX_BYTES) return `照片超过 ${VISIT_PHOTO_FILE_MAX_BYTES} 字节：${photo}`;
+  if (!bytes.subarray(0, JPEG_MAGIC.length).equals(JPEG_MAGIC)) return `照片不是 JPEG：${photo}`;
+  const edge = jpegLongestEdge(bytes);
+  if (edge === null) return `照片尺寸无法解析：${photo}`;
+  if (edge > VISIT_PHOTO_MAX_EDGE) return `照片最长边超过 ${VISIT_PHOTO_MAX_EDGE} 像素：${photo}`;
   return null;
 }
 
