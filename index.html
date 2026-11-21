@@ -53,6 +53,7 @@
   --cat-mall: #E06A8B;
   --cat-water: #2FA3C7;
   --cat-hotel: #8462A8;
+  --cat-scenic: #996521;
   --cat-other: #8A8378;
   --cat-zoo-soft: #F1E8F9;
   --cat-aquarium-soft: #E2F1F8;
@@ -62,6 +63,7 @@
   --cat-mall-soft: #FAE6ED;
   --cat-water-soft: #E0F2F7;
   --cat-hotel-soft: #EEE7F5;
+  --cat-scenic-soft: #F6EAD6;
   --cat-other-soft: #EFEDE6;
   --overlay-toast: rgba(28, 27, 24, 0.94);
   --overlay-mask: rgba(28, 27, 24, 0.5);
@@ -485,6 +487,7 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 .cat-btn.active.cat-mall { border-color: var(--cat-mall); background: var(--cat-mall-soft); }
 .cat-btn.active.cat-water { border-color: var(--cat-water); background: var(--cat-water-soft); }
 .cat-btn.active.cat-hotel { border-color: var(--cat-hotel); background: var(--cat-hotel-soft); }
+.cat-btn.active.cat-scenic { border-color: var(--cat-scenic); background: var(--cat-scenic-soft); }
 .cat-btn.active.cat-other { border-color: var(--cat-other); background: var(--cat-other-soft); }
 .cat-bg-park { background: var(--spruce-soft) !important; }
 .cat-bg-playground { background: var(--sun-soft) !important; }
@@ -496,6 +499,7 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 .cat-bg-mall { background: var(--cat-mall-soft) !important; }
 .cat-bg-water { background: var(--cat-water-soft) !important; }
 .cat-bg-hotel { background: var(--cat-hotel-soft) !important; }
+.cat-bg-scenic { background: var(--cat-scenic-soft) !important; }
 .cat-bg-other { background: var(--cat-other-soft) !important; }
 
 /* 主按钮 */
@@ -1017,9 +1021,10 @@ var CATEGORIES = [
   { value: 'museum',     label: '博物馆',        emoji: '🏛️', colorToken: '--cat-museum',     searchKeyword: '博物馆',       searchTerms: ['博物馆'] },
   { value: 'science',    label: '科技馆',        emoji: '🔬', colorToken: '--cat-science',    searchKeyword: '科技馆',       searchTerms: ['科技馆', '科学馆', '天文馆'] },
   { value: 'library',    label: '图书馆',        emoji: '📚', colorToken: '--cat-library',    searchKeyword: '图书馆',       searchTerms: ['图书馆'] },
-  { value: 'mall',       label: '商场与商店',    emoji: '🛍️', colorToken: '--cat-mall',       searchKeyword: '商场儿童乐园', searchTerms: ['儿童乐园', '儿童区', '亲子'] },
-  { value: 'water',      label: '沙滩与亲水地',  emoji: '🏖️', colorToken: '--cat-water',      searchKeyword: '沙滩',         searchTerms: ['沙滩', '海滩', '海滨浴场'] },
-  { value: 'hotel',      label: '酒店住宿',      emoji: '🏨', colorToken: '--cat-hotel',      searchKeyword: '酒店',         searchTerms: ['酒店', '宾馆', '民宿', '度假村'] },
+  { value: 'mall',       label: '商场',          emoji: '🛍️', colorToken: '--cat-mall',       searchKeyword: '商场儿童乐园', searchTerms: ['儿童乐园', '儿童区', '亲子'] },
+  { value: 'water',      label: '沙滩',          emoji: '🏖️', colorToken: '--cat-water',      searchKeyword: '沙滩',         searchTerms: ['沙滩', '海滩', '海滨浴场'] },
+  { value: 'hotel',      label: '酒店',          emoji: '🏨', colorToken: '--cat-hotel',      searchKeyword: '酒店',         searchTerms: ['酒店', '宾馆', '民宿', '度假村'] },
+  { value: 'scenic',     label: '景区景点',      emoji: '⛰️', colorToken: '--cat-scenic',     searchKeyword: '景区',         searchTerms: ['景区', '景点', '古镇', '风景区', '名胜'] },
   { value: 'other',      label: '其他',          emoji: '📍', colorToken: '--cat-other' }
 ];
 

@@ -746,46 +746,79 @@ for (const width of [320, 375, 414, 768]) {
       { ...repeatPlace, poiId: 'park-with-rides', name: '主题乐园', category: 'playground' },
       { ...visit, poiId: 'mall', name: '商场到访', category: 'mall', address: '上海市黄浦区' },
       { ...visit, poiId: 'water', name: '独立沙滩', category: 'water', address: '上海市浦东新区' },
-      { ...visit, poiId: 'other', name: '泉州古城', category: 'other', address: '福建省泉州市' },
-      { ...visit, poiId: 'museum', category: 'museum', photo: undefined, address: '上海市黄浦区' }
+      { ...visit, poiId: 'hotel', name: '上海民宿', category: 'hotel', address: '上海市浦东新区' },
+      { ...repeatPlace, poiId: 'scenic-repeat', name: '上海古镇', category: 'scenic' },
+      { ...visit, poiId: 'scenic-single', name: '上海园林', category: 'scenic', address: '上海市黄浦区',
+        visitedOn: '2026-05-01', lng: 121.49 },
+      { ...visit, poiId: 'other', name: '泉州咖啡馆', category: 'other', address: '福建省泉州市' },
+      { ...visit, poiId: 'scenic-pending', category: 'scenic', photo: undefined, address: '福建省泉州市' }
     ]);
     await page.reload();
     const strip = page.locator('#mapCatStrip');
     const city = page.getByLabel('选择城市');
-    const shanghaiCategories = ['✨ 全部', '🌳 公园', '🎠 乐园', '🛍️ 商场与商店', '🏖️ 沙滩与亲水地'];
+    const shanghaiCategories = ['✨ 全部', '🌳 公园', '🎠 乐园', '🛍️ 商场', '🏖️ 沙滩', '🏨 酒店', '⛰️ 景区景点'];
     await expect(strip.getByRole('button')).toHaveText([...shanghaiCategories, '📍 其他']);
     await city.selectOption('上海市');
     await expect(strip.getByRole('button')).toHaveText(shanghaiCategories);
-    await expect(page.locator('#btnPlaceList')).toHaveText('足迹 4');
-    await expect(filmFrames(page)).toHaveCount(4);
-    const mall = strip.getByRole('button', { name: '🛍️ 商场与商店', exact: true });
-    await mall.focus(); await page.keyboard.press('Enter');
-    await expect(mall).toBeFocused(); await expect(mall).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#btnPlaceList')).toHaveText('足迹 7');
+    await expect(filmFrames(page)).toHaveCount(7);
+    const scenic = strip.getByRole('button', { name: '⛰️ 景区景点', exact: true });
+    await scenic.focus(); await page.keyboard.press('Enter');
+    await expect(scenic).toBeFocused(); await expect(scenic).toHaveAttribute('aria-pressed', 'true');
     await expect(strip.locator('[aria-pressed="true"]')).toHaveCount(1);
     await expect(strip.getByRole('button')).toHaveText(shanghaiCategories);
-    expect(await mall.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-    await expect(page.locator('#btnPlaceList')).toHaveText('足迹 1');
-    await expect(page.locator('.film-name')).toHaveText(['商场到访']);
-    await expect(page.locator('[data-map-pin]')).toHaveAttribute('data-map-pin', 'public:mall');
+    expect(await strip.getByRole('button').evaluateAll(buttons =>
+      buttons.every(el => el.scrollWidth <= el.clientWidth))).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expect(page.locator('#btnPlaceList')).toHaveText('足迹 2');
+    await expect(page.locator('.film-name')).toHaveText(['上海古镇', '上海园林']);
+    await expect(page.locator('[data-map-pin]')).toHaveCount(2);
+    await expect(page.locator('[data-map-pin="public:scenic-repeat"]')).toBeVisible();
+    await expect(page.locator('[data-map-pin="public:scenic-single"]')).toBeVisible();
     expect(await page.locator('#visitHeader').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-    await openVisit(page, '商场到访');
-    await expect(page.locator('#placeList h3')).toHaveText(['上海市1处']);
-    await expect(page.locator('#placeList button strong')).toHaveText(['商场到访']);
-    await expect(page.getByRole('dialog', { name: '商场到访' })).toContainText('商场与商店');
+    await page.locator('#btnPlaceList').click();
+    await expect(page.locator('#placeList h3')).toHaveText(['上海市2处']);
+    await expect(page.locator('#placeList button strong')).toHaveText(['上海古镇', '上海园林']);
     await page.keyboard.press('Escape');
-    await page.keyboard.press('Escape');
-    await page.route('**/map.qq.com/api/gljs**', route => route.abort()); await page.reload();
-    await city.selectOption('上海市');
-    await strip.getByRole('button', { name: '🏖️ 沙滩与亲水地', exact: true }).click();
-    await expect(page.locator('#btnPlaceList')).toHaveText('足迹 1');
-    await expect(page.locator('.film-name')).toHaveText(['独立沙滩']);
-    await page.locator('#fallbackList').getByRole('button', { name: '独立沙滩 · 11 去过' }).click();
-    await expect(page.getByRole('dialog', { name: '独立沙滩' })).toContainText('沙滩与亲水地');
+    await filmFrames(page).first().click();
+    const repeatDetail = page.getByRole('dialog', { name: '上海古镇', exact: true });
+    await expect(repeatDetail.locator('.d-cat-tag')).toHaveText('⛰️景区景点');
+    await repeatDetail.getByRole('button', { name: '较早一次' }).click();
+    await expect(repeatDetail).toContainText('2025.05.01');
+    await expect(repeatDetail.locator('.d-cat-tag')).toHaveText('⛰️景区景点');
+    await repeatDetail.getByRole('button', { name: '下一个地点 →' }).click();
+    const nextDetail = page.getByRole('dialog', { name: '上海园林', exact: true });
+    await expect(nextDetail.locator('.d-cat-tag')).toHaveText('⛰️景区景点');
+    await nextDetail.getByRole('button', { name: '← 上一个' }).click();
+    await expect(repeatDetail).toBeVisible();
     await page.keyboard.press('Escape');
     await city.selectOption('泉州市');
     await expect(strip.getByRole('button')).toHaveText(['✨ 全部', '📍 其他']);
     await expect(strip.getByRole('button', { name: '✨ 全部' })).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#fallbackList button strong')).toHaveText(['泉州古城']);
+    await page.route('**/map.qq.com/api/gljs**', route => route.abort()); await page.reload();
+    await city.selectOption('上海市');
+    const fallback = page.locator('#fallbackList');
+    await scenic.click();
+    await expect(fallback.locator('button strong')).toHaveText(['上海古镇', '上海园林']);
+    await fallback.getByRole('button', { name: '上海古镇 · 11 去过', exact: true }).click();
+    await expect(repeatDetail.locator('.d-cat-tag')).toHaveText('⛰️景区景点');
+    await page.keyboard.press('Escape');
+    for (const [chip, place, tag] of [
+      ['🛍️ 商场', '商场到访', '🛍️商场'],
+      ['🏖️ 沙滩', '独立沙滩', '🏖️沙滩'],
+      ['🏨 酒店', '上海民宿', '🏨酒店']
+    ]) {
+      await strip.getByRole('button', { name: chip, exact: true }).click();
+      await expect(page.locator('#btnPlaceList')).toHaveText('足迹 1');
+      await expect(page.locator('.film-name')).toHaveText([place]);
+      await fallback.getByRole('button', { name: `${place} · 11 去过`, exact: true }).click();
+      await expect(page.getByRole('dialog', { name: place, exact: true }).locator('.d-cat-tag')).toHaveText(tag);
+      await page.keyboard.press('Escape');
+    }
+    await city.selectOption('泉州市');
+    await expect(strip.getByRole('button')).toHaveText(['✨ 全部', '📍 其他']);
+    await expect(strip.getByRole('button', { name: '✨ 全部' })).toHaveAttribute('aria-pressed', 'true');
+    await expect(fallback.locator('button strong')).toHaveText(['泉州咖啡馆']);
   });
 }
 
@@ -814,7 +847,7 @@ test('filmstrip lists filtered visits newest first and fits the map to every mat
   await page.getByLabel('选择城市').selectOption('泉州市');
   await expect(filmFrames(page)).toHaveCount(1);
   await expect(page.locator('#btnPlaceList')).toHaveText('足迹 1');
-  await expect(page.locator('#mapCatStrip').getByRole('button')).toHaveText(['✨ 全部', '🛍️ 商场与商店']);
+  await expect(page.locator('#mapCatStrip').getByRole('button')).toHaveText(['✨ 全部', '🛍️ 商场']);
 });
 
 const olderVisit = { visitedOn: '2025-05-01', photo: 'assets/visits/disney-20260912.jpg' };
@@ -1392,39 +1425,50 @@ for (const width of [320, 375, 768, 1440]) {
   });
 }
 
-test('local POI maintenance requires an explicit category and retains the saved category on repeat handoff', async ({ page }) => {
+async function openLocalCategoryPicker(page) {
+  await page.goto('/?maintain=1');
+  await expect(page.locator('#searchBox')).toBeVisible();
+  await page.locator('#searchInput').fill('搜索公园');
+  await page.locator('.sr-item[data-idx]').filter({ hasText: '搜索公园' }).click();
+  await page.getByRole('button', { name: '选择类别并填写到访记录', exact: true }).click();
+}
+
+test('local POI maintenance exports scenic only after explicit selection and retains it on repeat handoff', async ({ page }) => {
   const picker = page.getByRole('dialog', { name: '添加地点', exact: true });
   const continueButton = picker.getByRole('button', { name: '11 去过，填写到访记录', exact: true });
-  const openCategoryPicker = async () => {
-    await page.goto('/?maintain=1');
-    await expect(page.locator('#searchBox')).toBeVisible();
-    await page.locator('#searchInput').fill('搜索公园');
-    await page.locator('.sr-item').filter({ hasText: '搜索公园' }).click();
-    await page.getByRole('button', { name: '选择类别并填写到访记录', exact: true }).click();
-  };
-
   await page.setViewportSize({ width: 320, height: 812 });
-  await openCategoryPicker();
+  await openLocalCategoryPicker(page);
   await expect(continueButton).toBeDisabled();
   const categories = picker.getByRole('group', { name: '选择类别' });
-  await expect(categories.getByRole('button', { pressed: false })).toHaveCount(11);
+  const categoryNames = ['公园', '乐园', '动物园', '水族馆', '博物馆', '科技馆', '图书馆', '商场', '沙滩', '酒店', '景区景点', '其他'];
+  const checkPicker = async () => {
+    await expect(categories.getByRole('button', { pressed: false })).toHaveCount(categoryNames.length);
+    for (const name of categoryNames) {
+      await expect(categories.getByRole('button', { name, exact: true })).toBeVisible();
+    }
+    const layout = await categories.getByRole('button').evaluateAll(buttons => buttons.map(el => ({
+      left: el.getBoundingClientRect().left, top: el.getBoundingClientRect().top,
+      fits: el.scrollWidth <= el.clientWidth
+    })));
+    expect(layout.every(button => button.fits)).toBe(true);
+    // The local picker contract is three rows of four on both mobile and desktop.
+    expect(new Set(layout.map(button => button.left)).size).toBe(4);
+    expect([...new Set(layout.map(button => button.top))].map(top =>
+      layout.filter(button => button.top === top).length)).toEqual([4, 4, 4]);
+  };
+  await checkPicker();
   await expect(categories.getByRole('button', { pressed: true })).toHaveCount(0);
-  for (const name of ['乐园', '商场与商店', '沙滩与亲水地']) {
-    const button = picker.getByRole('button', { name, exact: true });
-    await expect(button).toBeVisible();
-    expect(await button.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
-  }
   await expect(picker.getByRole('button', { name: '公园', exact: true })).toBeFocused();
-  const other = picker.getByRole('button', { name: '其他', exact: true });
-  await other.press('Space');
-  await expect(other).toBeFocused();
-  await expect(other).toHaveAttribute('aria-pressed', 'true');
+  const scenic = picker.getByRole('button', { name: '景区景点', exact: true });
+  await scenic.press('Space');
+  await expect(scenic).toBeFocused();
+  await expect(scenic).toHaveAttribute('aria-pressed', 'true');
   await continueButton.click();
   await expect(page).toHaveURL(/maintainer.html$/);
   await expect(page.locator('#heading')).toContainText('搜索公园');
 
   const place = { provider: 'tencent', poiId: 'tencent-poi-1', name: '搜索公园', address: '测试路 1 号',
-    category: 'other', lat: 31.24, lng: 121.48, visitedOn: '2026-09-12' };
+    category: 'scenic', lat: 31.24, lng: 121.48, visitedOn: '2026-09-12' };
   await page.getByLabel('到访日期').fill(place.visitedOn);
   await page.getByRole('button', { name: '预览记录' }).click();
   await page.getByRole('button', { name: '保存到本地草稿' }).click();
@@ -1432,7 +1476,9 @@ test('local POI maintenance requires an explicit category and retains the saved 
   await page.getByRole('button', { name: '下载待发布 JSON' }).click();
   expect(JSON.parse(readFileSync(await (await download).path(), 'utf8')).places).toEqual([visit, place]);
 
-  await openCategoryPicker();
+  await page.setViewportSize({ width: 1120, height: 900 });
+  await openLocalCategoryPicker(page);
+  await checkPicker();
   await picker.getByRole('button', { name: '公园', exact: true }).click();
   await continueButton.click();
   await expect(page.locator('#heading')).toContainText('搜索公园');
@@ -1444,6 +1490,22 @@ test('local POI maintenance requires an explicit category and retains the saved 
     visit, { ...place, reflection: '下次还想去' }
   ]);
   expect(await page.evaluate(() => localStorage.getItem('baby_playmap_v1'))).toBeNull();
+});
+
+test('local POI handoff keeps the original category of an already published place', async ({ page }) => {
+  const published = { ...visit, poiId: 'tencent-poi-1', name: '搜索公园', category: 'park' };
+  await serveVisits(page, [published]);
+  await openLocalCategoryPicker(page);
+  await page.getByRole('button', { name: '景区景点', exact: true }).click();
+  await page.getByRole('button', { name: '11 去过，填写到访记录', exact: true }).click();
+  await expect(page.locator('#heading')).toContainText(published.name);
+  await expect(page.getByLabel('到访日期')).toHaveValue(published.visitedOn);
+  await page.getByLabel('11’s 玩后感').fill('沿用已发布地点');
+  await page.getByRole('button', { name: '预览记录' }).click();
+  await page.getByRole('button', { name: '保存到本地草稿' }).click();
+  expect(JSON.parse(await page.locator('#batchOutput').inputValue()).places).toEqual([
+    { ...published, reflection: '沿用已发布地点' }
+  ]);
 });
 
 test('public origins cannot enable the local POI search mode', async ({ page }) => {
@@ -1752,22 +1814,24 @@ test('one click plays the full chronology with distinct return arcs and each vis
   const collage = 'assets/visits/bfc-20260919.jpg';
   const lastPhoto = 'assets/visits/dongming-gongyuan-20250501.jpg';
   await serveVisits(page, [
-    {...visit, address:'上海市甲路', visits:[
+    {...visit, name:'上海古镇', category:'scenic', address:'上海市甲路', visits:[
       {visitedOn:'2026-09-14', photo:lastPhoto},
       {visitedOn:'2025-06-10', photo:visit.photo},
       {visitedOn:'2025-06-10', photo:collage},
       {visitedOn:'2026-09-13', photo:collage},
       {visitedOn:'2025-01-01'}
     ]},
-    {...visit, poiId:'middle', name:'中途站', address:'杭州市乙路', category:'zoo', lng:121.521},
-    {...visit, poiId:'another', name:'另一处公园', address:'上海市丙路', lng:121.483, visitedOn:'2026-09-15'}
+    // Same city: only the category filter should hide this stop outside playback.
+    {...visit, poiId:'middle', name:'中途站', address:'上海市乙路', category:'zoo', lng:121.521},
+    {...visit, poiId:'another', name:'上海园林', category:'scenic', address:'上海市丙路', lng:121.483, visitedOn:'2026-09-15'}
   ]);
   await page.setViewportSize({width:390, height:844});
   await page.goto('/');
   const play = page.getByRole('button', {name:'播放', exact:true});
   await expect(play).toBeVisible();
   await page.locator('#cityFilter').selectOption('上海市');
-  await page.locator('#mapCatStrip [data-cat="park"]').click();
+  const scenic = page.locator('#mapCatStrip').getByRole('button', {name:'⛰️ 景区景点', exact:true});
+  await scenic.click();
   await page.clock.install();
   const frames = page.locator('#filmstripItems .film-frame');
   const rider = page.locator('#rider');
@@ -1818,7 +1882,7 @@ test('one click plays the full chronology with distinct return arcs and each vis
   await expect(play).toBeFocused();
   await expect(frames.locator('time')).toHaveText(['2026.09.15', '2026.09.14']);
   await expect(page.locator('#cityFilter')).toHaveValue('上海市');
-  await expect(page.locator('#mapCatStrip [data-cat="park"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(scenic).toHaveAttribute('aria-pressed', 'true');
   expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[31.23,121.47],[31.23,121.483]]);
 
   await play.click();
@@ -1843,6 +1907,32 @@ test('one click plays the full chronology with distinct return arcs and each vis
   await expect(page.getByRole('button', {name:'看照片', exact:true})).toHaveCount(0);
   expect(await page.evaluate(() => window.__mapEaseToCalls?.length ?? 0)).toBe(previousCameraMoves);
   expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[31.23,121.47],[31.23,121.483]]);
+
+  const townPin = page.locator('[data-map-pin="public:visit-1"]');
+  const gardenPin = page.locator('[data-map-pin="public:another"]');
+  // Inspect the rendered pin image, not the adapter's style IDs or full SVG.
+  const pinArt = pin => pin.evaluate(async image => {
+    const svg = new DOMParser().parseFromString(await (await fetch(image.src)).text(), 'image/svg+xml');
+    return {
+      labels: Array.from(svg.querySelectorAll('text'), label => label.textContent),
+      strokes: Array.from(svg.querySelectorAll('[stroke]'), shape => shape.getAttribute('stroke'))
+    };
+  });
+  await expect(page.locator('[data-map-pin]')).toHaveCount(2);
+  await expect(townPin).toBeVisible();
+  await expect(gardenPin).toBeVisible();
+  expect((await pinArt(townPin)).labels).toContain('⛰️');
+  const idle = await pinArt(gardenPin);
+  expect(idle.labels).toContain('⛰️');
+  const pinWidth = pin => pin.evaluate(image => image.getBoundingClientRect().width);
+  const idleWidth = await pinWidth(gardenPin);
+  await gardenPin.click();
+  await expect(current).toContainText('上海园林');
+  const selected = await pinArt(gardenPin);
+  expect(selected.labels).toContain('⛰️');
+  expect(selected.strokes.some(stroke => !idle.strokes.includes(stroke))).toBe(true);
+  expect(await pinWidth(gardenPin)).toBeGreaterThan(idleWidth);
+  expect(await pinWidth(townPin)).toBe(idleWidth);
 });
 
 test('playback can pause and continue before the first animation frame', async ({page}) => {
