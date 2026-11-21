@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { test } from 'node:test';
-import { cityGroupPatternFromHtml, placesWithoutCity, validateVisitHistory } from '../scripts/check-public-places.mjs';
+import { pathToFileURL } from 'node:url';
+import { cityGroupPatternFromHtml, placesWithoutCity, validateVisitHistory, validateVisitPhotos, visitPhotoAssetProblem, visitPhotoFormatProblem, visitPhotoRefs } from '../scripts/check-public-places.mjs';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const pattern = cityGroupPatternFromHtml(html);
@@ -56,4 +59,69 @@ test('publishing keeps draft visits but rejects malformed histories and duplicat
   assert.throws(() => validateVisitHistory([{ poiId: 'demo', visits: [null] }]), /demo.*visits/);
   assert.throws(() => validateVisitHistory([{ poiId: 'demo', visits: [...draftVisits, { visitedOn: '2025-04-01' }] }]),
     /demo.*2025-04-01/);
+});
+
+test('visit photo refs prefer visits array and keep legacy single visits', () => {
+  const places = [
+    { name: 'legacy', visitedOn: '2025-01-01', photo: 'assets/visits/legacy.jpg' },
+    { name: 'multi', visitedOn: '1999-01-01', photo: 'assets/visits/ignored.jpg', visits: [{ visitedOn: '2025-01-02', photo: 'assets/visits/multi.jpg' }] },
+    { name: 'dated-no-photo', visitedOn: '2025-01-03' },
+    { name: 'none', visits: [] }
+  ];
+  assert.deepEqual(visitPhotoRefs(places).map(ref => ref.photo), ['assets/visits/legacy.jpg', 'assets/visits/multi.jpg']);
+});
+
+test('visit photo format rejects bad paths, bad types and oversized data URIs', () => {
+  assert.equal(visitPhotoFormatProblem('assets/visits/ok-20250101.jpg'), null);
+  assert.equal(visitPhotoFormatProblem(`data:image/jpeg;base64,${'A'.repeat(10)}`), null);
+  assert.equal(visitPhotoFormatProblem('data:image/jpeg;base64,AAA'), null);
+  assert.equal(visitPhotoFormatProblem('data:image/jpeg;base64,AA=='), null);
+  assert.ok(visitPhotoFormatProblem('assets/visits/Bad.JPG'));
+  assert.ok(visitPhotoFormatProblem('data:image/jpeg;base64,A'));
+  assert.ok(visitPhotoFormatProblem('data:image/jpeg;base64,AAAAA'));
+  assert.ok(visitPhotoFormatProblem('data:image/jpeg;base64,AAAAA='));
+  assert.ok(visitPhotoFormatProblem(`data:image/jpeg;base64,${'A'.repeat(450001)}`));
+  assert.ok(visitPhotoFormatProblem(123));
+});
+
+test('visit photo assets must exist as small JPEGs', () => {
+  const root = new URL('../', import.meta.url);
+  assert.equal(visitPhotoAssetProblem('assets/visits/definitely-missing.jpg', root), '照片文件不存在：assets/visits/definitely-missing.jpg');
+  const places = JSON.parse(readFileSync(new URL('../public-places.json', import.meta.url), 'utf8')).places;
+  const refs = visitPhotoRefs(places);
+  assert.ok(refs.length > 0);
+  assert.deepEqual(validateVisitPhotos(places, root), []);
+});
+
+test('visit photo assets decode data URIs and enforce JPEG size and dimensions', () => {
+  const root = new URL('../', import.meta.url);
+  const jpeg = readFileSync(new URL('../assets/visits/daishan-vienna-20250809.jpg', import.meta.url));
+  assert.equal(visitPhotoAssetProblem(`data:image/jpeg;base64,${jpeg.toString('base64')}`, root), null);
+  assert.match(visitPhotoAssetProblem(`data:image/jpeg;base64,${Buffer.from('not-a-jpeg').toString('base64')}`, root), /JPEG/);
+  const sof = (width, height) => Buffer.from([
+    0xff, 0xd8, 0xff, 0xc0, 0x00, 0x0b, 0x08,
+    (height >> 8) & 0xff, height & 0xff,
+    (width >> 8) & 0xff, width & 0xff,
+    0x01, 0x01, 0x11, 0x00,
+    0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3f, 0x00,
+    0x00, 0x3f, 0xff, 0xd9
+  ]);
+  assert.match(visitPhotoAssetProblem(`data:image/jpeg;base64,${sof(1280, 1280).toString('base64')}`, root), /960/);
+  assert.equal(visitPhotoAssetProblem(`data:image/jpeg;base64,${sof(800, 600).toString('base64')}`, root), null);
+  const headerOnly = Buffer.concat([sof(640, 480).subarray(0, 15), Buffer.from([0xff, 0xd9])]);
+  assert.match(visitPhotoAssetProblem(`data:image/jpeg;base64,${headerOnly.toString('base64')}`, root), /图像数据/);
+  assert.match(visitPhotoAssetProblem(`data:image/jpeg;base64,${Buffer.from([0xff, 0xd8, 0xff, 0xd9]).toString('base64')}`, root), /尺寸/);
+  assert.match(validateVisitPhotos([{ name: 'bad', visitedOn: '2025-01-01', photo: 'data:image/jpeg;base64,A' }], root)[0], /Base64/);
+});
+
+test('visit photo file assets enforce the published size ceiling', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'playmap-places-'));
+  try {
+    mkdirSync(join(dir, 'assets', 'visits'), { recursive: true });
+    writeFileSync(join(dir, 'assets', 'visits', 'oversize.jpg'), Buffer.alloc(331 * 1024));
+    const root = pathToFileURL(`${dir}/`);
+    assert.match(visitPhotoAssetProblem('assets/visits/oversize.jpg', root), /超过/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
