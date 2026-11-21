@@ -103,3 +103,37 @@ test('reports a table link on its row even when other cells have unmatched backt
   assert.equal(result.status, 1);
   assert.equal(result.stderr.trim(), 'README.md:3: missing.md (missing target)');
 });
+
+test('checks a footnote continuation immediately after a table without checking indented code', t => {
+  const result = check(t, [
+    '| 资料 |',
+    '| --- |',
+    '| 见[^ref] |',
+    '[^ref]: 参考资料',
+    '    [指南](missing.md)',
+    '',
+    '正文。',
+    '',
+    '    [代码示例](placeholder.md)'
+  ].join('\n'));
+  assert.equal(result.status, 1);
+  assert.equal(result.stderr.trim(), 'README.md:5: missing.md (missing target)');
+});
+
+test('matches GitHub footnote labels without regard to case', t => {
+  const result = check(t, '详见[^Guide]。\n\n[^guide]: [指南](missing.md)\n');
+  assert.equal(result.status, 1);
+  assert.equal(result.stderr.trim(), 'README.md:3: missing.md (missing target)');
+});
+
+test('checks an ordinary link immediately after a caret', t => {
+  const result = check(t, '^[指南](missing.md)\n');
+  assert.equal(result.status, 1);
+  assert.equal(result.stderr.trim(), 'README.md:1: missing.md (missing target)');
+});
+
+test('checks reference-style links at their use site', t => {
+  const result = check(t, '[指南][Guide]\n\n[guide]: missing.md\n');
+  assert.equal(result.status, 1);
+  assert.equal(result.stderr.trim(), 'README.md:1: missing.md (missing target)');
+});
