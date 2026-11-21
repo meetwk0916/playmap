@@ -3,12 +3,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, extname, resolve } from 'node:path';
 import GithubSlugger from 'github-slugger';
 import MarkdownIt from 'markdown-it';
+import footnote from 'markdown-it-footnote';
 
 const root = execFileSync('git', ['rev-parse', '--show-toplevel'], { encoding: 'utf8' }).trimEnd();
 const files = execFileSync('git', ['ls-files', '-z', '--', '*.md'], { cwd: root, encoding: 'utf8' })
   .split('\0').filter(Boolean);
 const documents = new Map();
-const markdown = new MarkdownIt('commonmark');
+const markdown = new MarkdownIt('commonmark').enable('table').use(footnote);
 
 function readMarkdown(path) {
   if (!documents.has(path)) {
@@ -32,7 +33,10 @@ let checked = 0;
 for (const file of files) {
   const source = resolve(root, file);
   if (!existsSync(source)) continue; // A tracked document may be deleted in the working tree.
+  let tableRowLine;
   for (const token of readMarkdown(source).tokens) {
+    if (token.type === 'tr_open') tableRowLine = token.map[0] + 1;
+    if (token.type === 'tr_close') tableRowLine = undefined;
     if (token.type !== 'inline') continue;
     for (const child of token.children) {
       const url = child.type === 'link_open' ? child.attrGet('href')
@@ -50,8 +54,10 @@ for (const file of files) {
           throw new Error('missing heading');
         }
       } catch (error) {
-        // Markdown-it provides the source line of the containing inline block.
-        console.error(`${file}:${token.map[0] + 1}: ${url} (${error.message})`);
+        // Inline table cells have no source map of their own.
+        const line = token.map ? token.map[0] + 1 : tableRowLine;
+        const location = line === undefined ? file : `${file}:${line}`;
+        console.error(`${location}: ${url} (${error.message})`);
         process.exitCode = 1;
       }
     }

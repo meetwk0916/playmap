@@ -27,7 +27,7 @@ npm run check:design
 npm test
 ```
 
-`npm run check:design` 包含设计令牌门禁，以及 `npm run check:places`：公开地点 `address` 必须能被地点列表解析出「…市」。`npm test` 使用 Playwright，并自动启动或复用当前工作目录的静态服务器；首次运行前执行 `npm ci` 和 `npx playwright install chromium`。
+本地验证推荐 Node.js 22，与 CI 一致；首次运行前执行 `npm ci` 和 `npx playwright install chromium`。`npm run check:design` 包含设计令牌门禁，以及 `npm run check:places`：公开地点 `address` 必须能被地点列表解析出「…市」。`npm test` 使用 Playwright，并自动启动或复用当前工作目录的静态服务器。
 
 首轮本地诊断可用 `npm test -- --max-failures=1`，让运行器在首次失败后停止，避免重复启动故障。根据失败日志判断原因：`browserType.launch` 中的 Chromium 缺失、系统动态库缺失或 macOS `MachPortRendezvousServer ... Permission denied` 表示浏览器启动环境受限；浏览器已启动后的页面断言失败仍需按产品问题排查，不能把首次失败一概归为环境问题。
 

@@ -78,3 +78,28 @@ test('accepts the GitHub suffix for a duplicate heading but rejects nonexistent 
   assert.equal(invalid.status, 1);
   assert.match(decodeURI(invalid.stderr), /guide\.md#验证-2 \(missing heading\)/);
 });
+
+test('checks the real link in a GitHub footnote, not the reference', async t => {
+  await t.test('accepts an existing target', t => {
+    const result = check(t, '# 验证\n\n详见资料[^guide]。\n\n[^guide]: [验证](README.md#验证)\n');
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /^1 relative links checked/);
+  });
+
+  await t.test('reports only the missing target', t => {
+    const result = check(t, '详见资料[^guide]。\n\n[^guide]: [验证](missing.md)\n');
+    assert.equal(result.status, 1);
+    assert.equal(result.stderr.trim(), 'README.md:3: missing.md (missing target)');
+  });
+});
+
+test('reports a table link on its row even when other cells have unmatched backticks', t => {
+  const result = check(t, [
+    '| 示例 | 目标 |',
+    '| --- | --- |',
+    '| ` | [指南](missing.md) |',
+    '| ` | 说明 |'
+  ].join('\n'));
+  assert.equal(result.status, 1);
+  assert.equal(result.stderr.trim(), 'README.md:3: missing.md (missing target)');
+});
