@@ -6,6 +6,7 @@
     "dev": "python3 -m http.server \"${PLAYMAP_PORT:-4173}\" --bind 127.0.0.1",
     "check:preview": "node scripts/check-local-server.cjs --running",
     "check:design": "node scripts/check-design-discipline.mjs && npm run check:places",
+    "check:docs": "node scripts/check-doc-links.mjs",
     "check:places": "node scripts/check-public-places.mjs && node --test tests/public-places-city.test.mjs",
     "test": "playwright test",
     "test:album": "node --test tests/album-*.test.mjs",

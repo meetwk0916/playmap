@@ -24,6 +24,17 @@ When set to `yes`, PRs run through the same labels and states as issues, using t
 
 GitHub shares one number space across issues and PRs, so a bare `#42` may be either: resolve with `gh pr view 42` and fall back to `gh issue view 42`.
 
+## PR 与发布交接
+
+推送分支、开 PR、合并、生产核验和关票分别确认；只获准推送时，停在远端分支。开 PR 后用 `gh pr view <number> --json baseRefName,headRefOid,body` 核对远端正文与提交，不把本地草稿当作已发布正文。
+
+- 同一票还有独立的后续交付时，获授权后先拆票并互链；拆票前用 `Refs #<number>`，不要让合并提前关闭原票。只有应当随合并关闭的票才用 `Closes #<number>`。
+- 合并前核对 PR 的 `checks` 已成功；没通过就不合并，即使 GitHub 允许。生产核验与原 PR 的证据记录按[发布流程](../public-places.md#三步发布workbuddy-接管)执行，随后核对实际票状态。
+
+## 委派实现预检
+
+后台实现者先在自己的 worktree 验证文件编辑权限与任务所需的命令（依赖、预览、测试）。权限受阻就立即报告命令与错误，由主 agent 切到有权限的执行方式，再继续读规格和实现。
+
 ## When a skill says "publish to the issue tracker"
 
 Search open and closed GitHub issues first. Reuse an issue covering the same scope and add any missing specification or acceptance evidence there; create a new issue only when no issue covers the request or the request adds scope.
