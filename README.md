@@ -33,7 +33,7 @@ npm test
 
 缺少浏览器时运行 `npx playwright install chromium`；缺少系统依赖时按 Playwright 的系统依赖提示修复；启动权限受限时说明具体限制，使用获准的执行方式或请求必要权限。未启动或未执行的测试不得标为通过。环境修复后，在最终内容上完整运行 `npm run check:design`、`npm test` 和 `git diff --check`，报告实际结果及未通过项；首次失败停止的诊断轮不能替代完整检查，也不代表部署或真人验收。
 
-[检查工作流](.github/workflows/checks.yml) 在推送到 `main` 或向 `main` 提交 PR 时运行上述检查，并自动安装 Chromium 及系统依赖。文档改动可先跑 `npm run check:docs`，检查已跟踪 Markdown 的相对行内链接和 Markdown 标题锚点，不访问外链。
+[检查工作流](.github/workflows/checks.yml) 在推送到 `main` 或向 `main` 提交 PR 时运行上述检查，并自动安装 Chromium 及系统依赖。文档改动可先跑 `npm run check:docs`，运行链接检查器的回归测试并检查已跟踪 Markdown 的相对链接与标题锚点，不访问外链。
 
 相册辅助工具另运行 `npm run test:album`，现有 CI 已配置该项。逐项执行检查，记录命令、退出码、简短结论和完整日志路径；命令依赖前项成功时使用 `&&`。完整输出保存在仓库外，失败与未运行项分别报告，终端只展示必要摘要。
 
