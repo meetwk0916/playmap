@@ -1451,6 +1451,7 @@ test('local POI maintenance exports scenic only after explicit selection and ret
       fits: el.scrollWidth <= el.clientWidth
     })));
     expect(layout.every(button => button.fits)).toBe(true);
+    // The local picker contract is three rows of four on both mobile and desktop.
     expect(new Set(layout.map(button => button.left)).size).toBe(4);
     expect([...new Set(layout.map(button => button.top))].map(top =>
       layout.filter(button => button.top === top).length)).toEqual([4, 4, 4]);
@@ -1813,22 +1814,24 @@ test('one click plays the full chronology with distinct return arcs and each vis
   const collage = 'assets/visits/bfc-20260919.jpg';
   const lastPhoto = 'assets/visits/dongming-gongyuan-20250501.jpg';
   await serveVisits(page, [
-    {...visit, address:'上海市甲路', visits:[
+    {...visit, name:'上海古镇', category:'scenic', address:'上海市甲路', visits:[
       {visitedOn:'2026-09-14', photo:lastPhoto},
       {visitedOn:'2025-06-10', photo:visit.photo},
       {visitedOn:'2025-06-10', photo:collage},
       {visitedOn:'2026-09-13', photo:collage},
       {visitedOn:'2025-01-01'}
     ]},
-    {...visit, poiId:'middle', name:'中途站', address:'杭州市乙路', category:'zoo', lng:121.521},
-    {...visit, poiId:'another', name:'另一处公园', address:'上海市丙路', lng:121.483, visitedOn:'2026-09-15'}
+    // Same city: only the category filter should hide this stop outside playback.
+    {...visit, poiId:'middle', name:'中途站', address:'上海市乙路', category:'zoo', lng:121.521},
+    {...visit, poiId:'another', name:'上海园林', category:'scenic', address:'上海市丙路', lng:121.483, visitedOn:'2026-09-15'}
   ]);
   await page.setViewportSize({width:390, height:844});
   await page.goto('/');
   const play = page.getByRole('button', {name:'播放', exact:true});
   await expect(play).toBeVisible();
   await page.locator('#cityFilter').selectOption('上海市');
-  await page.locator('#mapCatStrip [data-cat="park"]').click();
+  const scenic = page.locator('#mapCatStrip').getByRole('button', {name:'⛰️ 景区景点', exact:true});
+  await scenic.click();
   await page.clock.install();
   const frames = page.locator('#filmstripItems .film-frame');
   const rider = page.locator('#rider');
@@ -1879,7 +1882,7 @@ test('one click plays the full chronology with distinct return arcs and each vis
   await expect(play).toBeFocused();
   await expect(frames.locator('time')).toHaveText(['2026.09.15', '2026.09.14']);
   await expect(page.locator('#cityFilter')).toHaveValue('上海市');
-  await expect(page.locator('#mapCatStrip [data-cat="park"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(scenic).toHaveAttribute('aria-pressed', 'true');
   expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[31.23,121.47],[31.23,121.483]]);
 
   await play.click();
@@ -1904,6 +1907,32 @@ test('one click plays the full chronology with distinct return arcs and each vis
   await expect(page.getByRole('button', {name:'看照片', exact:true})).toHaveCount(0);
   expect(await page.evaluate(() => window.__mapEaseToCalls?.length ?? 0)).toBe(previousCameraMoves);
   expect(await page.evaluate(() => window.__mapFitBoundsCalls.at(-1).bounds)).toEqual([[31.23,121.47],[31.23,121.483]]);
+
+  const townPin = page.locator('[data-map-pin="public:visit-1"]');
+  const gardenPin = page.locator('[data-map-pin="public:another"]');
+  // Inspect the rendered pin image, not the adapter's style IDs or full SVG.
+  const pinArt = pin => pin.evaluate(async image => {
+    const svg = new DOMParser().parseFromString(await (await fetch(image.src)).text(), 'image/svg+xml');
+    return {
+      labels: Array.from(svg.querySelectorAll('text'), label => label.textContent),
+      strokes: Array.from(svg.querySelectorAll('[stroke]'), shape => shape.getAttribute('stroke'))
+    };
+  });
+  await expect(page.locator('[data-map-pin]')).toHaveCount(2);
+  await expect(townPin).toBeVisible();
+  await expect(gardenPin).toBeVisible();
+  expect((await pinArt(townPin)).labels).toContain('⛰️');
+  const idle = await pinArt(gardenPin);
+  expect(idle.labels).toContain('⛰️');
+  const pinWidth = pin => pin.evaluate(image => image.getBoundingClientRect().width);
+  const idleWidth = await pinWidth(gardenPin);
+  await gardenPin.click();
+  await expect(current).toContainText('上海园林');
+  const selected = await pinArt(gardenPin);
+  expect(selected.labels).toContain('⛰️');
+  expect(selected.strokes.some(stroke => !idle.strokes.includes(stroke))).toBe(true);
+  expect(await pinWidth(gardenPin)).toBeGreaterThan(idleWidth);
+  expect(await pinWidth(townPin)).toBe(idleWidth);
 });
 
 test('playback can pause and continue before the first animation frame', async ({page}) => {
