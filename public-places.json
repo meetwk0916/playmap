@@ -482,7 +482,8 @@
       "category": "hotel",
       "lat": 29.470487,
       "lng": 118.669083,
-      "visitedOn": "2025-04-06"
+      "visitedOn": "2025-04-06",
+      "photo": "assets/visits/wenyuan-shicheng-pushi-20250406.jpg"
     },
     {
       "provider": "tencent",
@@ -492,7 +493,8 @@
       "category": "hotel",
       "lat": 30.237542,
       "lng": 122.200703,
-      "visitedOn": "2025-08-08"
+      "visitedOn": "2025-08-08",
+      "photo": "assets/visits/daishan-kaiyuan-mingtin-20250808.jpg"
     },
     {
       "provider": "tencent",
@@ -502,7 +504,8 @@
       "category": "hotel",
       "lat": 30.246806,
       "lng": 122.220437,
-      "visitedOn": "2025-08-09"
+      "visitedOn": "2025-08-09",
+      "photo": "assets/visits/daishan-vienna-20250809.jpg"
     },
     {
       "provider": "tencent",
