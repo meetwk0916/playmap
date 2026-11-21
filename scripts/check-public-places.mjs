@@ -2,7 +2,7 @@
  * Public place addresses must match the city regex in index.html cityOf.
  * The pattern is read from that function so the list and this check stay on one expression.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -77,6 +77,63 @@ export function validateVisitHistory(places) {
   }
 }
 
+const VISIT_PHOTO_FILE = /^assets\/visits\/[a-z0-9-]+\.jpg$/;
+const VISIT_PHOTO_DATA_URI = /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/;
+const VISIT_PHOTO_DATA_URI_MAX = 450000;
+const VISIT_PHOTO_FILE_MAX_BYTES = 360 * 1024;
+const JPEG_MAGIC = Buffer.from([0xff, 0xd8, 0xff]);
+
+export function visitPhotoRefs(places) {
+  if (!Array.isArray(places)) throw new Error('places must be an array');
+  const refs = [];
+  for (const place of places) {
+    const visits = Array.isArray(place?.visits)
+      ? place.visits
+      : (place?.visitedOn !== undefined || place?.photo !== undefined || place?.reflection !== undefined
+        ? [{ visitedOn: place.visitedOn, photo: place.photo, reflection: place.reflection }]
+        : []);
+    for (const visit of visits) {
+      if (visit && typeof visit === 'object' && !Array.isArray(visit) && Object.hasOwn(visit, 'photo') && visit.photo != null) {
+        refs.push({ place, visit, photo: visit.photo });
+      }
+    }
+  }
+  return refs;
+}
+
+export function visitPhotoFormatProblem(photo) {
+  if (typeof photo !== 'string' || photo.length === 0) return '照片必须是非空字符串';
+  if (VISIT_PHOTO_FILE.test(photo)) return null;
+  if (VISIT_PHOTO_DATA_URI.test(photo) && photo.length <= VISIT_PHOTO_DATA_URI_MAX) return null;
+  return '照片路径或 data URI 不符合到访规则';
+}
+
+export function visitPhotoAssetProblem(photo, root) {
+  if (!VISIT_PHOTO_FILE.test(photo)) return null;
+  const file = fileURLToPath(new URL(photo, root));
+  if (!existsSync(file)) return `照片文件不存在：${photo}`;
+  const { size } = statSync(file);
+  if (size > VISIT_PHOTO_FILE_MAX_BYTES) return `照片超过 ${VISIT_PHOTO_FILE_MAX_BYTES} 字节：${photo}`;
+  const head = readFileSync(file).subarray(0, 3);
+  if (!head.equals(JPEG_MAGIC)) return `照片不是 JPEG：${photo}`;
+  return null;
+}
+
+export function validateVisitPhotos(places, root) {
+  const problems = [];
+  for (const { place, visit, photo } of visitPhotoRefs(places)) {
+    const where = [place?.name || place?.poiId || '未命名地点', visit?.visitedOn].filter(Boolean).join(' ');
+    const format = visitPhotoFormatProblem(photo);
+    if (format) {
+      problems.push(`${where || '未命名到访'} ${format}`);
+      continue;
+    }
+    const asset = visitPhotoAssetProblem(photo, root);
+    if (asset) problems.push(`${where || '未命名到访'} ${asset}`);
+  }
+  return problems;
+}
+
 function main() {
   try {
     const root = new URL('..', import.meta.url);
@@ -94,6 +151,13 @@ function main() {
       return;
     }
     validateVisitHistory(data.places);
+    const photoProblems = validateVisitPhotos(data.places, root);
+    if (photoProblems.length) {
+      console.error(`公开到访照片资产检查失败（${photoProblems.length}）：`);
+      for (const problem of photoProblems) console.error(`- ${problem}`);
+      process.exitCode = 1;
+      return;
+    }
     console.log(`公开地点地址均可解析出城市（${data.places.length}）。`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
