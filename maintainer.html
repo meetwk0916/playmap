@@ -279,7 +279,7 @@ window.addEventListener('beforeunload', event => { if (dirty) { event.preventDef
     const pending = sessionStorage.getItem('playmap_rating_poi');
     if (pending) {
       const poi = JSON.parse(pending);
-      const categories = ['park', 'playground', 'zoo', 'aquarium', 'museum', 'science', 'library', 'mall', 'water', 'hotel', 'other'];
+      const categories = ['park', 'playground', 'zoo', 'aquarium', 'museum', 'science', 'library', 'mall', 'water', 'hotel', 'scenic', 'other'];
       if (!poi || poi.provider !== 'tencent' || typeof poi.poiId !== 'string' || !poi.poiId.trim() || poi.poiId.length > 100 ||
           typeof poi.name !== 'string' || !poi.name.trim() || poi.name.length > 30 || typeof poi.address !== 'string' || poi.address.length > 120 ||
           !categories.includes(poi.category) || !Number.isFinite(poi.lat) || Math.abs(poi.lat) > 90 || !Number.isFinite(poi.lng) || Math.abs(poi.lng) > 180) {
