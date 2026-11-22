@@ -1014,7 +1014,26 @@ test('filmstrip keeps one tab stop, moves with arrow keys and opens the visit ph
   await expect(filmFrames(page).first()).toBeFocused();
 
   await filmFrames(page).nth(1).click();
-  await page.getByRole('button', { name:'下一个地点 →', exact:true }).click();
+  const sourceDetail = page.getByRole('dialog', { name:'第二公园', exact:true });
+  await sourceDetail.getByRole('button', { name:'下一个地点 →', exact:true }).focus();
+  const focusProbe = await sourceDetail.evaluateHandle(dialog => {
+    const unexpectedFocus = [];
+    const record = ({ target }) => {
+      const label = target.getAttribute('aria-label');
+      if (!dialog.contains(target) || label === '关闭地点详情') {
+        unexpectedFocus.push(label || target.textContent.trim());
+      }
+    };
+    document.addEventListener('focusin', record);
+    return () => {
+      document.removeEventListener('focusin', record);
+      return unexpectedFocus;
+    };
+  });
+  await page.keyboard.press('Enter');
+  const unexpectedFocus = await focusProbe.evaluate(stop => stop());
+  await focusProbe.dispose();
+  expect(unexpectedFocus).toEqual([]);
   const detail = page.getByRole('dialog', { name:'第三公园', exact:true });
   await expect(detail).toBeVisible();
   await detail.getByRole('button', { name:'关闭地点详情', exact:true }).click();
