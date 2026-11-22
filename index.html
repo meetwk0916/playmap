@@ -2175,16 +2175,16 @@ var detailNavigation = (function () {
     refit(active);
   }
 
-  function open(placeId, source, row) {
+  function open(placeId, { listButton, fromFilmstrip } = {}) {
     var place = findPlace(placeId);
     if (!place) return;
-    var scrollTop = row ? $('drawerPlaces').scrollTop : 0;
-    if (source === 'list') clearSelection();
-    if (source) setSelectedPlace(place);
+    var listReturn = listButton ? { button: listButton, scrollTop: $('drawerPlaces').scrollTop } : null;
+    if (listReturn) clearSelection();
+    if (listReturn || fromFilmstrip) setSelectedPlace(place);
     renderDetail(place, neighbors(place), step);
     openDrawer('drawerDetail');
-    session = { place: place, source: source, row: row, scrollTop: scrollTop };
-    if (source) frameDetail(session);
+    session = { place: place, listReturn: listReturn, fromFilmstrip: fromFilmstrip };
+    if (listReturn || fromFilmstrip) frameDetail(session);
   }
 
   function step(direction) {
@@ -2199,21 +2199,21 @@ var detailNavigation = (function () {
     var next = $('btnNextPlacePrimary');
     var pressed = direction === 'next' ? next : previous;
     var opposite = direction === 'next' ? previous : next;
-    (pressed.disabled ? opposite : pressed).focus();
+    (pressed.disabled ? opposite : pressed).focus({ preventScroll: true });
   }
 
   function dismiss(reason) {
     if (!session) return false;
     var leaving = session;
-    if (leaving.source === 'list' && reason === 'map' && map) {
+    if (leaving.listReturn && reason === 'map' && map) {
       selectPlace(leaving.place.id, true);
-    } else if (leaving.source === 'list') {
+    } else if (leaving.listReturn) {
       openDrawer('drawerPlaces');
-      $('drawerPlaces').scrollTop = leaving.scrollTop;
-      leaving.row.focus({ preventScroll: true });
+      $('drawerPlaces').scrollTop = leaving.listReturn.scrollTop;
+      leaving.listReturn.button.focus({ preventScroll: true });
     } else {
       closeAllDrawers();
-      if (leaving.source === 'filmstrip' && !focusSelectedFrame()) $('btnPlaceList').focus({ preventScroll: true });
+      if (leaving.fromFilmstrip && !focusSelectedFrame()) $('btnPlaceList').focus({ preventScroll: true });
     }
     return true;
   }
@@ -2764,7 +2764,7 @@ function bindEvents() {
   $('placeList').addEventListener('click', function (evt) {
     var button = evt.target.closest('[data-place-id]');
     if (!button) return;
-    detailNavigation.open(button.getAttribute('data-place-id'), 'list', button);
+    detailNavigation.open(button.getAttribute('data-place-id'), { listButton: button });
   });
   // 地图工具组定位：由用户主动点击触发权限请求
   $('btnLocate').addEventListener('click', locateUser);
@@ -2809,7 +2809,7 @@ function bindEvents() {
       return;
     }
     if (routeStops.length) selectPlace(placeId, frame === document.activeElement);
-    else detailNavigation.open(placeId, 'filmstrip');
+    else detailNavigation.open(placeId, { fromFilmstrip: true });
   });
   $('filmstripItems').addEventListener('focusin', function (evt) {
     var frame = evt.target.closest('.film-frame');
