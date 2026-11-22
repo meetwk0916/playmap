@@ -450,16 +450,21 @@ test(`footprint rows select their map pin above details and restore list context
 
 }
 
-test('one map click from footprint details returns to the same selected pin and film frame', async ({ page }) => {
+test('one map click after stepping from footprint details returns to the current pin and film frame', async ({ page }) => {
+  const next = { ...visit, poiId:'next', name:'下一站公园', visitedOn:'2026-05-01', lng:121.478 };
+  await serveVisits(page, [visit, next]);
+  await page.reload();
   await page.getByRole('button', { name:/足迹/ }).click();
   await page.locator('#placeList').getByRole('button', { name:visit.name, exact:true }).click();
-  await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
+  await page.getByRole('button', { name:'下一个地点 →', exact:true }).click();
+  await expect(page.getByRole('dialog', { name:next.name, exact:true })).toBeVisible();
   await page.locator('#mask').click({ position:{ x:8, y:8 } });
   await expect(selectedFrame(page)).toBeVisible();
-  await expect(selectedFrame(page)).toContainText(visit.name);
+  await expect(selectedFrame(page)).toContainText(next.name);
   await expect(page.locator('#drawerDetail')).not.toHaveClass(/open/);
   await expect(page.locator('#drawerPlaces')).not.toHaveClass(/open/);
-  await expect(page.locator('[data-map-pin="public:visit-1"]')).toHaveCSS('width', '60px');
+  await expect(page.locator('[data-map-pin="public:next"]')).toHaveCSS('width', '60px');
+  await expect(page.locator('[data-map-pin="public:visit-1"]')).toHaveCSS('width', '44px');
   await expect(selectedFrame(page)).toBeFocused();
   await expect(page.locator('main')).not.toHaveAttribute('inert');
 });
@@ -1009,8 +1014,30 @@ test('filmstrip keeps one tab stop, moves with arrow keys and opens the visit ph
   await expect(filmFrames(page).first()).toBeFocused();
 
   await filmFrames(page).nth(1).click();
-  await expect(page.locator('#drawerDetail')).toHaveClass(/open/);
-  await page.keyboard.press('Escape');
+  const sourceDetail = page.getByRole('dialog', { name:'第二公园', exact:true });
+  await sourceDetail.getByRole('button', { name:'下一个地点 →', exact:true }).focus();
+  const focusProbe = await sourceDetail.evaluateHandle(dialog => {
+    const unexpectedFocus = [];
+    const record = ({ target }) => {
+      const label = target.getAttribute('aria-label');
+      if (!dialog.contains(target) || label === '关闭地点详情') {
+        unexpectedFocus.push(label || target.textContent.trim());
+      }
+    };
+    document.addEventListener('focusin', record);
+    return () => {
+      document.removeEventListener('focusin', record);
+      return unexpectedFocus;
+    };
+  });
+  await page.keyboard.press('Enter');
+  const unexpectedFocus = await focusProbe.evaluate(stop => stop());
+  await focusProbe.dispose();
+  expect(unexpectedFocus).toEqual([]);
+  const detail = page.getByRole('dialog', { name:'第三公园', exact:true });
+  await expect(detail).toBeVisible();
+  await detail.getByRole('button', { name:'关闭地点详情', exact:true }).click();
+  await expect(selectedFrame(page)).toHaveText(/第三公园/);
   await expect(selectedFrame(page)).toBeFocused();
   await expect(page.locator('#filmstrip .film-frame[tabindex="0"]')).toHaveCount(1);
 });

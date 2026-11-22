@@ -1099,7 +1099,6 @@ function svgToDataUri(svg) {
 var state = {
   protectionMode: false,
   mapCatFilter: 'all', // all | 各类别 value
-  currentDetailId: null,
   selectedPlaceId: null,
   cityFilter: 'all',
   addForm: { name: '', address: '', poiId: '', lat: 0, lng: 0, category: null, source: null }
@@ -1958,14 +1957,18 @@ function clearSelection() {
   if (needsFocus) $('btnPlaceList').focus({ preventScroll: true });
 }
 
+function setSelectedPlace(place) {
+  state.selectedPlaceId = place.id;
+  renderMarkers();
+  syncFilmstripSelection();
+}
+
 function selectPlace(placeId, moveFocus) {
   if (routeStops.length) closeRoute();
   var place = findPlace(placeId);
   if (!place) return;
   closeAllDrawers();
-  state.selectedPlaceId = placeId;
-  renderMarkers();
-  syncFilmstripSelection();
+  setSelectedPlace(place);
   focusPlace(place);
   if (moveFocus) {
     if (!focusSelectedFrame()) $('btnPlaceList').focus({ preventScroll: true });
@@ -2037,9 +2040,6 @@ function closeMoreMenu(restoreFocus) {
 }
 
 var DRAWERS = ['drawerAdd', 'drawerDetail', 'drawerPrivacy', 'drawerPlaces'];
-var detailListReturn = null;
-var detailFilmReturn = false;
-var detailResizeObserver = null;
 
 function anyDrawerOpen() {
   return DRAWERS.some(function (id) { return $(id).classList.contains('open'); });
@@ -2060,27 +2060,14 @@ function focusSelectedFrame() {
 }
 
 function closeCurrentDrawer() {
-  var detailOpen = $('drawerDetail').classList.contains('open');
-  var listReturn = detailOpen && detailListReturn;
-  var filmReturn = detailOpen && detailFilmReturn;
-  closeAllDrawers();
-  if (listReturn) {
-    openDrawer('drawerPlaces');
-    $('drawerPlaces').scrollTop = listReturn.scrollTop;
-    listReturn.button.focus({ preventScroll: true });
-  } else if (filmReturn && !focusSelectedFrame()) $('btnPlaceList').focus({ preventScroll: true });
+  if (!detailNavigation.dismiss()) closeAllDrawers();
 }
 
 function closeAllDrawers() {
-  if (detailResizeObserver) {
-    detailResizeObserver.disconnect();
-    detailResizeObserver = null;
-  }
-  detailListReturn = null;
-  detailFilmReturn = false;
   DRAWERS.forEach(function (id) {
     var drawer = $(id);
     if (!drawer.classList.contains('open')) return;
+    if (id === 'drawerDetail') detailNavigation.end();
     drawer.classList.remove('open');
     drawer.setAttribute('inert', '');
     deactivateFocusLayer(drawer);
@@ -2159,37 +2146,85 @@ function submitAdd() {
 }
 
 /* ---------- 地点详情 ---------- */
-function openDetail(placeId, listButton, fromFilmstrip) {
-  var p = findPlace(placeId);
-  if (!p) return;
-  var listReturn = listButton ? { button: listButton, scrollTop: $('drawerPlaces').scrollTop } : null;
-  if (listReturn) {
-    clearSelection();
-    state.selectedPlaceId = placeId;
-    renderMarkers();
-    syncFilmstripSelection();
+var detailNavigation = (function () {
+  // 浏览来源在进入时确定，切换地点只替换当前详情。
+  var session = null;
+
+  function neighbors(place) {
+    var places = filmstripPlaces();
+    var index = places.findIndex(function (entry) { return entry.id === place.id; });
+    return index < 0 ? {} : { previous: places[index - 1], next: places[index + 1] };
   }
-  state.currentDetailId = placeId;
-  renderDetail();
-  openDrawer('drawerDetail');
-  detailListReturn = listReturn;
-  // openDrawer 会先清空抽屉的返回目标，所以只能在这之后记。
-  detailFilmReturn = !listReturn && !!fromFilmstrip;
-  if ((listReturn || fromFilmstrip) && map) {
-    var drawer = $('drawerDetail');
-    var panelTop;
-    var refitDrawer = function () {
-      // 抽屉贴底且高度可能带小数：用不受位移动画影响的高度向下取整，图钉才不会压进抽屉上沿。
-      var nextTop = Math.floor(innerHeight - drawer.getBoundingClientRect().height);
-      if (nextTop === panelTop || state.selectedPlaceId !== placeId) return;
-      panelTop = nextTop;
-      focusPlace(p, panelTop);
-    };
-    refitDrawer();
-    detailResizeObserver = new ResizeObserver(refitDrawer);
-    detailResizeObserver.observe(drawer);
+
+  function refit(active) {
+    if (session !== active || !map || state.selectedPlaceId !== active.place.id) return;
+    // 抽屉贴底且高度可能带小数：用不受位移动画影响的高度向下取整，图钉才不会压进抽屉上沿。
+    var nextTop = Math.floor(innerHeight - $('drawerDetail').getBoundingClientRect().height);
+    if (nextTop === active.panelTop) return;
+    active.panelTop = nextTop;
+    focusPlace(active.place, nextTop);
   }
-}
+
+  function frameDetail(active) {
+    if (!map) return;
+    if (!active.observer) {
+      active.observer = new ResizeObserver(function () { refit(active); });
+      active.observer.observe($('drawerDetail'));
+    }
+    active.panelTop = null;
+    refit(active);
+  }
+
+  function open(placeId, { listButton, fromFilmstrip } = {}) {
+    var place = findPlace(placeId);
+    if (!place) return;
+    var listReturn = listButton ? { button: listButton, scrollTop: $('drawerPlaces').scrollTop } : null;
+    if (listReturn) clearSelection();
+    if (listReturn || fromFilmstrip) setSelectedPlace(place);
+    renderDetail(place, neighbors(place), step);
+    openDrawer('drawerDetail');
+    session = { place: place, listReturn: listReturn, fromFilmstrip: fromFilmstrip };
+    if (listReturn || fromFilmstrip) frameDetail(session);
+  }
+
+  function step(direction) {
+    if (!session) return;
+    var place = neighbors(session.place)[direction];
+    if (!place) return;
+    session.place = place;
+    setSelectedPlace(place);
+    renderDetail(place, neighbors(place), step);
+    frameDetail(session);
+    var previous = $('btnPreviousPlace');
+    var next = $('btnNextPlacePrimary');
+    var pressed = direction === 'next' ? next : previous;
+    var opposite = direction === 'next' ? previous : next;
+    (pressed.disabled ? opposite : pressed).focus({ preventScroll: true });
+  }
+
+  function dismiss(reason) {
+    if (!session) return false;
+    var leaving = session;
+    if (leaving.listReturn && reason === 'map' && map) {
+      selectPlace(leaving.place.id, true);
+    } else if (leaving.listReturn) {
+      openDrawer('drawerPlaces');
+      $('drawerPlaces').scrollTop = leaving.listReturn.scrollTop;
+      leaving.listReturn.button.focus({ preventScroll: true });
+    } else {
+      closeAllDrawers();
+      if (leaving.fromFilmstrip && !focusSelectedFrame()) $('btnPlaceList').focus({ preventScroll: true });
+    }
+    return true;
+  }
+
+  function end() {
+    if (session && session.observer) session.observer.disconnect();
+    session = null;
+  }
+
+  return { open: open, dismiss: dismiss, end: end };
+})();
 
 function openNavigation(place) {
   if (!isTencentPlace(place)) {
@@ -2222,7 +2257,6 @@ function showNavigationFallback(place, url) {
 
 function openPoiPreview(poi) {
   if (!localMaintenance) return;
-  state.currentDetailId = null;
   $('detailContent').innerHTML = '<div class="detail-head">' +
     '<div class="detail-main"><div class="d-name" id="detailTitle">' + escapeHtml(poi.name) + '</div>' +
     '<div class="d-cat">' + escapeHtml(poi.address || '') + '</div></div></div>' +
@@ -2300,37 +2334,16 @@ function bindVisitCarousel(place) {
   });
 }
 
-function renderDetail() {
-  var p = findPlace(state.currentDetailId);
-  if (!p) { closeAllDrawers(); return; }
-  var focusSnapshot = captureFocus($('detailContent'));
+function renderDetail(p, adjacent, step) {
   var cat = categoryOf(p.category);
-  var places = filmstripPlaces();
-  var index = places.findIndex(function (place) { return place.id === p.id; });
-  var previous = index > 0;
-  var next = index >= 0 && index < places.length - 1;
   $('detailContent').innerHTML = '<div class="detail-head">' +
     '<div class="d-emoji cat-bg-' + cat.value + '" aria-hidden="true">' + cat.emoji + '</div>' +
     '<div class="detail-main"><div class="d-cat"><span class="d-cat-tag cat-bg-' + cat.value + '"><span aria-hidden="true">' + cat.emoji + '</span><span>' + cat.label + '</span></span></div><div class="d-name" id="detailTitle">' + escapeHtml(p.name) + '</div>' + visitDateHtml(p.visit) + '</div><img class="detail-berry" src="assets/strawberry-stamp.png" alt=""></div>' + visitCarouselHtml(p) +
-    '<div class="detail-actions"><button class="btn-nav" id="btnNav" aria-label="导航去这里">🧭</button><button id="btnPreviousPlace" type="button"' + (previous ? '' : ' disabled') + '>← 上一个</button><button id="btnNextPlacePrimary"' + (next ? '' : ' disabled') + '>下一个地点 →</button></div>';
+    '<div class="detail-actions"><button class="btn-nav" id="btnNav" aria-label="导航去这里">🧭</button><button id="btnPreviousPlace" type="button"' + (adjacent.previous ? '' : ' disabled') + '>← 上一个</button><button id="btnNextPlacePrimary"' + (adjacent.next ? '' : ' disabled') + '>下一个地点 →</button></div>';
   if (p.visits.length > 1) bindVisitCarousel(p);
-  restoreFocus($('detailContent'), focusSnapshot);
   $('btnNav').addEventListener('click', function () { openNavigation(p); });
-  function stepPlace(direction) {
-    var target = places[index + direction];
-    if (!target) return;
-    var focusId = document.activeElement.id;
-    var listReturn = detailListReturn;
-    var filmReturn = detailFilmReturn;
-    selectPlace(target.id);
-    openDetail(target.id, listReturn ? listReturn.button : null, true);
-    if (listReturn) detailListReturn = listReturn;
-    detailFilmReturn = filmReturn;
-    var button = $(focusId);
-    (button && !button.disabled ? button : $(direction > 0 ? 'btnPreviousPlace' : 'btnNextPlacePrimary')).focus({ preventScroll:true });
-  }
-  $('btnPreviousPlace').addEventListener('click', function () { stepPlace(-1); });
-  $('btnNextPlacePrimary').addEventListener('click', function () { stepPlace(1); });
+  $('btnPreviousPlace').addEventListener('click', function () { step('previous'); });
+  $('btnNextPlacePrimary').addEventListener('click', function () { step('next'); });
 }
 /* ---------- 数据与隐私 ---------- */
 function getConfiguredTmapKey() {
@@ -2703,7 +2716,7 @@ function bindSearchEvents() {
       hideSearchResults();
       $('searchInput').blur();
       focusPlace(lp);
-      openDetail(lp.id);
+      detailNavigation.open(lp.id);
       return;
     }
     selectSearchResult(parseInt(item.getAttribute('data-idx'), 10));
@@ -2751,8 +2764,7 @@ function bindEvents() {
   $('placeList').addEventListener('click', function (evt) {
     var button = evt.target.closest('[data-place-id]');
     if (!button) return;
-    var place = findPlace(button.getAttribute('data-place-id'));
-    if (place) openDetail(place.id, button);
+    detailNavigation.open(button.getAttribute('data-place-id'), { listButton: button });
   });
   // 地图工具组定位：由用户主动点击触发权限请求
   $('btnLocate').addEventListener('click', locateUser);
@@ -2763,9 +2775,7 @@ function bindEvents() {
 
   // 遮罩关闭抽屉
   $('mask').addEventListener('click', function () {
-    if (map && $('drawerDetail').classList.contains('open') && detailListReturn) {
-      selectPlace(state.currentDetailId, true);
-    } else closeCurrentDrawer();
+    if (!detailNavigation.dismiss('map')) closeAllDrawers();
   });
 
   // 添加表单
@@ -2798,9 +2808,8 @@ function bindEvents() {
       closeRoute(true);
       return;
     }
-    var fromRoute = routeStops.length > 0;
-    selectPlace(placeId, fromRoute && frame === document.activeElement);
-    if (!fromRoute) openDetail(placeId, null, true);
+    if (routeStops.length) selectPlace(placeId, frame === document.activeElement);
+    else detailNavigation.open(placeId, { fromFilmstrip: true });
   });
   $('filmstripItems').addEventListener('focusin', function (evt) {
     var frame = evt.target.closest('.film-frame');
@@ -2826,7 +2835,7 @@ function bindEvents() {
 
   $('fallbackList').addEventListener('click', function (evt) {
     var button = evt.target.closest('[data-place-id]');
-    if (button) openDetail(button.getAttribute('data-place-id'));
+    if (button) detailNavigation.open(button.getAttribute('data-place-id'));
   });
   $('btnRetryMap').addEventListener('click', function () {
     retryMap();
