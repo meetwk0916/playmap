@@ -26,7 +26,7 @@ GitHub shares one number space across issues and PRs, so a bare `#42` may be eit
 
 ## PR 与发布交接
 
-推送分支、开 PR、合并、生产核验和关票分别确认；只获准推送时，停在远端分支。开 PR 后用 `gh pr view <number> --json url,baseRefName,headRefOid,body` 核对远端正文与提交；交付链接直接使用返回的 `url`，不手拼。
+核对授权覆盖的提交和步骤：只获准推送时停在远端分支，开 PR、合并、生产核验及关票不从推送授权推得。公开内容若已按[三步发布](../public-places.md#三步发布workbuddy-接管)确认整段流程，连续执行该流程。开 PR 后用 `gh pr view <number> --json url,baseRefName,headRefOid,body` 核对远端正文与提交，交付使用返回的 `url`。
 
 - 同一票还有独立的后续交付时，获授权后先拆票并互链；拆票前用 `Refs #<number>`，不要让合并提前关闭原票。只有应当随合并关闭的票才用 `Closes #<number>`。
 - 合并前核对 PR 的 `checks` 已成功；没通过就不合并，即使 GitHub 允许。生产核验与原 PR 的证据记录按[发布流程](../public-places.md#三步发布workbuddy-接管)执行，随后核对实际票状态。

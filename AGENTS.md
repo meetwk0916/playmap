@@ -2,17 +2,11 @@
 
 ## 项目
 
-先读 `README.md` 了解现役产品范围，读 `CONTEXT.md` 使用统一领域词汇。修改公开详情、评分或类别时，按两者的现役显示范围和兼容约定执行；旧目标和决策票不证明已实现、部署或通过真人验收。
+先读 [README 产品范围](README.md#产品范围) 和 [领域词汇](CONTEXT.md)；核对发布或接续本地变更时看[发布记录](docs/releases.md)。规格不证明实现、部署或真人验收。
 
 ## 运行与验证
 
-```bash
-npm run dev
-npm run check:design
-npm test
-```
-
-Playwright 安装、环境故障判据及完整复跑要求见 [README「验证」](README.md#验证)。
+启动与预览归属见 [README「运行」](README.md#运行)；Playwright、文档门禁和完整复跑见 [README「验证」](README.md#验证)。
 
 ## 技术栈与结构
 
@@ -36,7 +30,7 @@ Playwright 安装、环境故障判据及完整复跑要求见 [README「验证�
 ## Agent 配置
 
 - 判断分支或执行 Git 写操作前，重新核对当前分支、工作树和提交状态；判断远端状态时先刷新远端引用。已获授权的提交若被 `.git` 沙箱权限拦截，在同一轮按权限流程重试并核对结果。
-- 修改公开地点、评分、照片或维护页，以及读取相册、挑代表照或发布内容：先读 `docs/public-places.md`，按现役合同和“三步发布”执行。先展示准确本地结果，确认后连续完成推送与页面、数据及照片的生产核验。
+- 修改公开地点、评分、照片或维护页，或读取相册、选片、发布公开内容：先读[到访内容维护](docs/public-places.md)，按[三步发布](docs/public-places.md#三步发布workbuddy-接管)执行。
 - GitHub Issues、PR 交接或委派实现：[tracker 指南](docs/agents/issue-tracker.md)
 - 标签映射：`docs/agents/triage-labels.md`
 - 领域文档约定：`docs/agents/domain.md`
