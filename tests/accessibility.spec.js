@@ -53,7 +53,7 @@ const tmapStub = `
       this.projectToContainer = function (point) { return {x:innerWidth / 2 + (point.lng-center.lng)*10000, y:innerHeight/2 - (point.lat-center.lat)*10000}; };
       this.unprojectFromContainer = function (point) { return new window.TMap.LatLng(center.lat-(point.y-innerHeight/2)/10000, center.lng+(point.x-innerWidth/2)/10000); };
       window.__testMap = this;
-      controls.style.cssText = 'position:absolute;top:0;right:0';
+      controls.style.cssText = 'position:absolute;top:0;right:0;transform:translate(0,0)';
       const style = document.createElement('style');
       style.textContent = ${JSON.stringify(tmapControlCss)};
       document.head.append(style);
@@ -361,6 +361,76 @@ test('mobile compass appears only for orientation changes and More stays next to
     await page.keyboard.press('Escape');
   }
 });
+
+test.describe('touch map tools', () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+
+  test('location shares the More row with or without the filmstrip', async ({ page, context }) => {
+    await page.addInitScript(() => {
+      window.locationRequests = 0;
+      Object.defineProperty(navigator, 'geolocation', { value: {
+        getCurrentPosition(_success, error) { window.locationRequests++; error({ code: 1 }); }
+      } });
+    });
+    await page.reload();
+    expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+    const more = page.getByRole('button', { name: '更多', exact: true });
+    const locate = page.getByRole('button', { name: '找到我的位置' });
+    const compass = page.locator('.map-orientation-control');
+    const strip = page.locator('#filmstrip');
+    const cdp = await context.newCDPSession(page);
+
+    for (const [width, height] of [[390, 844], [390, 520], [390, 519], [844, 390]]) {
+      await page.setViewportSize({ width, height });
+      await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: {
+        top: height === 520 ? 59 : 0, bottom: height === 520 ? 34 : 0
+      } });
+      await expect(page.locator('.map-zoom-control')).toBeHidden();
+      await expect(compass).toBeHidden();
+      if (height >= 520) await expect(strip).toBeVisible();
+      else await expect(strip).toBeHidden();
+      const floor = height >= 520 ? (await strip.boundingBox()).y : height - 24;
+      const moreBox = await more.boundingBox();
+      const locateBox = await locate.boundingBox();
+      expect(Math.abs(locateBox.y + locateBox.height / 2 - moreBox.y - moreBox.height / 2)).toBeLessThanOrEqual(2);
+      expect(width - locateBox.x - locateBox.width).toBeCloseTo(moreBox.x, 0);
+      for (const box of [moreBox, locateBox]) {
+        expect(box.width).toBeGreaterThanOrEqual(44);
+        expect(box.height).toBeGreaterThanOrEqual(44);
+        expect(box.y + box.height).toBeLessThanOrEqual(floor - 4);
+      }
+      await more.click();
+      const menu = await page.getByRole('menu').boundingBox();
+      expect(menu.x - moreBox.x - moreBox.width).toBeCloseTo(8, 0);
+      expect(menu.y + menu.height).toBeCloseTo(moreBox.y + moreBox.height, 0);
+      expect(menu.x + menu.width).toBeLessThan(locateBox.x);
+      expect(menu.y).toBeGreaterThan((await page.locator('#mapCatStrip').boundingBox()).y);
+      await page.keyboard.press('Escape');
+
+      await page.evaluate(() => { window.__rotation = 30; window.__mapEvents.rotation_changed(); });
+      await expect(compass).toBeVisible();
+      const oriented = await compass.boundingBox();
+      const categories = await page.locator('#mapCatStrip').boundingBox();
+      expect(oriented.y + oriented.height).toBeLessThan((await locate.boundingBox()).y);
+      for (const target of await compass.locator('.compass-circle, .rotate-panel > div').all()) {
+        const box = await target.boundingBox();
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width);
+        expect(box.y).toBeGreaterThanOrEqual(0);
+        expect(box.x >= categories.x + categories.width || box.y >= categories.y + categories.height).toBe(true);
+        await target.click({ trial: true });
+      }
+      await locate.click({ trial: true });
+      await page.evaluate(() => { window.__rotation = 0; window.__mapEvents.rotation_changed(); });
+      await expect(compass).toBeHidden();
+      expect(await locate.boundingBox()).toEqual(locateBox);
+    }
+    expect(await page.evaluate(() => window.locationRequests)).toBe(0);
+    await locate.tap();
+    expect(await page.evaluate(() => window.locationRequests)).toBe(1);
+  });
+});
+
 test('More exposes privacy with keyboard, restores focus and remains available without the map', async ({ page }) => {
   await page.addInitScript(() => {
     window.locationRequests = 0;
@@ -860,6 +930,77 @@ const newerVisit = {
   visitedOn: '2026-09-12', photo: 'assets/visits/legoland-20260927.jpg', reflection: '又来玩了一次'
 };
 const repeatPlace = { ...visit, address: '上海市黄浦区', visits: [olderVisit, newerVisit] };
+
+test.describe('touch details on short screens', () => {
+  test.use({ hasTouch: true, isMobile: true });
+
+  for (const [width, height] of [[375, 667], [844, 390]]) {
+    test(`photo and place actions are visible before scrolling at ${width}x${height}`, async ({ page, context }) => {
+      await page.setViewportSize({ width, height });
+      if (width > height) {
+        const cdp = await context.newCDPSession(page);
+        await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { left: 47, right: 47, bottom: 21 } });
+      }
+      await serveVisits(page, [
+        { ...repeatPlace, name: '重游公园', visits: [olderVisit, { ...newerVisit, reflection: '' }] },
+        { ...visit, poiId: 'single', name: '另一座公园', visitedOn: '2026-05-21' }
+      ]);
+      await page.reload();
+      if (height >= 520) await filmFrames(page).first().tap();
+      else {
+        await page.getByRole('button', { name: /^足迹，当前/ }).tap();
+        await page.getByRole('button', { name: '重游公园', exact: true }).tap();
+      }
+      const detail = page.getByRole('dialog');
+      const close = detail.getByRole('button', { name: '关闭地点详情' });
+      const navigate = detail.getByRole('button', { name: '导航去这里' });
+      const next = detail.getByRole('button', { name: /下一个地点/ });
+      const previous = detail.getByRole('button', { name: /上一个/ });
+      for (const name of ['重游公园', '另一座公园']) {
+        const photo = detail.getByRole('img', { name: `11 在${name}的到访打卡照` });
+        await expect.poll(() => photo.evaluate(el => el.complete && el.naturalWidth > 0)).toBe(true);
+        await expect(detail).toHaveAccessibleName(name);
+        await expect(photo).toBeInViewport({ ratio: 1 });
+        expect((await photo.boundingBox()).height).toBeGreaterThanOrEqual(72);
+        for (const target of [close, next, previous, navigate]) await expect(target).toBeInViewport({ ratio: 1 });
+        expect(await detail.evaluate(el => el.scrollTop)).toBe(0);
+        const action = await navigate.boundingBox();
+        expect(action.y + action.height).toBeLessThan(height - (width > height ? 21 : 0));
+        if (name === '重游公园') {
+          if (height >= 520) {
+            await detail.getByRole('button', { name: '较早一次' }).tap();
+            const date = detail.getByText('2025.05.01', { exact: true });
+            await expect(date).toBeVisible();
+            await page.setViewportSize({ width: 844, height: 390 });
+            await expect(date).toBeVisible();
+            await expect(photo).toHaveAttribute('src', olderVisit.photo);
+            await expect(photo).toBeInViewport({ ratio: 1 });
+            await page.setViewportSize({ width, height });
+          }
+          await next.tap();
+        }
+      }
+    });
+  }
+
+  test('long reflections remain readable and leave place actions reachable in landscape', async ({ page }) => {
+    await page.setViewportSize({ width: 844, height: 390 });
+    const reflection = '在公园散步，回看那天一路拍的照片。'.repeat(4);
+    await serveVisits(page, [
+      { ...repeatPlace, visits: [olderVisit, { ...newerVisit, reflection }] },
+      { ...visit, poiId: 'single', name: '下一座公园', visitedOn: '2026-05-21' }
+    ]);
+    await page.reload();
+    await page.getByRole('button', { name: /^足迹，当前/ }).tap();
+    await page.getByRole('button', { name: visit.name, exact: true }).tap();
+    const detail = page.getByRole('dialog', { name: visit.name });
+    await expect(detail.getByText(reflection, { exact: true })).toBeVisible();
+    expect(await detail.evaluate(el => el.scrollHeight)).toBeGreaterThan(await detail.evaluate(el => el.clientHeight));
+    const next = detail.getByRole('button', { name: /下一个地点/ });
+    await next.tap();
+    await expect(page.getByRole('dialog', { name: '下一座公园' })).toBeVisible();
+  });
+});
 
 test('a repeat place opens its latest complete visit and can browse earlier visits', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });

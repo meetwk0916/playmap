@@ -686,9 +686,14 @@ main[inert] .more-controls, main[inert] .location-control { visibility: hidden; 
 .visit-track > [aria-hidden="true"] { contain:size; }
 .visit-track .visit-photo-wrap { margin-top:8px; }
 #detailContent { position:relative; }
-#drawerDetail { clip-path:inset(0 round 24px 24px 0 0); }
+#drawerDetail {
+  --detail-map-peek:0px;
+  --detail-space:min(86dvh, calc(100dvh - var(--detail-map-peek) - env(safe-area-inset-top, 0px)));
+  max-height:var(--detail-space);
+  clip-path:inset(0 round 24px 24px 0 0);
+}
 #detailContent > .detail-actions { margin-top:18px; margin-bottom:0; }
-body:has(#mapFallback[hidden]) #drawerDetail { max-height:min(86vh, calc(100dvh - 220px - env(safe-area-inset-top, 0px))); }
+body:has(#mapFallback[hidden]) #drawerDetail { --detail-map-peek:220px; }
 
 /* Map-first tools and temporary selection. */
 #visitHeader strong { display:flex; align-items:center; gap:7px; white-space:nowrap; }
@@ -785,7 +790,19 @@ body:has(.mask.show) #filmstrip { visibility:hidden; }
 }
 /* 「更多」原本贴在左下角；有胶卷时上移到片基之上，避免被覆盖。 */
 @media (min-height:520px) {
-  body:has(#filmstrip:not([hidden])) .more-controls { bottom:calc(42px + env(safe-area-inset-bottom, 0px) + var(--film-height)); }
+  body:has(#filmstrip:not([hidden])) { --map-tool-row: calc(42px + var(--film-height) + env(safe-area-inset-bottom, 0px)); }
+  body:has(#filmstrip:not([hidden])) .more-controls { bottom:var(--map-tool-row); }
+}
+@media (max-width:767px), (pointer:coarse) {
+  /* 无胶卷时仍留出底图标识、版权和审图号这一行。 */
+  body { --map-tool-row: calc(42px + env(safe-area-inset-bottom, 0px)); }
+  .more-controls { bottom:var(--map-tool-row); left:calc(16px + env(safe-area-inset-left, 0px)); }
+  .location-control { top:auto; bottom:var(--map-tool-row); right:calc(16px + env(safe-area-inset-right, 0px)); }
+  /* 腾讯工具位于零高的 transform 容器内，须从顶部算位置。 */
+  #map .map-orientation-control { top:calc(100dvh - var(--map-tool-row) - 56px - 128px); }
+}
+@media (max-height:660px) and (max-width:767px), (max-height:660px) and (pointer:coarse) {
+  body:has(#map.is-oriented) .map-cat-strip { right:calc(144px + env(safe-area-inset-right, 0px)); }
 }
 /* 比例尺与胶卷同处左下角，只会露出一条竖缝；隐藏比例尺，保留地图 logo、版权与审图号。 */
 body:has(#filmstrip:not([hidden])) #map .tmap-scale-control { display:none; }
@@ -829,13 +846,29 @@ body:has(#filmstrip:not([hidden])) #map .tmap-scale-control { display:none; }
 .visit-date time { font-family:var(--font-code); font-weight:700; letter-spacing:.02em; color:var(--text); }
 .stamp-age { padding:0 3px; font-weight:700; color:var(--text); background:linear-gradient(transparent 58%, var(--brand-sun) 58%); }
 .visit-photo-wrap { width:fit-content; min-width:140px; min-height:110px; max-width:100%; margin:18px auto 0; padding:8px; border-radius:4px; background:var(--white); box-shadow:var(--shadow-print); }
-/* 照片高度按窗口让位：抽屉最高到「窗口高 − 220px」，扣掉标题、切换与底部按钮后剩下的都给照片，
-   常见手机上不用滚动就能同时看到整张照片和「下一个地点」。 */
-.visit-photo { width:auto; max-width:100%; height:auto; max-height:clamp(200px, calc(100dvh - 220px - var(--detail-chrome, 292px)), 344px); margin:0 auto; border-radius:2px; animation:develop 900ms var(--ease-out) both; }
+/* 详情先为标题、切换与底部按钮留空间，再按比例限制打卡照。 */
+.visit-photo { width:auto; max-width:100%; height:auto; max-height:clamp(var(--detail-photo-min, 200px), calc(var(--detail-space) - var(--detail-chrome, 292px) - env(safe-area-inset-bottom, 0px)), 344px); margin:0 auto; border-radius:2px; animation:develop 900ms var(--ease-out) both; }
 .photo-imprint { position:absolute; right:18px; bottom:15px; color:var(--stamp); font-family:var(--font-code); font-size:15px; font-weight:700; line-height:1; letter-spacing:.1em; text-shadow:0 0 8px var(--stamp-glow), 0 1px 2px var(--imprint-plate); pointer-events:none; }
 .visit-track > section { padding:0 6px 14px; }
 .visit-track .visit-photo-wrap { margin-top:10px; }
 .visit-track .visit-photo { --detail-chrome:332px; }
+@media (max-height:740px) and (max-width:767px), (max-height:740px) and (pointer:coarse) {
+  body:has(#mapFallback[hidden]) #drawerDetail { --detail-map-peek:clamp(96px, calc(100dvh - 470px), 220px); }
+  #drawerDetail { --detail-photo-min:72px; }
+}
+@media (max-height:519px) and (orientation:landscape) and (max-width:767px), (max-height:519px) and (orientation:landscape) and (pointer:coarse) {
+  body:has(#mapFallback[hidden]) #drawerDetail { --detail-map-peek:64px; }
+  #drawerDetail { left:50%; right:auto; width:min(600px, calc(100% - 2 * max(12px, env(safe-area-inset-left), env(safe-area-inset-right)))); transform:translate(-50%, 105%); }
+  #drawerDetail.open { transform:translate(-50%, 0); }
+  #detailContent { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); align-items:start; column-gap:12px; }
+  #detailContent .detail-head { grid-column:1; grid-row:1; }
+  #detailContent .visit-controls { grid-column:1; grid-row:2; }
+  #detailContent > :is(section, .visit-track) { grid-column:2; grid-row:1 / span 2; }
+  #detailContent > :is(.detail-actions, .navigation-fallback) { grid-column:1 / -1; }
+  #detailContent .visit-photo { --detail-chrome:178px; }
+  #detailContent .visit-photo-wrap { margin-top:0; min-width:0; min-height:0; }
+  #detailContent .photo-imprint { right:12px; font-size:10px; white-space:nowrap; }
+}
 .visit-controls { margin-top:8px; }
 .visit-controls button { border-color:var(--line-strong); border-radius:50%; color:var(--text); }
 .visit-controls output { font-family:var(--font-code); font-weight:700; color:var(--text); }
@@ -2019,7 +2052,7 @@ function focusPlace(place, panelTop) {
     var top = $('mapCatStrip').getBoundingClientRect().bottom + 86;
     var strip = $('filmstrip');
     var bottom = panelTop !== undefined ? panelTop - 4
-      : (strip.hidden ? innerHeight - 60 : strip.getBoundingClientRect().top - 12);
+      : (strip.getClientRects().length ? strip.getBoundingClientRect().top - 12 : innerHeight - 60);
     var targetY = Math.min(bottom, Math.max(top, innerHeight / 2));
     var point = map.projectToContainer(position);
     center = map.unprojectFromContainer(new TMap.Point(point.x, point.y + innerHeight / 2 - targetY));
@@ -2223,7 +2256,11 @@ var detailNavigation = (function () {
     session = null;
   }
 
-  return { open: open, dismiss: dismiss, end: end };
+  function resize() {
+    if (session && session.observer) refit(session);
+  }
+
+  return { open: open, dismiss: dismiss, end: end, resize: resize };
 })();
 
 function openNavigation(place) {
@@ -2730,6 +2767,7 @@ function bindEvents() {
   $('routePlay').onclick = () => routeStops.length ? playRoute() : openRoute();
   $('routeEnd').onclick = () => closeRoute(true);
   window.addEventListener('resize', function () {
+    detailNavigation.resize();
     if (routeStops.length && !$('filmstrip').getClientRects().length) {
       // Hiding the strip can blur its focused button before the resize event.
       closeRoute(document.activeElement === document.body);
