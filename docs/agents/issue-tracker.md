@@ -26,14 +26,16 @@ GitHub shares one number space across issues and PRs, so a bare `#42` may be eit
 
 ## PR 与发布交接
 
-推送分支、开 PR、合并、生产核验和关票分别确认；只获准推送时，停在远端分支。开 PR 后用 `gh pr view <number> --json baseRefName,headRefOid,body` 核对远端正文与提交，不把本地草稿当作已发布正文。
+推送分支、开 PR、合并、生产核验和关票分别确认；只获准推送时，停在远端分支。开 PR 后用 `gh pr view <number> --json url,baseRefName,headRefOid,body` 核对远端正文与提交；交付链接直接使用返回的 `url`，不手拼。
 
 - 同一票还有独立的后续交付时，获授权后先拆票并互链；拆票前用 `Refs #<number>`，不要让合并提前关闭原票。只有应当随合并关闭的票才用 `Closes #<number>`。
 - 合并前核对 PR 的 `checks` 已成功；没通过就不合并，即使 GitHub 允许。生产核验与原 PR 的证据记录按[发布流程](../public-places.md#三步发布workbuddy-接管)执行，随后核对实际票状态。
 
 ## 委派实现预检
 
-后台实现者先在自己的 worktree 验证文件编辑权限与任务所需的命令（依赖、预览、测试）。权限受阻就立即报告命令与错误，由主 agent 切到有权限的执行方式，再继续读规格和实现。
+后台实现者先在自己的 worktree 验证文件编辑权限与任务所需的命令（依赖、预览、测试），每个工作树使用自己的预览端口。
+
+遇到明确的工具权限拒绝，首次即交接，不重试等价命令。实现者报告工作树、端口（如适用）、失败命令和原始错误；主 agent 指定有权限的验证者，在同一工作树接手受限步骤。实现者继续不依赖该步骤的工作；若受限的是改动前的预览检查，则等接手者确认控件后再编辑。未运行的检查记为未验证。
 
 ## When a skill says "publish to the issue tracker"
 
